@@ -1,6 +1,7 @@
 {
   "name": "facebook-messenger-voice-message-download",
   "version": "1.0.0",
+  "type": "module",
   "main": "index.js",
   "directories": {
     "doc": "docs",
@@ -8,25 +9,21 @@
   },
   "scripts": {
     "test": "jest",
-    "dev": "webpack --watch --mode=development",
-    "build": "webpack --mode=production",
+    "dev": "vite build --watch --mode development",
+    "build": "node scripts/build-extension.js",
+    "build:vite": "vite build --mode production",
     "package": "node scripts/package.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@babel/core": "^7.26.10",
-    "@babel/preset-env": "^7.26.9",
     "@types/chrome": "^0.0.312",
     "archiver": "^7.0.1",
-    "babel-loader": "^10.0.0",
-    "copy-webpack-plugin": "^13.0.0",
     "fs-extra": "^11.3.0",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
-    "webpack": "^5.98.0",
-    "webpack-cli": "^6.0.1"
+    "vite": "^5.0.0"
   },
   "dependencies": {},
   "description": ""
