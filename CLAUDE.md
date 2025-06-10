@@ -9,12 +9,12 @@ This is a Chrome browser extension called "VoiLoad" that enables downloading voi
 ## Development Commands
 
 ### Build & Development
-- `npm run dev` - Start development build with file watching
-- `npm run build` - Create production build 
-- `npm run package` - Package the extension for distribution
+- `pnpm dev` - Start development build with file watching
+- `pnpm build` - Create production build 
+- `pnpm package` - Package the extension for distribution
 
 ### Testing
-- `npm test` - Run Jest tests
+- `pnpm test` - Run Jest tests
 - Tests are located in `tests/` directory with setup in `tests/setup.js`
 - Test environment is configured for jsdom
 
