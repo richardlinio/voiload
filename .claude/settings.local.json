@@ -10,7 +10,8 @@
       "Bash(pnpm install:*)",
       "Bash(pnpm test:*)",
       "Bash(pnpm build:*)",
-      "Bash(pnpm exec:*)"
+      "Bash(pnpm exec:*)",
+      "Bash(pkill:*)"
     ],
     "deny": []
   }

@@ -9,8 +9,8 @@ This is a Chrome browser extension called "VoiLoad" that enables downloading voi
 ## Development Commands
 
 ### Build & Development
-- `pnpm dev` - Start development build with file watching
-- `pnpm build` - Create production build 
+- `pnpm dev` - Start development build with file watching (using Vite)
+- `pnpm build` - Create production build (using Vite)
 - `pnpm package` - Package the extension for distribution
 
 ### Testing
@@ -76,10 +76,20 @@ The extension uses a multi-layer architecture:
 - Host permissions for Facebook domains and CDNs
 
 ### Build Process
-- Webpack processes and bundles JavaScript modules
-- CopyPlugin handles static assets (HTML, CSS, manifest)
-- Output goes to `dist/` directory
-- Babel transpiles modern JavaScript for compatibility
+- **Custom Build Script**: Uses `scripts/build-extension.js` for production builds
+- **Vite Library Mode**: Each entry point is built separately as a self-contained library
+- **No Code Splitting**: All dependencies are inlined to avoid external chunks
+- **Chrome Extension Optimization**: Ensures manifest.json compatibility
+- **Development Mode**: Standard Vite build for rapid development iteration
+- Output goes to `dist/` directory with ES2020 compatibility
+
+#### Build Commands
+- `pnpm build` - Production build using custom script (recommended)
+- `pnpm build:vite` - Standard Vite build (development/testing only)
+- `pnpm dev` - Development build with file watching
+
+#### Why Custom Build Script?
+Chrome extensions require self-contained scripts. Standard Vite multi-entry builds create shared chunks that Chrome cannot load. Our custom script builds each entry point separately using Vite's library mode with `inlineDynamicImports: true`.
 
 ## Common Development Patterns
 
