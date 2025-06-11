@@ -61,8 +61,7 @@ export function handleRightClick(
       durationMs,
     });
 
-    // 記錄匹配開始時間和目標持續時間
-    const matchStartTime = Date.now();
+    // 記錄目標持續時間
     const targetDuration = durationMs;
 
     logger.debug("開始匹配過程", {
@@ -258,7 +257,7 @@ function logAllDurations(voiceMessagesStore: VoiceMessageStore): void {
 
   // 輸出所有項目的持續時間以進行比較
   const allDurations = [];
-  for (const [id, item] of voiceMessagesStore.items.entries()) {
+  for (const [, item] of voiceMessagesStore.items.entries()) {
     if (item.durationMs) {
       allDurations.push(item.durationMs);
     }

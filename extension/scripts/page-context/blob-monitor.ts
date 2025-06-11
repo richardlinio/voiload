@@ -11,15 +11,13 @@ import {
 } from "../utils/constants";
 import { isLikelyVoiceMessageBlob, extractBlobContent } from "./blob-analyzer";
 import { getAudioDuration } from "./audio-analyzer";
-
-// 創建模組特定的日誌記錄器
-const logger = Logger.createModuleLogger(MODULE_NAMES.BLOB_MONITOR);
-
 import type {
   BlobQueueItem,
   ExtractBlobRequestMessage,
-  SendToContentMessage,
 } from "../types/messages";
+
+// 創建模組特定的日誌記錄器
+const logger = Logger.createModuleLogger(MODULE_NAMES.BLOB_MONITOR);
 
 /**
  * Blob processing queue object
