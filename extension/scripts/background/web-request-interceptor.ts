@@ -19,29 +19,8 @@ import { type VoiceMessageStore } from "./data-store";
 // 類型定義
 // ================================================
 
-/**
- * 請求 Metadata 介面
- */
-interface RequestMetadata {
-  contentDisposition: string;
-  contentType: string;
-  contentLength: string;
-  lastModified: string;
-}
-
-/**
- * 音訊時長訊息介面
- */
-interface AudioDurationMessage {
-  action: string;
-  url: string;
-  metadata: {
-    contentType?: string;
-    contentLength?: string;
-    lastModified?: string;
-  };
-  timestamp: number;
-}
+// 移除未使用的介面定義
+// interface RequestMetadata 和 AudioDurationMessage 已在其他地方定義
 
 const logger = Logger.createModuleLogger(MODULE_NAMES.WEB_REQUEST);
 

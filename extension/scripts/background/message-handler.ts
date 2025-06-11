@@ -6,7 +6,6 @@
 import { Logger } from "../utils/logger";
 import {
   MESSAGE_ACTIONS,
-  MESSAGE_SOURCES,
   MODULE_NAMES,
 } from "../utils/constants";
 

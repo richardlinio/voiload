@@ -88,8 +88,8 @@ if (!isSupportedSite) {
   // 將來自背景腳本的訊息轉發到頁面上下文
   const messageListener: RuntimeMessageListener = function (
     message: any,
-    sender: chrome.runtime.MessageSender,
-    sendResponse: (response?: any) => void
+    _sender: chrome.runtime.MessageSender,
+    _sendResponse: (response?: any) => void
   ): boolean {
     logger.debug("收到背景腳本訊息", { message });
 

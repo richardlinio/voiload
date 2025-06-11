@@ -296,7 +296,9 @@ export function getDownloadUrlForElement(
   // 如果沒有 ID 或 ID 不存在，嘗試通過持續時間查找
   if (element.hasAttribute("aria-valuemax")) {
     const ariaValuemax = element.getAttribute("aria-valuemax");
-    if (!ariaValuemax) {return null;}
+    if (!ariaValuemax) {
+      return null;
+    }
     const durationSec = parseFloat(ariaValuemax);
     if (!isNaN(durationSec)) {
       const durationMs = secondsToMilliseconds(durationSec);
