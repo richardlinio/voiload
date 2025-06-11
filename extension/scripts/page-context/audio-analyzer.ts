@@ -10,28 +10,10 @@ import {
   BLOB_MONITOR_CONSTANTS,
   WEB_REQUEST_CONSTANTS,
 } from "../utils/constants";
+import type { RequestMetadata, AudioDurationMessage } from "../types/audio";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(MODULE_NAMES.AUDIO_ANALYZER);
-
-// ================================================
-// 聲音音訊息檢測相關類型
-// ================================================
-
-/**
- * 請求元數據介面
- */
-interface RequestMetadata {
-  contentType?: string;
-  contentLength?: string;
-}
-
-/**
- * 該訊息請求的訊息介面
- */
-interface AudioDurationMessage {
-  url: string;
-}
 
 // ================================================
 // 語音訊息檢測函數
@@ -72,7 +54,9 @@ export function isLikelyVoiceMessage(
   // 3. 內容類型檢查：是否為音訊
   if (
     metadata.contentType &&
-    !WEB_REQUEST_CONSTANTS.AUDIO_CONTENT_TYPES.includes(metadata.contentType as any)
+    !WEB_REQUEST_CONSTANTS.AUDIO_CONTENT_TYPES.includes(
+      metadata.contentType as any
+    )
   ) {
     return false;
   }
@@ -155,7 +139,9 @@ export function getAudioDuration(url: string): Promise<number> {
       // 釋放資源
       audio.src = "";
 
-      reject(new Error(`載入音訊時發生錯誤：${errorEvent.error || "未知錯誤"}`));
+      reject(
+        new Error(`載入音訊時發生錯誤：${errorEvent.error || "未知錯誤"}`)
+      );
     }
   });
 }
