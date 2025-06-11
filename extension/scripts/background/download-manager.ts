@@ -6,34 +6,10 @@
 import { generateVoiceMessageFilename } from "../utils/time-utils";
 import { Logger } from "../utils/logger";
 import { DOWNLOAD_CONSTANTS } from "../utils/constants";
+import type { RightClickInfo, DownloadMessage } from "../types/download";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger("download-manager");
-
-// ================================================
-// 類型定義
-// ================================================
-
-/**
- * 右鍵點擊資訊介面
- */
-interface RightClickInfo {
-  elementId: string | null;
-  downloadUrl: string | null;
-  lastModified: string | null;
-  tabId: number | undefined;
-  durationMs: number | undefined;
-}
-
-/**
- * 下載訊息介面
- */
-interface DownloadMessage {
-  base64data: string;
-  blobType: string;
-  requestId?: string;
-  timestamp?: string;
-}
 
 // 儲存最後一次右鍵點擊的資訊
 let lastRightClickedInfo: RightClickInfo | null = null;

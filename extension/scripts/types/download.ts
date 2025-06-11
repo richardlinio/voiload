@@ -3,6 +3,27 @@
  * 下載相關類型定義
  */
 
-// TODO: 在 Phase 9.3 中遷移下載相關類型
-// 暫時導出空物件，避免 import 錯誤
-export {};
+// ================================================
+// 下載相關介面
+// ================================================
+
+/**
+ * 右鍵點擊資訊介面
+ */
+export interface RightClickInfo {
+  elementId: string | null;
+  downloadUrl: string | null;
+  lastModified: string | null;
+  tabId: number | undefined;
+  durationMs: number | undefined;
+}
+
+/**
+ * 下載訊息介面 (Blob 內容下載)
+ */
+export interface DownloadMessage {
+  base64data: string;
+  blobType: string;
+  requestId?: string;
+  timestamp?: string;
+}

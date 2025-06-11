@@ -5,18 +5,10 @@
 
 import { Logger } from "../utils/logger";
 import { DOM_CONSTANTS } from "../utils/constants";
+import type { VoiceMessageElementResult } from "../types/dom";
 
-// ================================================
-// 類型定義
-// ================================================
-
-/**
- * 語音訊息元素查找結果介面
- */
-export interface VoiceMessageElementResult {
-  element: Element;
-  type: "slider";
-}
+// 重新導出類型以保持向後相容性
+export type { VoiceMessageElementResult };
 
 // ================================================
 // DOM 操作函數
