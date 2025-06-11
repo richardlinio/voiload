@@ -3,12 +3,12 @@
  * 負責處理來自背景腳本的訊息並路由到正確的處理器
  */
 
-import { Logger } from "../utils/logger.js";
+import { Logger } from "../utils/logger";
 import {
   MESSAGE_SOURCES,
   MESSAGE_ACTIONS,
   MODULE_NAMES,
-} from "../utils/constants.js";
+} from "../utils/constants";
 import { handleGetAudioDurationRequest } from "../page-context/audio-analyzer.js";
 import { handleExtractBlobRequest } from "../page-context/blob-monitor.js";
 

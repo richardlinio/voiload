@@ -3,12 +3,12 @@
  * 負責處理音檔分析相關功能，包含持續時間計算和音訊資料處理
  */
 
-import { Logger } from "../utils/logger.js";
+import { Logger } from "../utils/logger";
 import {
   TIME_CONSTANTS,
   MODULE_NAMES,
   BLOB_MONITOR_CONSTANTS,
-} from "../utils/constants.js";
+} from "../utils/constants";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(MODULE_NAMES.BLOB_ANALYZER);

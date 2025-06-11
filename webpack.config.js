@@ -35,10 +35,7 @@ module.exports = {
         use: {
           loader: "babel-loader",
           options: {
-            presets: [
-              "@babel/preset-env",
-              "@babel/preset-typescript"
-            ],
+            presets: ["@babel/preset-env", "@babel/preset-typescript"],
           },
         },
       },
@@ -54,8 +51,11 @@ module.exports = {
           globOptions: {
             ignore: [
               "**/scripts/**/*.js", // 忽略所有 JS 文件，因為它們會被 Webpack 處理
+              "**/scripts/**/*.ts", // 忽略所有 TS 文件，因為它們會被 Webpack 處理
               "**/onboarding/**/*.js", // 忽略 onboarding JS 文件
+              "**/onboarding/**/*.ts", // 忽略 onboarding TS 文件
               "**/popup/**/*.js", // 忽略 popup JS 文件
+              "**/popup/**/*.ts", // 忽略 popup TS 文件
               "**/.DS_Store", // 忽略 macOS 系統文件
             ],
           },
