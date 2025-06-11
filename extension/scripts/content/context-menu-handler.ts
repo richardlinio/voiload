@@ -1,21 +1,44 @@
 /**
- * context-menu-handler.js
+ * context-menu-handler.ts
  * 負責處理右鍵選單事件
  */
 
-import { findVoiceMessageElement, getDurationFromSlider } from "./dom-utils.js";
+import {
+  findVoiceMessageElement,
+  getDurationFromSlider,
+  type VoiceMessageElementResult,
+} from "./dom-utils";
 import { secondsToMilliseconds } from "../utils/time-utils";
 import { Logger } from "../utils/logger";
 import { MESSAGE_ACTIONS, MODULE_NAMES } from "../utils/constants";
 
+// ================================================
+// 類型定義
+// ================================================
+
+/**
+ * 右鍵點擊訊息介面
+ */
+interface RightClickMessage {
+  action: string;
+  elementId: string | null;
+  downloadUrl: string | null;
+  lastModified?: string | null | undefined;
+  durationMs?: number | undefined;
+}
+
+// ================================================
+// 右鍵選單處理函數
+// ================================================
+
 /**
  * 初始化右鍵選單處理器
  */
-export function initContextMenuHandler() {
+export function initContextMenuHandler(): void {
   Logger.info("初始化右鍵選單處理器", { module: MODULE_NAMES.CONTEXT_MENU });
 
   // 監聽 contextmenu 事件
-  document.addEventListener("contextmenu", (event) => {
+  document.addEventListener("contextmenu", (event: MouseEvent) => {
     handleContextMenu(event);
   });
 }
@@ -23,18 +46,19 @@ export function initContextMenuHandler() {
 /**
  * 處理右鍵選單事件
  *
- * @param {MouseEvent} event - 滑鼠事件
+ * @param event - 滑鼠事件
  */
-function handleContextMenu(event) {
+function handleContextMenu(event: MouseEvent): void {
   // 記錄實際點擊的元素
-  const clickedElement = event.target;
+  const clickedElement = event.target as Element;
   Logger.debug("右鍵點擊元素", {
     module: MODULE_NAMES.CONTEXT_MENU,
     data: clickedElement,
   });
 
   // 尋找語音訊息元素
-  const result = findVoiceMessageElement(clickedElement);
+  const result: VoiceMessageElementResult | null =
+    findVoiceMessageElement(clickedElement);
   Logger.debug("尋找語音訊息元素結果", {
     module: MODULE_NAMES.CONTEXT_MENU,
     data: result,
@@ -96,19 +120,19 @@ function handleContextMenu(event) {
 /**
  * 發送右鍵點擊訊息到背景腳本
  *
- * @param {string} elementId - 元素 ID
- * @param {string} downloadUrl - 下載 URL
- * @param {string} [lastModified] - Last-Modified 標頭值
- * @param {number} [durationMs] - 持續時間（毫秒）
+ * @param elementId - 元素 ID
+ * @param downloadUrl - 下載 URL
+ * @param lastModified - Last-Modified 標頭值
+ * @param durationMs - 持續時間（毫秒）
  */
 function sendRightClickMessage(
-  elementId,
-  downloadUrl,
-  lastModified,
-  durationMs
-) {
+  elementId: string | null,
+  downloadUrl: string | null,
+  lastModified?: string | null,
+  durationMs?: number
+): void {
   // 準備訊息物件
-  const message = {
+  const message: RightClickMessage = {
     action: MESSAGE_ACTIONS.RIGHT_CLICK,
     elementId,
     downloadUrl,
