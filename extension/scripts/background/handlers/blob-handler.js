@@ -3,8 +3,8 @@
  * 處理 Blob 相關的訊息
  */
 
-import Logger from "../../utils/logger.js";
-import { MODULE_NAMES } from "../../utils/constants.js";
+import Logger from "../../utils/logger";
+import { MODULE_NAMES } from "../../utils/constants";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(MODULE_NAMES.BLOB_HANDLER);

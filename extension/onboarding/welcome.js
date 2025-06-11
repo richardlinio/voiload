@@ -3,8 +3,8 @@
  * 處理 onboarding 頁面的邏輯
  */
 
-import { Logger } from "../scripts/utils/logger.js";
-import { MODULE_NAMES } from "../scripts/utils/constants.js";
+import { Logger } from "../scripts/utils/logger";
+import { MODULE_NAMES } from "../scripts/utils/constants";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger("onboarding");

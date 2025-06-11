@@ -3,13 +3,13 @@
  * 分析音訊的輔助函數
  */
 
-import { Logger } from "../utils/logger.js";
+import { Logger } from "../utils/logger";
 import {
   MODULE_NAMES,
   SUPPORTED_SITES,
   BLOB_MONITOR_CONSTANTS,
   WEB_REQUEST_CONSTANTS,
-} from "../utils/constants.js";
+} from "../utils/constants";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(MODULE_NAMES.AUDIO_ANALYZER);

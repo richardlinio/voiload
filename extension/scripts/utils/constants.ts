@@ -1,5 +1,5 @@
 /**
- * constants.js
+ * constants.ts
  * 定義整個擴充功能共用的常數
  */
 
@@ -25,7 +25,7 @@ export const MODULE_NAMES = {
   RIGHT_CLICK_HANDLER: "right-click-handler",
   ELEMENT_REGISTRATION_HANDLER: "element-registration-handler",
   AUDIO_URL_REGISTRATION_HANDLER: "audio-url-registration-handler",
-};
+} as const;
 
 // ===========================================
 // Blob 監控相關常數
@@ -37,8 +37,8 @@ export const BLOB_MONITOR_CONSTANTS = {
   MAX_VALID_DURATION: 1200000, // 最大有效持續時間（毫秒）
   MIN_VALID_AUDIO_SIZE: 20 * 1024, // 音訊的最小合理大小 (20KB)
   MAX_VALID_AUDIO_SIZE: 200 * 1024 * 1024, // 音訊的最大合理大小 (200MB)
-  POSSIBLE_AUDIO_TYPES: ["audio", "video/mp4", "mp4", "mp3", "mpeg"], // 可能為音訊的檔案類型
-};
+  POSSIBLE_AUDIO_TYPES: ["audio", "video/mp4", "mp4", "mp3", "mpeg"] as const, // 可能為音訊的檔案類型
+} as const;
 
 // ===========================================
 // 音訊監控相關常數
@@ -48,7 +48,7 @@ export const WEB_REQUEST_CONSTANTS = {
   AVERAGE_AUDIO_BITRATE: 32, // 32kbps
 
   // 成功的 HTTP 狀態碼
-  SUCCESS_STATUS_CODES: [200, 206], // OK, Partial Content
+  SUCCESS_STATUS_CODES: [200, 206] as const, // OK, Partial Content
 
   AUDIO_CONTENT_TYPES: [
     "audio/wav",
@@ -56,27 +56,27 @@ export const WEB_REQUEST_CONSTANTS = {
     "audio/mp4",
     "video/mp4",
     "application/octet-stream",
-  ],
-};
+  ] as const,
+} as const;
 
 // ===========================================
 // 支援的網站相關常數
 // ===========================================
 export const SUPPORTED_SITES = {
-  PATTERNS: ["*://*.facebook.com/*", "*://*.messenger.com/*"],
-  DOMAINS: ["facebook.com", "messenger.com"],
+  PATTERNS: ["*://*.facebook.com/*", "*://*.messenger.com/*"] as const,
+  DOMAINS: ["facebook.com", "messenger.com"] as const,
   CDN_PATTERNS: [
     "*://*.fbcdn.net/*",
     "*://*.cdninstagram.com/*",
     "*://*.fbsbx.com/*",
-  ],
-};
+  ] as const,
+} as const;
 
 // 語音訊息 URL 的匹配模式 - 合併 SUPPORTED_SITES 中的模式
 export const VOICE_MESSAGE_URL_PATTERNS = [
   ...SUPPORTED_SITES.PATTERNS,
   ...SUPPORTED_SITES.CDN_PATTERNS,
-];
+] as const;
 
 // ===========================================
 // 訊息處理相關常數
@@ -85,7 +85,7 @@ export const MESSAGE_SOURCES = {
   CONTENT_SCRIPT: "CONTENT_SCRIPT",
   BACKGROUND_SCRIPT: "BACKGROUND_SCRIPT",
   PAGE_CONTEXT: "PAGE_CONTEXT",
-};
+} as const;
 
 export const MESSAGE_ACTIONS = {
   RIGHT_CLICK: "rightClickOnVoiceMessage",
@@ -95,7 +95,7 @@ export const MESSAGE_ACTIONS = {
   BLOB_DETECTED: "blobUrlDetected",
   UPDATE_ELEMENT: "updateVoiceMessageElement",
   GET_AUDIO_DURATION: "getAudioDuration",
-};
+} as const;
 
 // ===========================================
 // 時間相關常數
@@ -105,7 +105,7 @@ export const TIME_CONSTANTS = {
   AUDIO_LOAD_TIMEOUT: 3000, // 3 秒
   ELEMENT_DETECTION_INTERVAL: 1000, // 1 秒
   URL_CACHE_EXPIRATION: 10 * 60 * 1000, // 10分鐘
-};
+} as const;
 
 export const MATCHING_TOLERANCE = 5; // 毫秒
 
@@ -117,7 +117,7 @@ export const UI_CONSTANTS = {
   BADGE_COLOR: "#4CAF50",
   CONTEXT_MENU_ID: "downloadVoiceMessage",
   CONTEXT_MENU_TITLE: "Download Voice Message",
-};
+} as const;
 
 // ===========================================
 // DOM 相關常數
@@ -140,7 +140,7 @@ export const DOM_CONSTANTS = {
     "Curseur audio",
     "Scrubber Audio",
     "오디오 스크러버",
-  ],
+  ] as const,
 
   // 語言代碼到 aria-label 的映射表
   LANGUAGE_LABELS: {
@@ -199,8 +199,8 @@ export const DOM_CONSTANTS = {
       // 韓語
       audioSlider: "오디오 스크러버",
     },
-  },
-};
+  } as const,
+} as const;
 
 // ===========================================
 // 日誌相關常數
@@ -211,7 +211,7 @@ export const LOG_LEVELS = {
   WARN: 2,
   ERROR: 3,
   NONE: 4,
-};
+} as const;
 
 // ===========================================
 // 檔名相關常數
@@ -219,7 +219,7 @@ export const LOG_LEVELS = {
 export const FILENAME_CONSTANTS = {
   // 語音訊息檔名前綴
   VOICE_MESSAGE_FILENAME_PREFIX: "voice-message-",
-};
+} as const;
 
 // ===========================================
 // ID 相關常數
@@ -227,11 +227,21 @@ export const FILENAME_CONSTANTS = {
 export const ID_CONSTANTS = {
   // 語音訊息 ID 前綴
   VOICE_MESSAGE_ID_PREFIX: "voice-msg-",
-};
+} as const;
 
 // ===========================================
 // 下載相關常數
 // ===========================================
 export const DOWNLOAD_CONSTANTS = {
   SAVE_AS: true,
-};
+} as const;
+
+// ===========================================
+// 類型定義
+// ===========================================
+export type ModuleName = typeof MODULE_NAMES[keyof typeof MODULE_NAMES];
+export type MessageSource = typeof MESSAGE_SOURCES[keyof typeof MESSAGE_SOURCES];
+export type MessageAction = typeof MESSAGE_ACTIONS[keyof typeof MESSAGE_ACTIONS];
+export type LogLevel = typeof LOG_LEVELS[keyof typeof LOG_LEVELS];
+export type AudioContentType = typeof WEB_REQUEST_CONSTANTS.AUDIO_CONTENT_TYPES[number];
+export type SupportedDomain = typeof SUPPORTED_SITES.DOMAINS[number];

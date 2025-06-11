@@ -3,9 +3,9 @@
  * 負責處理下載功能
  */
 
-import { generateVoiceMessageFilename } from "../utils/time-utils.js";
-import { Logger } from "../utils/logger.js";
-import { DOWNLOAD_CONSTANTS } from "../utils/constants.js";
+import { generateVoiceMessageFilename } from "../utils/time-utils";
+import { Logger } from "../utils/logger";
+import { DOWNLOAD_CONSTANTS } from "../utils/constants";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger("download-manager");

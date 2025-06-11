@@ -2,8 +2,8 @@
  * menu-manager.js
  * 負責管理右鍵選單
  */
-import { UI_CONSTANTS } from "../utils/constants.js";
-import { Logger } from "../utils/logger.js";
+import { UI_CONSTANTS } from "../utils/constants";
+import { Logger } from "../utils/logger";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger("menu-manager");

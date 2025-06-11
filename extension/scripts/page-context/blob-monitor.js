@@ -3,12 +3,12 @@
  * 負責監控和處理 Blob URL，以檢測和處理可能的音訊檔案
  */
 
-import { Logger } from "../utils/logger.js";
+import { Logger } from "../utils/logger";
 import {
   MESSAGE_ACTIONS,
   MODULE_NAMES,
   BLOB_MONITOR_CONSTANTS,
-} from "../utils/constants.js";
+} from "../utils/constants";
 import {
   isLikelyVoiceMessageBlob,
   extractBlobContent,

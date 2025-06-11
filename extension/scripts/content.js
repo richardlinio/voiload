@@ -3,12 +3,12 @@
  * 主要內容腳本，負責初始化和協調其他模組
  */
 
-import { Logger } from "./utils/logger.js";
+import { Logger } from "./utils/logger";
 import {
   SUPPORTED_SITES,
   MESSAGE_SOURCES,
   MODULE_NAMES,
-} from "./utils/constants.js";
+} from "./utils/constants";
 import { initMessageHandler } from "./content/message-handler.js";
 import { initContextMenuHandler } from "./content/context-menu-handler.js";
 
