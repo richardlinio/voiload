@@ -30,12 +30,15 @@ module.exports = {
   module: {
     rules: [
       {
-        test: /\.js$/,
+        test: /\.(js|ts)$/,
         exclude: /node_modules/,
         use: {
           loader: "babel-loader",
           options: {
-            presets: ["@babel/preset-env"],
+            presets: [
+              "@babel/preset-env",
+              "@babel/preset-typescript"
+            ],
           },
         },
       },
@@ -68,6 +71,6 @@ module.exports = {
 
   // 解析模組的選項
   resolve: {
-    extensions: [".js"], // 自動解析的擴展名
+    extensions: [".js", ".ts"], // 自動解析的擴展名
   },
 };
