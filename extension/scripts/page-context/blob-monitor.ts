@@ -1,5 +1,5 @@
 /**
- * blob-monitor.js
+ * blob-monitor.ts
  * 負責監控和處理 Blob URL，以檢測和處理可能的音訊檔案
  */
 
@@ -12,25 +12,67 @@ import {
 import {
   isLikelyVoiceMessageBlob,
   extractBlobContent,
-} from "./blob-analyzer.js";
-import { getAudioDuration } from "./audio-analyzer.js";
+} from "./blob-analyzer";
+import { getAudioDuration } from "./audio-analyzer";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(MODULE_NAMES.BLOB_MONITOR);
+
+// ================================================
+// 類型定義
+// ================================================
+
+/**
+ * Blob 處理佇列項目介面
+ */
+interface BlobQueueItem {
+  blob: Blob;
+  blobUrl: string;
+}
+
+/**
+ * 提取 Blob 請求訊息介面
+ */
+interface ExtractBlobRequestMessage {
+  blobUrl: string;
+  blobType?: string;
+  requestId?: string;
+}
+
+/**
+ * 傳送给内容脚本的訊息介面
+ */
+interface SendToContentMessage {
+  action: string;
+  blobUrl: string;
+  blobType: string;
+  blobSize: number;
+  durationMs: number;
+  timestamp: string;
+}
+
+/**
+ * 全局 window 對象的擴展
+ */
+declare global {
+  interface Window {
+    sendToContent: (message: SendToContentMessage) => void;
+  }
+}
 
 /**
  * Blob processing queue object
  */
 const BlobProcessingQueue = {
-  // 處理隊列和狀態
-  processingQueue: [],
+  // 處理佇列和狀態
+  processingQueue: [] as BlobQueueItem[],
   isProcessing: false,
 
   // 追蹤已處理過的 blob
-  processedBlobs: new WeakMap(),
+  processedBlobs: new WeakMap<Blob, boolean>(),
 
   // 檢查是否應該處理這個 blob
-  shouldProcess(blob) {
+  shouldProcess(blob: Blob): boolean {
     // 基本檢查 - blob 必須存在且有類型
     if (!blob || !blob.type) {
       return false;
@@ -47,24 +89,30 @@ const BlobProcessingQueue = {
     return true;
   },
 
-  // 將 blob 加入處理隊列
-  enqueue(blob, blobUrl) {
+  // 將 blob 加入處理佇列
+  enqueue(blob: Blob, blobUrl: string): void {
     this.processingQueue.push({ blob, blobUrl });
-    logger.debug("將 blob URL 加入處理隊列", {
+    logger.debug("將 blob URL 加入處理佇列", {
       queueLength: this.processingQueue.length,
     });
     this.processNextInQueue();
   },
 
-  // 處理隊列中的下一個項目
-  async processNextInQueue() {
-    // 如果已經在處理或隊列為空，則直接返回
+  // 處理佇列中的下一個項目
+  async processNextInQueue(): Promise<void> {
+    // 如果已經在處理或佇列為空，則直接返回
     if (this.isProcessing || this.processingQueue.length === 0) {
       return;
     }
 
     this.isProcessing = true;
-    const { blob, blobUrl } = this.processingQueue.shift();
+    const queueItem = this.processingQueue.shift();
+    if (!queueItem) {
+      this.isProcessing = false;
+      return;
+    }
+
+    const { blob, blobUrl } = queueItem;
 
     try {
       // 標記為已處理
@@ -73,10 +121,10 @@ const BlobProcessingQueue = {
       // 計算音訊持續時間
       const durationMs = await getAudioDuration(blobUrl);
 
-      // 註冊到背景腳本
+      // 註冊到背景腦本
       registerBlobWithBackend(blob, blobUrl, durationMs);
     } catch (error) {
-      logger.error("處理隊列中的 blob 時發生錯誤", { error });
+      logger.error("處理佇列中的 blob 時發生錯誤", { error });
     } finally {
       this.isProcessing = false;
       // 繼續處理下一個
@@ -87,24 +135,27 @@ const BlobProcessingQueue = {
 
 /**
  * 設置 Blob URL 監控
- * 攔截 URL.createObjectURL 方法來捕獲 blob URL 的創建
+ * 攻截 URL.createObjectURL 方法來捕獲 blob URL 的創建
  */
-export function setupBlobUrlMonitor() {
+export function setupBlobUrlMonitor(): void {
   logger.info("設置 Blob URL 監控");
 
   // 保存原始的 URL.createObjectURL 方法
   const originalCreateObjectURL = URL.createObjectURL;
 
-  // 攔截 URL.createObjectURL 方法
-  URL.createObjectURL = function (blob) {
+  // 攻截 URL.createObjectURL 方法
+  URL.createObjectURL = function (blob: Blob | MediaSource): string {
     // 調用原始方法獲取 blob URL
-    const blobUrl = originalCreateObjectURL.apply(this, arguments);
+    const blobUrl = originalCreateObjectURL.apply(this, [blob]);
 
     try {
-      // 檢查是否應該處理這個 blob
-      if (BlobProcessingQueue.shouldProcess(blob)) {
-        // 將 blob 加入處理隊列
-        BlobProcessingQueue.enqueue(blob, blobUrl);
+      // 只處理 Blob 類型，不處理 MediaSource
+      if (blob instanceof Blob) {
+        // 檢查是否應該處理這個 blob
+        if (BlobProcessingQueue.shouldProcess(blob)) {
+          // 將 blob 加入處理佇列
+          BlobProcessingQueue.enqueue(blob, blobUrl);
+        }
       }
     } catch (error) {
       logger.error("處理 blob URL 時發生錯誤", { error });
@@ -116,9 +167,9 @@ export function setupBlobUrlMonitor() {
 }
 
 /**
- * 向背景腳本註冊 Blob
+ * 向背景腦本註冊 Blob
  */
-function registerBlobWithBackend(blob, blobUrl, durationMs) {
+function registerBlobWithBackend(blob: Blob, blobUrl: string, durationMs: number): void {
   // 使用 sendToContent 函數發送訊息
   window.sendToContent({
     action: MESSAGE_ACTIONS.REGISTER_BLOB_URL,
@@ -130,7 +181,7 @@ function registerBlobWithBackend(blob, blobUrl, durationMs) {
   });
 
   // 記錄詳細資訊
-  logger.info("向內容腳本發送 blob url 註冊資訊", {
+  logger.info("向內容腦本發送 blob url 註冊資訊", {
     blobUrl: blobUrl.substring(0, 50),
     blobType: blob.type,
     blobSizeBytes: blob.size,
@@ -142,7 +193,7 @@ function registerBlobWithBackend(blob, blobUrl, durationMs) {
  * 設置定期清理
  * 定期清空已處理的資料，避免記憶體洩漏
  */
-function setupPeriodicCleanup() {
+function setupPeriodicCleanup(): void {
   setInterval(() => {
     // 目前 processedBlobs 是弱引用，不用主動清理
   }, BLOB_MONITOR_CONSTANTS.PERIODIC_CLEANUP_INTERVAL);
@@ -151,11 +202,14 @@ function setupPeriodicCleanup() {
 /**
  * 處理提取 blob 內容的請求
  *
- * @param {Object} message - 包含 blobUrl 的消息對象
- * @param {Function} sendResponse - 回應函數
- * @returns {boolean} - 標示是否保持連接開啟
+ * @param message - 包含 blobUrl 的消息對象
+ * @param sendResponse - 回應函數
+ * @returns 標示是否保持連接開啟
  */
-export async function handleExtractBlobRequest(message, sendResponse) {
+export async function handleExtractBlobRequest(
+  message: ExtractBlobRequestMessage,
+  sendResponse: (response: { success: boolean; message?: string; error?: string }) => void
+): Promise<boolean> {
   logger.debug("收到提取 blob 內容要求", {
     blobUrl: message.blobUrl,
     blobType: message.blobType,
@@ -165,9 +219,9 @@ export async function handleExtractBlobRequest(message, sendResponse) {
   try {
     // 提取 blob 內容
     const result = await extractBlobContent(message.blobUrl);
-    logger.debug("提取 blob 內容成功，發送回背景腳本");
+    logger.debug("提取 blob 內容成功，發送回背景腦本");
 
-    // 構建結果並發送到背景腳本
+    // 構建結果並發送到背景腦本
     chrome.runtime.sendMessage(
       {
         action: MESSAGE_ACTIONS.DOWNLOAD_BLOB,
@@ -177,17 +231,20 @@ export async function handleExtractBlobRequest(message, sendResponse) {
         timestamp: new Date().toISOString(),
       },
       (response) => {
-        logger.debug("背景腳本回應下載要求", { response });
+        logger.debug("背景腦本回應下載要求", { response });
       }
     );
 
     sendResponse({
       success: true,
-      message: "已發送 blob 內容到背景腳本進行下載",
+      message: "已發送 blob 內容到背景腦本進行下載",
     });
   } catch (error) {
     logger.error("提取 blob 內容失敗", { error });
-    sendResponse({ success: false, error: error.message });
+    sendResponse({ 
+      success: false, 
+      error: error instanceof Error ? error.message : String(error) 
+    });
   }
 
   return true; // 保持連接開啟，以便異步回應
@@ -196,7 +253,7 @@ export async function handleExtractBlobRequest(message, sendResponse) {
 /**
  * 初始化 Blob 監控模組
  */
-export function initBlobMonitor() {
+export function initBlobMonitor(): void {
   try {
     logger.info("開始初始化 Blob 監控模組");
 
