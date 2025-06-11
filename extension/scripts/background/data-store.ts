@@ -8,57 +8,14 @@ import { generateVoiceMessageId } from "../utils/id-generator";
 import { secondsToMilliseconds } from "../utils/time-utils";
 import { Logger } from "../utils/logger";
 import { MODULE_NAMES } from "../utils/constants";
+import type {
+  VoiceMessageItem,
+  VoiceMessageStore,
+  DownloadUrlResult,
+} from "../types/voice-message";
 
-// ================================================
-// 類型定義
-// ================================================
-
-/**
- * 語音訊息項目介面
- */
-export interface VoiceMessageItem {
-  id: string;
-  element: Element | null;
-  durationMs: number;
-  downloadUrl: string | null;
-  lastModified?: string | null;
-  blobType?: string | null;
-  blobSize?: number | null;
-  timestamp: number;
-  isPending: boolean;
-}
-
-/**
- * 語音訊息資料存儲介面
- */
-export interface VoiceMessageStore {
-  items: Map<string, VoiceMessageItem>;
-  isDurationMatch: (
-    duration1Ms: number,
-    duration2Ms: number,
-    toleranceMs?: number
-  ) => boolean;
-  registerDownloadUrl: (
-    durationMs: number,
-    downloadUrl: string,
-    lastModified?: string | null,
-    blobType?: string | null,
-    blobSize?: number | null
-  ) => string;
-  findPendingItemByDuration: (durationMs: number) => VoiceMessageItem | null;
-  findItemByDuration: (durationMs: number) => VoiceMessageItem | null;
-  getDownloadUrlForElement: (
-    element: Element
-  ) => { downloadUrl: string | null; lastModified?: string | null } | null;
-}
-
-/**
- * 下載 URL 查找結果介面
- */
-export interface DownloadUrlResult {
-  downloadUrl: string | null;
-  lastModified?: string | null;
-}
+// 重新導出類型以保持向後相容性
+export type { VoiceMessageItem, VoiceMessageStore, DownloadUrlResult };
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(MODULE_NAMES.DATA_STORE);
