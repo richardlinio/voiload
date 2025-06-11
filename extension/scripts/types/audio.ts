@@ -15,11 +15,3 @@ export interface RequestMetadata {
   contentLength?: string;
   lastModified?: string;
 }
-
-/**
- * 音訊持續時間訊息介面
- */
-export interface AudioDurationMessage {
-  url: string;
-  metadata?: RequestMetadata;
-}
