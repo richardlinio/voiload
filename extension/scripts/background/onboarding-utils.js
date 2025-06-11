@@ -3,8 +3,8 @@
  * 提供 onboarding 相關的輔助功能
  */
 
-import { Logger } from "../utils/logger.js";
-import { MODULE_NAMES } from "../utils/constants.js";
+import { Logger } from "../utils/logger";
+import { MODULE_NAMES } from "../utils/constants";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger("onboarding-utils");

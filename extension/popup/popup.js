@@ -4,7 +4,7 @@
  */
 
 import { checkOnboardingStatus } from "../scripts/background/onboarding-utils.js";
-import { Logger } from "../scripts/utils/logger.js";
+import { Logger } from "../scripts/utils/logger";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger("popup");

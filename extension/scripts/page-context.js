@@ -4,8 +4,8 @@
  * 這個檔案會以 ES6 模組的方式載入，可以使用 import/export 語法
  */
 
-import { Logger } from "./utils/logger.js";
-import { MESSAGE_SOURCES, MODULE_NAMES } from "./utils/constants.js";
+import { Logger } from "./utils/logger";
+import { MESSAGE_SOURCES, MODULE_NAMES } from "./utils/constants";
 import { initBlobMonitor } from "./page-context/blob-monitor.js";
 
 // 創建模組特定的日誌記錄器 - 使用新的模組名稱

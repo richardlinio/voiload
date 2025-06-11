@@ -4,10 +4,10 @@
  * 使用單例模式確保整個擴充功能中只有一個 voiceMessages 實例
  */
 
-import { generateVoiceMessageId } from "../utils/id-generator.js";
-import { secondsToMilliseconds } from "../utils/time-utils.js";
-import { Logger } from "../utils/logger.js";
-import { MODULE_NAMES } from "../utils/constants.js";
+import { generateVoiceMessageId } from "../utils/id-generator";
+import { secondsToMilliseconds } from "../utils/time-utils";
+import { Logger } from "../utils/logger";
+import { MODULE_NAMES } from "../utils/constants";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(MODULE_NAMES.DATA_STORE);

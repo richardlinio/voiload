@@ -4,9 +4,9 @@
  */
 
 import { findVoiceMessageElement, getDurationFromSlider } from "./dom-utils.js";
-import { secondsToMilliseconds } from "../utils/time-utils.js";
-import { Logger } from "../utils/logger.js";
-import { MESSAGE_ACTIONS, MODULE_NAMES } from "../utils/constants.js";
+import { secondsToMilliseconds } from "../utils/time-utils";
+import { Logger } from "../utils/logger";
+import { MESSAGE_ACTIONS, MODULE_NAMES } from "../utils/constants";
 
 /**
  * 初始化右鍵選單處理器

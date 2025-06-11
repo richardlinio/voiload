@@ -12,12 +12,12 @@ import {
   handleBlobDetection,
 } from "./handlers/blob-handler.js";
 import { createDataStore } from "./data-store.js";
-import Logger from "../utils/logger.js";
+import Logger from "../utils/logger";
 import {
   MESSAGE_ACTIONS,
   MESSAGE_SOURCES,
   MODULE_NAMES,
-} from "../utils/constants.js";
+} from "../utils/constants";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(MODULE_NAMES.MESSAGE_HANDLER);

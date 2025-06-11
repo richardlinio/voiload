@@ -4,14 +4,14 @@
  */
 
 import { isLikelyVoiceMessage } from "../page-context/audio-analyzer.js";
-import { Logger } from "../utils/logger.js";
+import { Logger } from "../utils/logger";
 import {
   MODULE_NAMES,
   VOICE_MESSAGE_URL_PATTERNS,
   MESSAGE_ACTIONS,
   SUPPORTED_SITES,
   TIME_CONSTANTS,
-} from "../utils/constants.js";
+} from "../utils/constants";
 
 const logger = Logger.createModuleLogger(MODULE_NAMES.WEB_REQUEST);
 

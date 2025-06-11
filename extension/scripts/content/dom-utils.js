@@ -3,8 +3,8 @@
  * 提供 DOM 操作相關的輔助函數
  */
 
-import { Logger } from "../utils/logger.js";
-import { DOM_CONSTANTS } from "../utils/constants.js";
+import { Logger } from "../utils/logger";
+import { DOM_CONSTANTS } from "../utils/constants";
 
 /**
  * 檢查元素是否為語音訊息滑桿
