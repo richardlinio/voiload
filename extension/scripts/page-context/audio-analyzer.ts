@@ -35,7 +35,7 @@ export function isLikelyVoiceMessage(
   metadata: RequestMetadata = {}
 ): boolean {
   // 1. 基本檢查：URL 存在、為 GET 請求、狀態碼表示成功
-  if (!url || method !== "GET") return false;
+  if (!url || method !== "GET") {return false;}
 
   if (
     statusCode &&
@@ -50,7 +50,7 @@ export function isLikelyVoiceMessage(
     return url.includes(domain);
   });
 
-  if (!isFromKnownCdn) return false;
+  if (!isFromKnownCdn) {return false;}
 
   // 3. 內容類型檢查：是否為音訊
   if (
