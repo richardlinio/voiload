@@ -6,7 +6,7 @@
 
 import { Logger } from "./utils/logger";
 import { MESSAGE_SOURCES, MODULE_NAMES } from "./utils/constants";
-import { initBlobMonitor } from "./page-context/blob-monitor.js";
+import { initBlobMonitor } from "./page-context/blob-monitor";
 
 // 創建模組特定的日誌記錄器 - 使用新的模組名稱
 const logger = Logger.createModuleLogger(MODULE_NAMES.PAGE_CONTEXT);

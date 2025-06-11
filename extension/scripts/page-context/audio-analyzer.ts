@@ -1,5 +1,5 @@
 /**
- * audio-analyzer.js
+ * audio-analyzer.ts
  * 分析音訊的輔助函數
  */
 
@@ -15,24 +15,48 @@ import {
 const logger = Logger.createModuleLogger(MODULE_NAMES.AUDIO_ANALYZER);
 
 // ================================================
+// 聲音音訊息檢測相關類型
+// ================================================
+
+/**
+ * 請求元數據介面
+ */
+interface RequestMetadata {
+  contentType?: string;
+  contentLength?: string;
+}
+
+/**
+ * 該訊息請求的訊息介面
+ */
+interface AudioDurationMessage {
+  url: string;
+}
+
+// ================================================
 // 語音訊息檢測函數
 // ================================================
 
 /**
  * 判斷請求是否為語音訊息
- * @param {string} url - 請求 URL
- * @param {string} method - HTTP 方法
- * @param {number} statusCode - HTTP 狀態碼
- * @param {Object} metadata - 選擇性，請求的元數據
- * @returns {boolean} - 是否為語音訊息
+ * @param url - 請求 URL
+ * @param method - HTTP 方法
+ * @param statusCode - HTTP 狀態碼
+ * @param metadata - 選擇性，請求的元數據
+ * @returns 是否為語音訊息
  */
-export function isLikelyVoiceMessage(url, method, statusCode, metadata) {
+export function isLikelyVoiceMessage(
+  url: string,
+  method: string,
+  statusCode?: number,
+  metadata: RequestMetadata = {}
+): boolean {
   // 1. 基本檢查：URL 存在、為 GET 請求、狀態碼表示成功
   if (!url || method !== "GET") return false;
 
   if (
     statusCode &&
-    !WEB_REQUEST_CONSTANTS.SUCCESS_STATUS_CODES.includes(statusCode)
+    !WEB_REQUEST_CONSTANTS.SUCCESS_STATUS_CODES.includes(statusCode as any)
   ) {
     return false;
   }
@@ -48,7 +72,7 @@ export function isLikelyVoiceMessage(url, method, statusCode, metadata) {
   // 3. 內容類型檢查：是否為音訊
   if (
     metadata.contentType &&
-    !WEB_REQUEST_CONSTANTS.AUDIO_CONTENT_TYPES.includes(metadata.contentType)
+    !WEB_REQUEST_CONSTANTS.AUDIO_CONTENT_TYPES.includes(metadata.contentType as any)
   ) {
     return false;
   }
@@ -74,11 +98,11 @@ export function isLikelyVoiceMessage(url, method, statusCode, metadata) {
 
 /**
  * 使用 HTML5 Audio 元素計算音訊持續時間
- * @param {string} url - 音訊 URL
- * @returns {Promise<Object>} - 持續時間計算結果
+ * @param url - 音訊 URL
+ * @returns 持續時間計算結果（毫秒）
  */
-export function getAudioDuration(url) {
-  return new Promise((resolve, reject) => {
+export function getAudioDuration(url: string): Promise<number> {
+  return new Promise<number>((resolve, reject) => {
     logger.debug("開始計算音訊持續時間", {
       url: url.substring(0, 50) + "...",
     });
@@ -117,9 +141,10 @@ export function getAudioDuration(url) {
     }
 
     // 處理錯誤
-    function onError(e) {
+    function onError(e: Event) {
+      const errorEvent = e as ErrorEvent;
       logger.error("載入音訊時發生錯誤", {
-        error: e.error || "未知錯誤",
+        error: errorEvent.error || "未知錯誤",
         url: url.substring(0, 50) + "...",
       });
 
@@ -130,26 +155,30 @@ export function getAudioDuration(url) {
       // 釋放資源
       audio.src = "";
 
-      reject(new Error(`載入音訊時發生錯誤：${e.error || "未知錯誤"}`));
+      reject(new Error(`載入音訊時發生錯誤：${errorEvent.error || "未知錯誤"}`));
     }
   });
 }
 
 /**
  * 處理計算音訊持續時間的請求
- * @param {Object} message - 請求訊息
+ * @param message - 請求訊息
+ * @returns 持續時間或 undefined
  */
-export async function handleGetAudioDurationRequest(message) {
+export async function handleGetAudioDurationRequest(
+  message: AudioDurationMessage
+): Promise<number | undefined> {
   try {
     // 使用 await 等待計算結果
     const result = await getAudioDuration(message.url);
 
-    logger.debug("已取得音訊持續時間計算結果", result);
+    logger.debug("已取得音訊持續時間計算結果", { result });
     return result;
   } catch (error) {
     logger.error("計算音訊持續時間時發生錯誤", {
-      error: error.message,
+      error: error instanceof Error ? error.message : String(error),
       url: message.url.substring(0, 50) + "...",
     });
+    return undefined;
   }
 }
