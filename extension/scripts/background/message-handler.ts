@@ -60,6 +60,10 @@ export function initMessageHandler(voiceMessages?: VoiceMessageStore): void {
       switch (message.action) {
         case MESSAGE_ACTIONS.RIGHT_CLICK:
           logger.debug("處理右鍵點擊訊息");
+          if (!voiceMessagesStore) {
+            sendResponse({ success: false, error: "語音訊息存儲未初始化" });
+            return false;
+          }
           return handleRightClick(
             voiceMessagesStore,
             message,
@@ -69,6 +73,10 @@ export function initMessageHandler(voiceMessages?: VoiceMessageStore): void {
 
         case MESSAGE_ACTIONS.REGISTER_ELEMENT:
           logger.debug("處理語音訊息元素註冊訊息");
+          if (!voiceMessagesStore) {
+            sendResponse({ success: false, error: "語音訊息存儲未初始化" });
+            return false;
+          }
           return handleElementRegistration(
             voiceMessagesStore,
             message,
@@ -78,6 +86,10 @@ export function initMessageHandler(voiceMessages?: VoiceMessageStore): void {
 
         case MESSAGE_ACTIONS.REGISTER_AUDIO_URL:
           logger.debug("處理 Audio URL 註冊訊息");
+          if (!voiceMessagesStore) {
+            sendResponse({ success: false, error: "語音訊息存儲未初始化" });
+            return false;
+          }
           return handleAudioUrlRegistration(
             voiceMessagesStore,
             message,
@@ -91,6 +103,10 @@ export function initMessageHandler(voiceMessages?: VoiceMessageStore): void {
 
         case MESSAGE_ACTIONS.REGISTER_BLOB_URL:
           logger.debug("處理 Blob URL 註冊訊息");
+          if (!voiceMessagesStore) {
+            sendResponse({ success: false, error: "語音訊息存儲未初始化" });
+            return false;
+          }
           return handleBlobUrl(
             voiceMessagesStore,
             message,

@@ -34,10 +34,10 @@ const logger = Logger.createModuleLogger(
  * @returns {boolean} - 是否需要保持連接開啟
  */
 export function handleElementRegistration(
-  voiceMessagesStore,
-  message,
-  sender,
-  sendResponse
+  voiceMessagesStore: VoiceMessageStore,
+  message: any,
+  sender: chrome.runtime.MessageSender,
+  sendResponse: (response?: any) => void
 ) {
   const { elementId, durationMs } = message;
   logger.debug("處理語音訊息元素註冊訊息", {
@@ -56,11 +56,12 @@ export function handleElementRegistration(
     // 在 voiceMessages 中建立新項目
     voiceMessagesStore.items.set(elementId, {
       id: elementId,
+      element: null,
       durationMs,
       downloadUrl: null,
       lastModified: null,
       timestamp: Date.now(),
-      tabId: sender.tab?.id,
+      isPending: true,
     });
 
     // 檢查是否有待處理的下載 URL 可以匹配
@@ -70,7 +71,7 @@ export function handleElementRegistration(
       durationMs
     );
 
-    if (matchingItem) {
+    if (matchingItem && matchingItem.downloadUrl) {
       // 如果找到匹配項目，更新元素的下載 URL
       updateElementWithMatchingItem(
         voiceMessagesStore,
@@ -97,7 +98,7 @@ export function handleElementRegistration(
         message: "元素已註冊，但無匹配的下載 URL",
       });
     }
-  } catch (error) {
+  } catch (error: any) {
     logger.error("處理語音訊息元素註冊訊息時發生錯誤:", error);
     sendResponse({ success: false, error: error.message });
   }
@@ -114,7 +115,11 @@ export function handleElementRegistration(
  * @returns {Object|null} - 匹配的項目或 null
  * @private
  */
-function findMatchingPendingItem(voiceMessagesStore, elementId, durationMs) {
+function findMatchingPendingItem(
+  voiceMessagesStore: VoiceMessageStore,
+  elementId: string,
+  durationMs: number
+) {
   // 使用容差值尋找匹配的項目
   const tolerance = 5; // 容差值（毫秒）
 
@@ -143,11 +148,15 @@ function findMatchingPendingItem(voiceMessagesStore, elementId, durationMs) {
  * @private
  */
 function updateElementWithMatchingItem(
-  voiceMessagesStore,
-  elementId,
-  matchingItem
+  voiceMessagesStore: VoiceMessageStore,
+  elementId: string,
+  matchingItem: any
 ) {
   const currentItem = voiceMessagesStore.items.get(elementId);
+  if (!currentItem) {
+    logger.error("無法找到要更新的項目", { elementId });
+    return;
+  }
   currentItem.downloadUrl = matchingItem.downloadUrl;
   currentItem.lastModified = matchingItem.lastModified;
 
@@ -165,7 +174,11 @@ function updateElementWithMatchingItem(
  * @param {string} downloadUrl - 下載 URL
  * @private
  */
-function notifyContentScriptToUpdateUI(tabId, elementId, downloadUrl) {
+function notifyContentScriptToUpdateUI(
+  tabId: number | undefined,
+  elementId: string,
+  downloadUrl: string
+) {
   if (tabId) {
     try {
       chrome.tabs.sendMessage(tabId, {

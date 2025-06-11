@@ -6,13 +6,13 @@ module.exports = {
 
   entry: {
     // 背景腳本
-    "scripts/background": "./extension/scripts/background.js",
+    "scripts/background": "./extension/scripts/background.ts",
 
     // 內容腳本
     "scripts/content": "./extension/scripts/content.ts",
 
     // 頁面上下文腳本 (由內容腳本動態載入)
-    "scripts/page-context": "./extension/scripts/page-context.js",
+    "scripts/page-context": "./extension/scripts/page-context.ts",
 
     // onboarding 腳本
     "onboarding/welcome": "./extension/onboarding/welcome.js",

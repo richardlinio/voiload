@@ -20,8 +20,9 @@ const logger = Logger.createModuleLogger("download-manager");
 interface RightClickInfo {
   elementId: string | null;
   downloadUrl: string | null;
-  lastModified?: string | null;
-  tabId?: number;
+  lastModified: string | null;
+  tabId: number | undefined;
+  durationMs: number | undefined;
 }
 
 /**
@@ -63,8 +64,8 @@ export function initDownloadManager(): void {
             lastModified: lastRightClickedInfo.lastModified,
           });
           downloadVoiceMessage(
-            lastRightClickedInfo.downloadUrl,
-            lastRightClickedInfo.lastModified
+            lastRightClickedInfo.downloadUrl!,
+            lastRightClickedInfo.lastModified || undefined
           );
         } else {
           logger.error("無法下載，沒有右鍵點擊資訊");
@@ -234,7 +235,7 @@ export function downloadBlobContent(
         });
       }
     );
-  } catch (error) {
+  } catch (error: any) {
     logger.error("處理 blob 內容下載時發生錯誤", {
       error: error.message,
       stack: error.stack,

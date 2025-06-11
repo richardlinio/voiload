@@ -1,5 +1,5 @@
 /**
- * background.js
+ * background.ts
  * 主要背景腳本，負責初始化和協調背景模組
  */
 
@@ -8,13 +8,13 @@ import { initMenuManager } from "./background/menu-manager";
 import { initDownloadManager } from "./background/download-manager";
 import { initMessageHandler } from "./background/message-handler";
 import { initWebRequestInterceptor } from "./background/web-request-interceptor";
-import { createDataStore, cleanupOldItems } from "./background/data-store";
-import { Logger } from "./utils/logger";
 import {
-  UI_CONSTANTS,
-  TIME_CONSTANTS,
-  MODULE_NAMES,
-} from "./utils/constants";
+  createDataStore,
+  cleanupOldItems,
+  type VoiceMessageStore,
+} from "./background/data-store";
+import { Logger } from "./utils/logger";
+import { UI_CONSTANTS, TIME_CONSTANTS, MODULE_NAMES } from "./utils/constants";
 import {
   checkOnboardingStatus,
   markOnboardingShown,
@@ -41,7 +41,7 @@ logger.debug("chrome API 可用性", {
 /**
  * 主要初始化函數
  */
-function initialize() {
+function initialize(): VoiceMessageStore {
   logger.info("初始化背景腳本");
 
   try {
@@ -73,72 +73,76 @@ function initialize() {
 
     logger.info("背景腳本初始化完成");
     return voiceMessages; // 返回語音訊息資料存儲，以便其他函數使用
-  } catch (error) {
+  } catch (error: any) {
     logger.error("初始化過程中發生錯誤", { error });
     throw error; // 重新拋出錯誤，以便上層函數可以捕捉
   }
 }
 
 // 當擴充功能安裝或更新時執行
-chrome.runtime.onInstalled.addListener(async (details) => {
-  logger.info("Facebook Messenger 語音訊息下載器已安裝或更新", {
-    reason: details.reason,
-    previousVersion: details.previousVersion,
-  });
-
-  // 初始化擴充功能狀態
-  chrome.action.setBadgeText({
-    text: UI_CONSTANTS.BADGE_TEXT,
-  });
-
-  chrome.action.setBadgeBackgroundColor({
-    color: UI_CONSTANTS.BADGE_COLOR,
-  });
-
-  // 處理首次安裝
-  if (details.reason === "install") {
-    logger.info("首次安裝擴充功能，準備開啟 onboarding");
-
-    try {
-      // 記錄安裝時間
-      await chrome.storage.local.set({
-        installTime: Date.now(),
-      });
-
-      // 檢查 onboarding 狀態
-      const status = await checkOnboardingStatus();
-
-      if (!status.completed) {
-        // 開啟 onboarding 頁面
-        const onboardingUrl = chrome.runtime.getURL("onboarding/welcome.html");
-        chrome.tabs.create({
-          url: onboardingUrl,
-          active: true,
-        });
-
-        // 標記已顯示 onboarding
-        await markOnboardingShown();
-        logger.info("已開啟 onboarding 頁面");
-      }
-    } catch (error) {
-      logger.error("處理首次安裝時發生錯誤", { error });
-    }
-  } else if (details.reason === "update") {
-    logger.info("擴充功能已更新", {
-      fromVersion: details.previousVersion,
-      toVersion: chrome.runtime.getManifest().version,
+chrome.runtime.onInstalled.addListener(
+  async (details: chrome.runtime.InstalledDetails) => {
+    logger.info("Facebook Messenger 語音訊息下載器已安裝或更新", {
+      reason: details.reason,
+      previousVersion: details.previousVersion,
     });
 
-    // 可以在這裡添加版本更新的提醒邏輯
+    // 初始化擴充功能狀態
+    chrome.action.setBadgeText({
+      text: UI_CONSTANTS.BADGE_TEXT,
+    });
+
+    chrome.action.setBadgeBackgroundColor({
+      color: UI_CONSTANTS.BADGE_COLOR,
+    });
+
+    // 處理首次安裝
+    if (details.reason === "install") {
+      logger.info("首次安裝擴充功能，準備開啟 onboarding");
+
+      try {
+        // 記錄安裝時間
+        await chrome.storage.local.set({
+          installTime: Date.now(),
+        });
+
+        // 檢查 onboarding 狀態
+        const status = await checkOnboardingStatus();
+
+        if (!status.completed) {
+          // 開啟 onboarding 頁面
+          const onboardingUrl = chrome.runtime.getURL(
+            "onboarding/welcome.html"
+          );
+          chrome.tabs.create({
+            url: onboardingUrl,
+            active: true,
+          });
+
+          // 標記已顯示 onboarding
+          await markOnboardingShown();
+          logger.info("已開啟 onboarding 頁面");
+        }
+      } catch (error) {
+        logger.error("處理首次安裝時發生錯誤", { error });
+      }
+    } else if (details.reason === "update") {
+      logger.info("擴充功能已更新", {
+        fromVersion: details.previousVersion,
+        toVersion: chrome.runtime.getManifest().version,
+      });
+
+      // 可以在這裡添加版本更新的提醒邏輯
+    }
   }
-});
+);
 
 // 執行初始化
 try {
   logger.debug("準備執行初始化函數");
   initialize();
   logger.debug("初始化函數已執行完成");
-} catch (error) {
+} catch (error: any) {
   logger.error("執行初始化函數時發生錯誤", {
     message: error.message,
     stack: error.stack,

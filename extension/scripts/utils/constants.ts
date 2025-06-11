@@ -89,6 +89,7 @@ export const MESSAGE_SOURCES = {
 
 export const MESSAGE_ACTIONS = {
   RIGHT_CLICK: "rightClickOnVoiceMessage",
+  REGISTER_ELEMENT: "registerElement",
   REGISTER_AUDIO_URL: "registerAudioUrl",
   REGISTER_BLOB_URL: "registerBlobUrl",
   DOWNLOAD_BLOB: "downloadBlobContent",
