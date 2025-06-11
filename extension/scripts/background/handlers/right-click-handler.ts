@@ -7,20 +7,7 @@ import { setLastRightClickedInfo } from "../download-manager";
 import { Logger } from "../../utils/logger";
 import { MODULE_NAMES } from "../../utils/constants";
 import { type VoiceMessageStore, type VoiceMessageItem } from "../data-store";
-
-// ================================================
-// 類型定義
-// ================================================
-
-/**
- * 右鍵點擊訊息介面
- */
-interface RightClickMessage {
-  elementId: string | null;
-  downloadUrl: string | null;
-  lastModified?: string | null;
-  durationMs?: number;
-}
+import type { RightClickMessage } from "../../types/messages";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(MODULE_NAMES.RIGHT_CLICK_HANDLER);

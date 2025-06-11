@@ -6,19 +6,7 @@
 import { Logger } from "../../utils/logger";
 import { MODULE_NAMES } from "../../utils/constants";
 import { type VoiceMessageStore } from "../data-store";
-
-// ================================================
-// 類型定義
-// ================================================
-
-/**
- * Audio URL 註冊訊息介面
- */
-interface AudioUrlRegistrationMessage {
-  audioUrl: string;
-  durationMs: number;
-  timestamp: string;
-}
+import type { AudioUrlRegistrationMessage } from "../../types/messages";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(

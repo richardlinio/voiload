@@ -6,18 +6,7 @@
 import { Logger } from "../../utils/logger";
 import { MODULE_NAMES } from "../../utils/constants";
 import { type VoiceMessageStore } from "../data-store";
-
-// ================================================
-// 類型定義
-// ================================================
-
-/**
- * 元素註冊訊息介面
- */
-interface ElementRegistrationMessage {
-  elementId: string;
-  durationMs: number;
-}
+import type { ElementRegistrationMessage } from "../../types/messages";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(

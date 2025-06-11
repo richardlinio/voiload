@@ -10,7 +10,8 @@ import {
   BLOB_MONITOR_CONSTANTS,
   WEB_REQUEST_CONSTANTS,
 } from "../utils/constants";
-import type { RequestMetadata, AudioDurationMessage } from "../types/audio";
+import type { RequestMetadata } from "../types/audio";
+import type { AudioDurationMessage } from "../types/messages";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(MODULE_NAMES.AUDIO_ANALYZER);
