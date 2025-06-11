@@ -9,56 +9,17 @@ import {
   MODULE_NAMES,
   BLOB_MONITOR_CONSTANTS,
 } from "../utils/constants";
-import {
-  isLikelyVoiceMessageBlob,
-  extractBlobContent,
-} from "./blob-analyzer";
+import { isLikelyVoiceMessageBlob, extractBlobContent } from "./blob-analyzer";
 import { getAudioDuration } from "./audio-analyzer";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(MODULE_NAMES.BLOB_MONITOR);
 
-// ================================================
-// 類型定義
-// ================================================
-
-/**
- * Blob 處理佇列項目介面
- */
-interface BlobQueueItem {
-  blob: Blob;
-  blobUrl: string;
-}
-
-/**
- * 提取 Blob 請求訊息介面
- */
-interface ExtractBlobRequestMessage {
-  blobUrl: string;
-  blobType?: string;
-  requestId?: string;
-}
-
-/**
- * 傳送给内容脚本的訊息介面
- */
-interface SendToContentMessage {
-  action: string;
-  blobUrl: string;
-  blobType: string;
-  blobSize: number;
-  durationMs: number;
-  timestamp: string;
-}
-
-/**
- * 全局 window 對象的擴展
- */
-declare global {
-  interface Window {
-    sendToContent: (message: SendToContentMessage) => void;
-  }
-}
+import type {
+  BlobQueueItem,
+  ExtractBlobRequestMessage,
+  SendToContentMessage,
+} from "../types/messages";
 
 /**
  * Blob processing queue object
@@ -169,16 +130,22 @@ export function setupBlobUrlMonitor(): void {
 /**
  * 向背景腦本註冊 Blob
  */
-function registerBlobWithBackend(blob: Blob, blobUrl: string, durationMs: number): void {
+function registerBlobWithBackend(
+  blob: Blob,
+  blobUrl: string,
+  durationMs: number
+): void {
   // 使用 sendToContent 函數發送訊息
-  window.sendToContent({
-    action: MESSAGE_ACTIONS.REGISTER_BLOB_URL,
-    blobUrl: blobUrl,
-    blobType: blob.type,
-    blobSize: blob.size,
-    durationMs: durationMs,
-    timestamp: new Date().toISOString(),
-  });
+  if (window.sendToContent) {
+    window.sendToContent({
+      action: MESSAGE_ACTIONS.REGISTER_BLOB_URL,
+      blobUrl: blobUrl,
+      blobType: blob.type,
+      blobSize: blob.size,
+      durationMs: durationMs,
+      timestamp: new Date().toISOString(),
+    });
+  }
 
   // 記錄詳細資訊
   logger.info("向內容腦本發送 blob url 註冊資訊", {
@@ -208,7 +175,11 @@ function setupPeriodicCleanup(): void {
  */
 export async function handleExtractBlobRequest(
   message: ExtractBlobRequestMessage,
-  sendResponse: (response: { success: boolean; message?: string; error?: string }) => void
+  sendResponse: (response: {
+    success: boolean;
+    message?: string;
+    error?: string;
+  }) => void
 ): Promise<boolean> {
   logger.debug("收到提取 blob 內容要求", {
     blobUrl: message.blobUrl,
@@ -241,9 +212,9 @@ export async function handleExtractBlobRequest(
     });
   } catch (error) {
     logger.error("提取 blob 內容失敗", { error });
-    sendResponse({ 
-      success: false, 
-      error: error instanceof Error ? error.message : String(error) 
+    sendResponse({
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
     });
   }
 
