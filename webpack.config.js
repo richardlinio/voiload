@@ -15,10 +15,10 @@ module.exports = {
     "scripts/page-context": "./extension/scripts/page-context.ts",
 
     // onboarding 腳本
-    "onboarding/welcome": "./extension/onboarding/welcome.js",
+    "onboarding/welcome": "./extension/onboarding/welcome.ts",
 
     // popup 腳本
-    "popup/popup": "./extension/popup/popup.js",
+    "popup/popup": "./extension/popup/popup.ts",
   },
 
   output: {
