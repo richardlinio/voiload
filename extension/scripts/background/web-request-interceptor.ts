@@ -12,6 +12,7 @@ import {
   SUPPORTED_SITES,
   TIME_CONSTANTS,
 } from "../utils/constants";
+
 import { type VoiceMessageStore } from "./data-store";
 
 // ================================================
@@ -213,7 +214,7 @@ function getMetadata(
     lastModified: "",
   };
 
-  if (!responseHeaders) return metadata;
+  if (!responseHeaders) {return metadata;}
 
   // 從標頭中提取資訊
   for (const header of responseHeaders) {

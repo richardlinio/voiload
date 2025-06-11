@@ -9,12 +9,13 @@ import {
   MODULE_NAMES,
   BLOB_MONITOR_CONSTANTS,
 } from "../utils/constants";
-import { isLikelyVoiceMessageBlob, extractBlobContent } from "./blob-analyzer";
-import { getAudioDuration } from "./audio-analyzer";
 import type {
   BlobQueueItem,
   ExtractBlobRequestMessage,
 } from "../types/messages";
+
+import { isLikelyVoiceMessageBlob, extractBlobContent } from "./blob-analyzer";
+import { getAudioDuration } from "./audio-analyzer";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(MODULE_NAMES.BLOB_MONITOR);

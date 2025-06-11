@@ -3,6 +3,13 @@
  * 負責處理來自內容腳本的訊息並路由到正確的處理器
  */
 
+import { Logger } from "../utils/logger";
+import {
+  MESSAGE_ACTIONS,
+  MESSAGE_SOURCES,
+  MODULE_NAMES,
+} from "../utils/constants";
+
 import { handleRightClick } from "./handlers/right-click-handler";
 import { handleElementRegistration } from "./handlers/element-registration-handler";
 import { handleAudioUrlRegistration } from "./handlers/audio-url-registration-handler";
@@ -12,12 +19,6 @@ import {
   handleBlobDetection,
 } from "./handlers/blob-handler";
 import { createDataStore, type VoiceMessageStore } from "./data-store";
-import { Logger } from "../utils/logger";
-import {
-  MESSAGE_ACTIONS,
-  MESSAGE_SOURCES,
-  MODULE_NAMES,
-} from "../utils/constants";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(MODULE_NAMES.MESSAGE_HANDLER);

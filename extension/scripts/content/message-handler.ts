@@ -81,7 +81,7 @@ export function initMessageHandler(): void {
   // 設置訊息監聽器，處理來自頁面上下文的訊息
   window.addEventListener("message", async function (event: MessageEvent) {
     // 確保訊息來自同一個頁面
-    if (event.source !== window) return;
+    if (event.source !== window) {return;}
 
     // 處理來自頁面上下文的訊息
     if (event.data.type && event.data.type === MESSAGE_SOURCES.PAGE_CONTEXT) {

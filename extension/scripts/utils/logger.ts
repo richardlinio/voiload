@@ -3,8 +3,9 @@
  * 提供擴充功能的統一日誌記錄系統
  */
 
-import { LOG_LEVELS, type LogLevel, type ModuleName } from "./constants";
 import type { LoggerConfig, ModuleLogger } from "../types/utils";
+
+import { LOG_LEVELS, type LogLevel, type ModuleName } from "./constants";
 
 // 預設配置
 let config: LoggerConfig = {

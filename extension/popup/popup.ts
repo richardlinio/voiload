@@ -80,7 +80,7 @@ function showOnboardingReminder(): void {
  * 顯示已完成狀態
  */
 function showCompletedStatus(completedAt: number | null): void {
-  if (!completedAt) return;
+  if (!completedAt) {return;}
 
   const completedDate = new Date(completedAt);
   const formattedDate = completedDate.toLocaleDateString("en-US");
