@@ -318,6 +318,11 @@ export function getDownloadUrlForElement(
   if (id && voiceMessages.items.has(id)) {
     // 如果有 ID 且在 items 中存在，直接返回
     const item = voiceMessages.items.get(id);
+    if (!item) {
+      logger.debug("未找到指定 ID 的項目", { id });
+      return null;
+    }
+
     logger.debug("找到匹配項目", {
       id,
       hasDownloadUrl: !!item.downloadUrl,
@@ -327,13 +332,15 @@ export function getDownloadUrlForElement(
 
     return {
       downloadUrl: item.downloadUrl,
-      lastModified: item.lastModified,
+      lastModified: item.lastModified || null,
     };
   }
 
   // 如果沒有 ID 或 ID 不存在，嘗試通過持續時間查找
   if (element.hasAttribute("aria-valuemax")) {
-    const durationSec = parseFloat(element.getAttribute("aria-valuemax"));
+    const ariaValuemax = element.getAttribute("aria-valuemax");
+    if (!ariaValuemax) return null;
+    const durationSec = parseFloat(ariaValuemax);
     if (!isNaN(durationSec)) {
       const durationMs = secondsToMilliseconds(durationSec);
       logger.debug("嘗試通過持續時間查找", { durationMs });
@@ -362,7 +369,7 @@ export function getDownloadUrlForElement(
 
         return {
           downloadUrl: item.downloadUrl,
-          lastModified: item.lastModified,
+          lastModified: item.lastModified || null,
         };
       }
     }

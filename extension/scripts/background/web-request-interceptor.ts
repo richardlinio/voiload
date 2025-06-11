@@ -12,11 +12,40 @@ import {
   SUPPORTED_SITES,
   TIME_CONSTANTS,
 } from "../utils/constants";
+import { type VoiceMessageStore } from "./data-store";
+
+// ================================================
+// 類型定義
+// ================================================
+
+/**
+ * 請求 Metadata 介面
+ */
+interface RequestMetadata {
+  contentDisposition: string;
+  contentType: string;
+  contentLength: string;
+  lastModified: string;
+}
+
+/**
+ * 音訊時長訊息介面
+ */
+interface AudioDurationMessage {
+  action: string;
+  url: string;
+  metadata: {
+    contentType?: string;
+    contentLength?: string;
+    lastModified?: string;
+  };
+  timestamp: number;
+}
 
 const logger = Logger.createModuleLogger(MODULE_NAMES.WEB_REQUEST);
 
 // 使用 Set 結構來儲存已處理過的 URL
-let processedUrls = new Set();
+let processedUrls = new Set<string>();
 
 // ================================================
 // 公開函數
@@ -24,9 +53,11 @@ let processedUrls = new Set();
 
 /**
  * 初始化 webRequest 攔截器
- * @param {Object} voiceMessages - 語音訊息資料存儲
+ * @param voiceMessages - 語音訊息資料存儲
  */
-export function initWebRequestInterceptor(voiceMessages) {
+export function initWebRequestInterceptor(
+  voiceMessages: VoiceMessageStore
+): void {
   try {
     logger.debug("初始化 webRequest 攔截器");
 
@@ -45,7 +76,7 @@ export function initWebRequestInterceptor(voiceMessages) {
     logger.info("webRequest 攔截器已初始化", {
       patterns: VOICE_MESSAGE_URL_PATTERNS,
     });
-  } catch (error) {
+  } catch (error: any) {
     logger.error("初始化 webRequest 攔截器時發生錯誤", {
       error: error.message,
       stack: error.stack,
@@ -61,18 +92,18 @@ export function initWebRequestInterceptor(voiceMessages) {
  * 設置網路請求監聽器
  * @param {Object} voiceMessages - 語音訊息資料存儲
  */
-function setupWebRequestListeners(voiceMessages) {
+function setupWebRequestListeners(voiceMessages: VoiceMessageStore) {
   // 監聽已接收標頭的請求 - 主要用於早期識別
   chrome.webRequest.onHeadersReceived.addListener(
     (details) => handleRequest(voiceMessages, details),
-    { urls: VOICE_MESSAGE_URL_PATTERNS },
+    { urls: [...VOICE_MESSAGE_URL_PATTERNS] },
     ["responseHeaders"]
   );
 
   // 監聽完成的請求 - 確保所有數據都已接收
   chrome.webRequest.onCompleted.addListener(
     (details) => handleRequest(voiceMessages, details),
-    { urls: VOICE_MESSAGE_URL_PATTERNS },
+    { urls: [...VOICE_MESSAGE_URL_PATTERNS] },
     ["responseHeaders"]
   );
 }
@@ -99,7 +130,10 @@ function setupPeriodicUrlCacheCleanup() {
  * @param {Object} voiceMessages - 語音訊息資料存儲
  * @param {Object} details - 請求詳情
  */
-function handleRequest(voiceMessages, details) {
+function handleRequest(
+  voiceMessages: VoiceMessageStore,
+  details: chrome.webRequest.WebResponseHeadersDetails
+) {
   try {
     const { url, method, statusCode, responseHeaders } = details;
 
@@ -140,7 +174,7 @@ function handleRequest(voiceMessages, details) {
       },
       timestamp: Date.now(),
     });
-  } catch (error) {
+  } catch (error: any) {
     logger.error("處理請求時發生錯誤", {
       error: error.message,
       stack: error.stack,
@@ -152,7 +186,7 @@ function handleRequest(voiceMessages, details) {
  * 將 URL 標記為已處理
  * @param {string} url - 要標記的 URL
  */
-function markUrlAsProcessed(url) {
+function markUrlAsProcessed(url: string) {
   processedUrls.add(url);
   logger.debug("URL 已標記為已處理", {
     url: url.substring(0, 50) + "...",
@@ -169,12 +203,14 @@ function markUrlAsProcessed(url) {
  * @param {Array} responseHeaders - 回應標頭陣列
  * @returns {Object} - 提取 metadata
  */
-function getMetadata(responseHeaders) {
+function getMetadata(
+  responseHeaders: chrome.webRequest.HttpHeader[] | undefined
+) {
   const metadata = {
-    contentDisposition: null,
-    contentType: null,
-    contentLength: null,
-    lastModified: null,
+    contentDisposition: "",
+    contentType: "",
+    contentLength: "",
+    lastModified: "",
   };
 
   if (!responseHeaders) return metadata;
@@ -186,16 +222,16 @@ function getMetadata(responseHeaders) {
 
     switch (headerName) {
       case "content-disposition":
-        metadata.contentDisposition = headerValue;
+        metadata.contentDisposition = headerValue || "";
         break;
       case "content-type":
-        metadata.contentType = headerValue;
+        metadata.contentType = headerValue || "";
         break;
       case "content-length":
-        metadata.contentLength = headerValue;
+        metadata.contentLength = headerValue || "";
         break;
       case "last-modified":
-        metadata.lastModified = headerValue;
+        metadata.lastModified = headerValue || "";
         break;
     }
   }
@@ -210,22 +246,24 @@ function getMetadata(responseHeaders) {
  * 向所有標籤頁廣播訊息
  * @param {Object} message - 要發送的訊息
  */
-function broadcastToContentScripts(message) {
-  chrome.tabs.query({ url: SUPPORTED_SITES.PATTERNS }, (tabs) => {
+function broadcastToContentScripts(message: any) {
+  chrome.tabs.query({ url: [...SUPPORTED_SITES.PATTERNS] }, (tabs) => {
     logger.debug(`向 ${tabs.length} 個標籤頁廣播訊息`, { message });
 
     for (const tab of tabs) {
-      chrome.tabs.sendMessage(tab.id, message, (response) => {
-        if (chrome.runtime.lastError) {
-          logger.debug(`向標籤頁 ${tab.id} 發送訊息失敗`, {
-            error: chrome.runtime.lastError.message,
-          });
-        } else if (response && response.success) {
-          logger.debug(`標籤頁 ${tab.id} 已接收訊息`, {
-            responseData: response,
-          });
-        }
-      });
+      if (tab.id) {
+        chrome.tabs.sendMessage(tab.id, message, (response) => {
+          if (chrome.runtime.lastError) {
+            logger.debug(`向標籤頁 ${tab.id} 發送訊息失敗`, {
+              error: chrome.runtime.lastError.message,
+            });
+          } else if (response && response.success) {
+            logger.debug(`標籤頁 ${tab.id} 已接收訊息`, {
+              responseData: response,
+            });
+          }
+        });
+      }
     }
   });
 }

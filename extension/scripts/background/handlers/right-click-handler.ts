@@ -110,8 +110,8 @@ export function handleRightClick(
       elementId,
       downloadUrl: null,
       lastModified: null,
-      tabId: sender.tab?.id,
-      durationMs: durationMs,
+      tabId: sender.tab?.id || undefined,
+      durationMs: durationMs || undefined,
     });
 
     sendResponse({
@@ -135,9 +135,9 @@ export function handleRightClick(
   setLastRightClickedInfo({
     elementId,
     downloadUrl: finalDownloadUrl,
-    lastModified: finalLastModified,
-    tabId: sender.tab?.id,
-    durationMs: durationMs,
+    lastModified: finalLastModified || null,
+    tabId: sender.tab?.id || undefined,
+    durationMs: durationMs || undefined,
   });
 
   // 回應內容腳本
