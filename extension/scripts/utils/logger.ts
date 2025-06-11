@@ -3,8 +3,9 @@
  * 提供擴充功能的統一日誌記錄系統
  */
 
-import { LOG_LEVELS, type LogLevel, type ModuleName } from "./constants";
 import type { LoggerConfig, ModuleLogger } from "../types/utils";
+
+import { LOG_LEVELS, type LogLevel, type ModuleName } from "./constants";
 
 // 預設配置
 let config: LoggerConfig = {
@@ -200,10 +201,14 @@ export const Logger = {
   setModuleLevel,
 
   // 全局日誌方法
-  debug: (message: string, data?: any) => log("DEBUG", LOG_LEVELS.DEBUG, null, message, data),
-  info: (message: string, data?: any) => log("INFO", LOG_LEVELS.INFO, null, message, data),
-  warn: (message: string, data?: any) => log("WARN", LOG_LEVELS.WARN, null, message, data),
-  error: (message: string, data?: any) => log("ERROR", LOG_LEVELS.ERROR, null, message, data),
+  debug: (message: string, data?: any) =>
+    log("DEBUG", LOG_LEVELS.DEBUG, null, message, data),
+  info: (message: string, data?: any) =>
+    log("INFO", LOG_LEVELS.INFO, null, message, data),
+  warn: (message: string, data?: any) =>
+    log("WARN", LOG_LEVELS.WARN, null, message, data),
+  error: (message: string, data?: any) =>
+    log("ERROR", LOG_LEVELS.ERROR, null, message, data),
 };
 
 // 為了方便使用，提供預設導出

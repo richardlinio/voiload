@@ -24,7 +24,7 @@ export function initDownloadManager(): void {
   chrome.contextMenus.onClicked.addListener(
     (
       info: chrome.contextMenus.OnClickData,
-      tab: chrome.tabs.Tab | undefined
+      _tab: chrome.tabs.Tab | undefined
     ) => {
       logger.debug("右鍵選單點擊", {
         menuItemId: info.menuItemId,

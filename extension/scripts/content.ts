@@ -71,7 +71,7 @@ if (!isSupportedSite) {
   // 設置訊息監聽器，處理腳本與背景腳本的通訊
   window.addEventListener("message", function (event: MessageEvent) {
     // 確保訊息來自同一個頁面
-    if (event.source !== window) return;
+    if (event.source !== window) {return;}
 
     // 處理來自頁面上下文的訊息
     if (event.data.type && event.data.type === MESSAGE_SOURCES.PAGE_CONTEXT) {
@@ -88,8 +88,8 @@ if (!isSupportedSite) {
   // 將來自背景腳本的訊息轉發到頁面上下文
   const messageListener: RuntimeMessageListener = function (
     message: any,
-    sender: chrome.runtime.MessageSender,
-    sendResponse: (response?: any) => void
+    _sender: chrome.runtime.MessageSender,
+    _sendResponse: (response?: any) => void
   ): boolean {
     logger.debug("收到背景腳本訊息", { message });
 

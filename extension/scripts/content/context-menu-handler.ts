@@ -3,14 +3,15 @@
  * 負責處理右鍵選單事件
  */
 
+import { secondsToMilliseconds } from "../utils/time-utils";
+import { Logger } from "../utils/logger";
+import { MESSAGE_ACTIONS, MODULE_NAMES } from "../utils/constants";
+
 import {
   findVoiceMessageElement,
   getDurationFromSlider,
   type VoiceMessageElementResult,
 } from "./dom-utils";
-import { secondsToMilliseconds } from "../utils/time-utils";
-import { Logger } from "../utils/logger";
-import { MESSAGE_ACTIONS, MODULE_NAMES } from "../utils/constants";
 
 // ================================================
 // 類型定義

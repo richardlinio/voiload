@@ -4,7 +4,6 @@
  */
 
 import { Logger } from "../scripts/utils/logger";
-import { MODULE_NAMES } from "../scripts/utils/constants";
 
 // ================================================
 // 類型定義
