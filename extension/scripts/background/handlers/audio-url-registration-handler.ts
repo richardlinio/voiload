@@ -26,7 +26,7 @@ const logger = Logger.createModuleLogger(
 export function handleAudioUrlRegistration(
   voiceMessagesStore: VoiceMessageStore,
   message: AudioUrlRegistrationMessage,
-  sender: chrome.runtime.MessageSender,
+  _sender: chrome.runtime.MessageSender,
   sendResponse: (response?: any) => void
 ): boolean {
   // 取得基本資訊

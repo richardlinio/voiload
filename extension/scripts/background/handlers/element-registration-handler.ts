@@ -5,7 +5,7 @@
 
 import { Logger } from "../../utils/logger";
 import { MODULE_NAMES } from "../../utils/constants";
-import { type VoiceMessageStore } from "../data-store";
+import { type VoiceMessageStore, type VoiceMessageItem } from "../data-store";
 import type { ElementRegistrationMessage } from "../../types/messages";
 
 // 創建模組特定的日誌記錄器
@@ -15,24 +15,17 @@ const logger = Logger.createModuleLogger(
 
 /**
  * 處理語音訊息元素註冊訊息
- *
- * @param {Object} voiceMessagesStore - 語音訊息資料存儲
- * @param {Object} message - 訊息物件
- * @param {Object} sender - 發送者資訊
- * @param {Function} sendResponse - 回應函數
- * @returns {boolean} - 是否需要保持連接開啟
  */
 export function handleElementRegistration(
   voiceMessagesStore: VoiceMessageStore,
-  message: any,
-  sender: chrome.runtime.MessageSender,
+  message: ElementRegistrationMessage,
+  _sender: chrome.runtime.MessageSender,
   sendResponse: (response?: any) => void
-) {
+): boolean {
   const { elementId, durationMs } = message;
   logger.debug("處理語音訊息元素註冊訊息", {
     elementId,
     durationMs,
-    tabId: sender.tab?.id,
   });
 
   if (!elementId || !durationMs || !voiceMessagesStore) {
@@ -70,7 +63,7 @@ export function handleElementRegistration(
 
       // 通知內容腳本更新 UI
       notifyContentScriptToUpdateUI(
-        sender.tab?.id,
+        _sender.tab?.id,
         elementId,
         matchingItem.downloadUrl
       );
@@ -97,18 +90,12 @@ export function handleElementRegistration(
 
 /**
  * 查找匹配的待處理項目
- *
- * @param {Object} voiceMessagesStore - 語音訊息資料存儲
- * @param {string} elementId - 當前元素 ID
- * @param {number} durationMs - 持續時間（毫秒）
- * @returns {Object|null} - 匹配的項目或 null
- * @private
  */
 function findMatchingPendingItem(
   voiceMessagesStore: VoiceMessageStore,
   elementId: string,
   durationMs: number
-) {
+): VoiceMessageItem | null {
   // 使用容差值尋找匹配的項目
   const tolerance = 5; // 容差值（毫秒）
 
