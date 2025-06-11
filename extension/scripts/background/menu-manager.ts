@@ -1,5 +1,5 @@
 /**
- * menu-manager.js
+ * menu-manager.ts
  * 負責管理右鍵選單
  */
 import { UI_CONSTANTS } from "../utils/constants";
@@ -11,7 +11,7 @@ const logger = Logger.createModuleLogger("menu-manager");
 /**
  * 初始化右鍵選單
  */
-export function initMenuManager() {
+export function initMenuManager(): void {
   logger.info("初始化右鍵選單管理器");
 
   // 創建右鍵選單項目
@@ -50,10 +50,13 @@ export function initMenuManager() {
 /**
  * 處理右鍵選單點擊事件
  *
- * @param {Object} info - 選單資訊
- * @param {chrome.tabs.Tab} tab - 標籤頁資訊
+ * @param info - 選單資訊
+ * @param tab - 標籤頁資訊
  */
-function handleMenuClick(info, tab) {
+function handleMenuClick(
+  info: chrome.contextMenus.OnClickData,
+  tab: chrome.tabs.Tab | undefined
+): void {
   logger.debug("右鍵選單點擊詳細資訊", {
     menuItemId: info.menuItemId,
     frameId: info.frameId,

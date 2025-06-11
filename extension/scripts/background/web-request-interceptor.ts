@@ -1,5 +1,5 @@
 /**
- * web-request-interceptor.js
+ * web-request-interceptor.ts
  * 使用 Chrome 的 webRequest API 監控網路請求，用於攔截語音訊息的下載 URL
  */
 

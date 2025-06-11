@@ -14,7 +14,10 @@
       "Bash(node:*)",
       "Bash(pnpm add:*)",
       "Bash(npx jest:*)",
-      "Bash(pnpm type-check:*)"
+      "Bash(pnpm type-check:*)",
+      "Bash(mv:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(npx tsc:*)"
     ],
     "deny": []
   }

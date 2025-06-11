@@ -1,10 +1,24 @@
 /**
- * audio-url-registration-handler.js
+ * audio-url-registration-handler.ts
  * 處理 Audio URL 註冊相關的訊息
  */
 
-import Logger from "../../utils/logger";
+import { Logger } from "../../utils/logger";
 import { MODULE_NAMES } from "../../utils/constants";
+import { type VoiceMessageStore } from "../data-store";
+
+// ================================================
+// 類型定義
+// ================================================
+
+/**
+ * Audio URL 註冊訊息介面
+ */
+interface AudioUrlRegistrationMessage {
+  audioUrl: string;
+  durationMs: number;
+  timestamp: string;
+}
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(
@@ -15,18 +29,18 @@ const logger = Logger.createModuleLogger(
  * 處理 Audio URL 註冊訊息
  * 將 Audio URL 與其持續時間一起存儲到 voiceMessagesStore 中
  *
- * @param {Object} voiceMessagesStore - 語音訊息資料存儲
- * @param {Object} message - 訊息物件，包含 url, durationMs 等資訊
- * @param {Object} sender - 發送者資訊
- * @param {Function} sendResponse - 回應函數
- * @returns {boolean} - 是否需要保持連接開啟
+ * @param voiceMessagesStore - 語音訊息資料存儲
+ * @param message - 訊息物件，包含 url, durationMs 等資訊
+ * @param sender - 發送者資訊
+ * @param sendResponse - 回應函數
+ * @returns 是否需要保持連接開啟
  */
 export function handleAudioUrlRegistration(
-  voiceMessagesStore,
-  message,
-  sender,
-  sendResponse
-) {
+  voiceMessagesStore: VoiceMessageStore,
+  message: AudioUrlRegistrationMessage,
+  sender: chrome.runtime.MessageSender,
+  sendResponse: (response?: any) => void
+): boolean {
   // 取得基本資訊
   const { audioUrl, durationMs, timestamp } = message;
 
@@ -58,11 +72,7 @@ export function handleAudioUrlRegistration(
 
   try {
     // 使用 registerDownloadUrl 函數將 Audio URL 註冊到 voiceMessagesStore
-    const id = voiceMessagesStore.registerDownloadUrl(
-      voiceMessagesStore,
-      durationMs,
-      audioUrl
-    );
+    const id = voiceMessagesStore.registerDownloadUrl(durationMs, audioUrl);
 
     logger.info(`成功註冊 Audio URL，ID: ${id}，持續時間: ${durationMs}ms`);
 
