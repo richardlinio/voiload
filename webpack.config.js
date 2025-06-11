@@ -9,7 +9,7 @@ module.exports = {
     "scripts/background": "./extension/scripts/background.js",
 
     // 內容腳本
-    "scripts/content": "./extension/scripts/content.js",
+    "scripts/content": "./extension/scripts/content.ts",
 
     // 頁面上下文腳本 (由內容腳本動態載入)
     "scripts/page-context": "./extension/scripts/page-context.js",
