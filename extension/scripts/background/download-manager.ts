@@ -1,5 +1,5 @@
 /**
- * download-manager.js
+ * download-manager.ts
  * 負責處理下載功能
  */
 
@@ -10,47 +10,76 @@ import { DOWNLOAD_CONSTANTS } from "../utils/constants";
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger("download-manager");
 
+// ================================================
+// 類型定義
+// ================================================
+
+/**
+ * 右鍵點擊資訊介面
+ */
+interface RightClickInfo {
+  elementId: string | null;
+  downloadUrl: string | null;
+  lastModified?: string | null;
+  tabId?: number;
+}
+
+/**
+ * 下載訊息介面
+ */
+interface DownloadMessage {
+  base64data: string;
+  blobType: string;
+  requestId?: string;
+  timestamp?: string;
+}
+
 // 儲存最後一次右鍵點擊的資訊
-let lastRightClickedInfo = null;
+let lastRightClickedInfo: RightClickInfo | null = null;
 
 /**
  * 初始化下載管理器
  */
-export function initDownloadManager() {
+export function initDownloadManager(): void {
   logger.info("初始化下載管理器");
 
   // 監聽右鍵選單點擊事件
-  chrome.contextMenus.onClicked.addListener((info, tab) => {
-    logger.debug("右鍵選單點擊", {
-      menuItemId: info.menuItemId,
-      hasLastRightClickedInfo: !!lastRightClickedInfo,
-    });
+  chrome.contextMenus.onClicked.addListener(
+    (
+      info: chrome.contextMenus.OnClickData,
+      tab: chrome.tabs.Tab | undefined
+    ) => {
+      logger.debug("右鍵選單點擊", {
+        menuItemId: info.menuItemId,
+        hasLastRightClickedInfo: !!lastRightClickedInfo,
+      });
 
-    if (info.menuItemId === "downloadVoiceMessage") {
-      if (lastRightClickedInfo) {
-        logger.info("開始下載語音訊息", {
-          url: lastRightClickedInfo.downloadUrl
-            ? lastRightClickedInfo.downloadUrl.substring(0, 50) + "..."
-            : null,
-          lastModified: lastRightClickedInfo.lastModified,
-        });
-        downloadVoiceMessage(
-          lastRightClickedInfo.downloadUrl,
-          lastRightClickedInfo.lastModified
-        );
-      } else {
-        logger.error("無法下載，沒有右鍵點擊資訊");
+      if (info.menuItemId === "downloadVoiceMessage") {
+        if (lastRightClickedInfo) {
+          logger.info("開始下載語音訊息", {
+            url: lastRightClickedInfo.downloadUrl
+              ? lastRightClickedInfo.downloadUrl.substring(0, 50) + "..."
+              : null,
+            lastModified: lastRightClickedInfo.lastModified,
+          });
+          downloadVoiceMessage(
+            lastRightClickedInfo.downloadUrl,
+            lastRightClickedInfo.lastModified
+          );
+        } else {
+          logger.error("無法下載，沒有右鍵點擊資訊");
+        }
       }
     }
-  });
+  );
 }
 
 /**
  * 設置最後一次右鍵點擊的資訊
  *
- * @param {Object} info - 右鍵點擊資訊
+ * @param info - 右鍵點擊資訊
  */
-export function setLastRightClickedInfo(info) {
+export function setLastRightClickedInfo(info: RightClickInfo): void {
   lastRightClickedInfo = info;
 
   logger.debug("設置最後一次右鍵點擊的資訊", {
@@ -66,10 +95,10 @@ export function setLastRightClickedInfo(info) {
 /**
  * 下載語音訊息
  *
- * @param {string} url - 下載 URL
- * @param {string} [lastModified] - Last-Modified 標頭值
+ * @param url - 下載 URL
+ * @param lastModified - Last-Modified 標頭值
  */
-export function downloadVoiceMessage(url, lastModified) {
+export function downloadVoiceMessage(url: string, lastModified?: string): void {
   logger.debug("下載語音訊息函數被調用");
 
   if (!url) {
@@ -107,11 +136,15 @@ export function downloadVoiceMessage(url, lastModified) {
 /**
  * 處理 blob 內容下載訊息
  *
- * @param {Object} message - 訊息物件
- * @param {Object} sender - 發送者資訊
- * @param {Function} sendResponse - 回應函數
+ * @param message - 訊息物件
+ * @param sender - 發送者資訊
+ * @param sendResponse - 回應函數
  */
-export function downloadBlobContent(message, sender, sendResponse) {
+export function downloadBlobContent(
+  message: DownloadMessage,
+  sender: chrome.runtime.MessageSender,
+  sendResponse: (response?: any) => void
+): void {
   try {
     logger.debug("處理 blob 內容下載訊息", {
       blobType: message.blobType,

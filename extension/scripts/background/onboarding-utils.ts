@@ -1,19 +1,33 @@
 /**
- * onboarding-utils.js
+ * onboarding-utils.ts
  * 提供 onboarding 相關的輔助功能
  */
 
 import { Logger } from "../utils/logger";
 import { MODULE_NAMES } from "../utils/constants";
 
+// ================================================
+// 類型定義
+// ================================================
+
+/**
+ * Onboarding 狀態介面
+ */
+export interface OnboardingStatus {
+  completed: boolean;
+  shown: boolean;
+  installTime: number | null;
+  completedAt: number | null;
+}
+
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger("onboarding-utils");
 
 /**
  * 檢查 onboarding 狀態
- * @returns {Promise<Object>} 包含 onboarding 狀態的物件
+ * @returns 包含 onboarding 狀態的物件
  */
-export async function checkOnboardingStatus() {
+export async function checkOnboardingStatus(): Promise<OnboardingStatus> {
   try {
     const result = await chrome.storage.local.get([
       "onboardingCompleted",
@@ -22,7 +36,7 @@ export async function checkOnboardingStatus() {
       "completedAt",
     ]);
 
-    const status = {
+    const status: OnboardingStatus = {
       completed: result.onboardingCompleted || false,
       shown: result.onboardingShown || false,
       installTime: result.installTime || null,
@@ -38,15 +52,14 @@ export async function checkOnboardingStatus() {
       shown: false,
       installTime: null,
       completedAt: null,
-    };
+    } as OnboardingStatus;
   }
 }
 
 /**
  * 重置 onboarding 狀態（用於測試）
- * @returns {Promise<void>}
  */
-export async function resetOnboarding() {
+export async function resetOnboarding(): Promise<void> {
   try {
     await chrome.storage.local.remove([
       "onboardingCompleted",
@@ -62,9 +75,8 @@ export async function resetOnboarding() {
 
 /**
  * 標記 onboarding 已顯示
- * @returns {Promise<void>}
  */
-export async function markOnboardingShown() {
+export async function markOnboardingShown(): Promise<void> {
   try {
     await chrome.storage.local.set({
       onboardingShown: true,
@@ -78,9 +90,8 @@ export async function markOnboardingShown() {
 
 /**
  * 標記 onboarding 已完成
- * @returns {Promise<void>}
  */
-export async function markOnboardingCompleted() {
+export async function markOnboardingCompleted(): Promise<void> {
   try {
     await chrome.storage.local.set({
       onboardingCompleted: true,
@@ -94,9 +105,8 @@ export async function markOnboardingCompleted() {
 
 /**
  * 判斷是否應該顯示 onboarding
- * @returns {Promise<boolean>}
  */
-export async function shouldShowOnboarding() {
+export async function shouldShowOnboarding(): Promise<boolean> {
   const status = await checkOnboardingStatus();
 
   // 如果已完成，不再顯示

@@ -1,10 +1,23 @@
 /**
- * element-registration-handler.js
+ * element-registration-handler.ts
  * 處理語音訊息元素註冊相關的訊息
  */
 
-import Logger from "../../utils/logger";
+import { Logger } from "../../utils/logger";
 import { MODULE_NAMES } from "../../utils/constants";
+import { type VoiceMessageStore } from "../data-store";
+
+// ================================================
+// 類型定義
+// ================================================
+
+/**
+ * 元素註冊訊息介面
+ */
+interface ElementRegistrationMessage {
+  elementId: string;
+  durationMs: number;
+}
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(

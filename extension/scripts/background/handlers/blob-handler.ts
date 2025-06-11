@@ -1,10 +1,51 @@
 /**
- * blob-handler.js
+ * blob-handler.ts
  * 處理 Blob 相關的訊息
  */
 
-import Logger from "../../utils/logger";
+import { Logger } from "../../utils/logger";
 import { MODULE_NAMES } from "../../utils/constants";
+import { type VoiceMessageStore } from "../data-store";
+
+// ================================================
+// 類型定義
+// ================================================
+
+/**
+ * Blob URL 註冊訊息介面
+ */
+interface BlobUrlMessage {
+  blobUrl: string;
+  blobType?: string;
+  blobSize?: number;
+  durationMs: number;
+  timestamp: string;
+}
+
+/**
+ * Blob 內容訊息介面
+ */
+interface BlobContentMessage {
+  blobUrl: string;
+  blobType: string;
+  base64data: string;
+  requestId?: string;
+  timestamp?: string;
+}
+
+/**
+ * Blob 偵測訊息介面
+ */
+interface BlobDetectionMessage {
+  url: string;
+  type: string;
+  size?: number;
+  timestamp: string;
+  blobUrl?: string;
+  blobType?: string;
+  blobSize?: number;
+  error?: string;
+}
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(MODULE_NAMES.BLOB_HANDLER);
@@ -20,11 +61,11 @@ const logger = Logger.createModuleLogger(MODULE_NAMES.BLOB_HANDLER);
  * @returns {boolean} - 是否需要保持連接開啟
  */
 export function handleBlobUrl(
-  voiceMessagesStore,
-  message,
-  sender,
-  sendResponse
-) {
+  voiceMessagesStore: VoiceMessageStore,
+  message: BlobUrlMessage,
+  sender: chrome.runtime.MessageSender,
+  sendResponse: (response?: any) => void
+): boolean {
   // 取得基本資訊
   const { blobUrl, blobType, blobSize, durationMs, timestamp } = message;
   const urlFeatures = blobUrl ? blobUrl.substring(0, 30) + "..." : null;
@@ -60,7 +101,6 @@ export function handleBlobUrl(
   try {
     // 使用 registerDownloadUrl 函數將 Blob URL 註冊到 voiceMessagesStore
     const id = voiceMessagesStore.registerDownloadUrl(
-      voiceMessagesStore,
       durationMs,
       blobUrl,
       null, // 沒有 lastModified 資訊
@@ -80,7 +120,7 @@ export function handleBlobUrl(
       message: "成功註冊 Blob URL",
       id: id,
     });
-  } catch (error) {
+  } catch (error: any) {
     logger.error("註冊 Blob URL 時發生錯誤", {
       error: error.message,
       stack: error.stack,
@@ -103,7 +143,11 @@ export function handleBlobUrl(
  * @param {Function} sendResponse - 回應函數
  * @returns {boolean} - 是否需要保持連接開啟
  */
-export function handleBlobDetection(message, sender, sendResponse) {
+export function handleBlobDetection(
+  message: BlobDetectionMessage,
+  sender: chrome.runtime.MessageSender,
+  sendResponse: (response?: any) => void
+): boolean {
   logger.debug("處理 Blob URL 偵測訊息", {
     blobUrl: message.blobUrl ? message.blobUrl.substring(0, 30) + "..." : null,
     blobType: message.blobType,
@@ -136,7 +180,11 @@ export function handleBlobDetection(message, sender, sendResponse) {
  * @param {Function} sendResponse - 回應函數
  * @returns {boolean} - 是否需要保持連接開啟
  */
-export function handleBlobContent(message, sender, sendResponse) {
+export function handleBlobContent(
+  message: BlobContentMessage,
+  sender: chrome.runtime.MessageSender,
+  sendResponse: (response?: any) => void
+): boolean {
   try {
     logger.debug("處理 blob 內容下載訊息", {
       blobType: message.blobType,
@@ -209,7 +257,7 @@ export function handleBlobContent(message, sender, sendResponse) {
         });
       }
     );
-  } catch (error) {
+  } catch (error: any) {
     logger.error("處理 blob 內容下載時發生錯誤", {
       error: error.message,
       stack: error.stack,
@@ -227,7 +275,7 @@ export function handleBlobContent(message, sender, sendResponse) {
  * @returns {string} - 檔案副檔名（包含點號）
  * @private
  */
-function getFileExtensionForMimeType(mimeType) {
+function getFileExtensionForMimeType(mimeType: string): string {
   if (mimeType.includes("audio/mpeg") || mimeType.includes("audio/mp3")) {
     return ".mp3";
   } else if (mimeType.includes("audio/mp4") || mimeType.includes("video/mp4")) {

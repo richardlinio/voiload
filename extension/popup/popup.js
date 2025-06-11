@@ -3,7 +3,7 @@
  * 處理擴充功能彈出視窗的邏輯
  */
 
-import { checkOnboardingStatus } from "../scripts/background/onboarding-utils.js";
+import { checkOnboardingStatus } from "../scripts/background/onboarding-utils";
 import { Logger } from "../scripts/utils/logger";
 
 // 創建模組特定的日誌記錄器

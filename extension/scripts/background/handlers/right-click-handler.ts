@@ -1,11 +1,26 @@
 /**
- * right-click-handler.js
+ * right-click-handler.ts
  * 處理右鍵點擊相關的訊息
  */
 
-import { setLastRightClickedInfo } from "../download-manager.js";
-import Logger from "../../utils/logger";
+import { setLastRightClickedInfo } from "../download-manager";
+import { Logger } from "../../utils/logger";
 import { MODULE_NAMES } from "../../utils/constants";
+import { type VoiceMessageStore, type VoiceMessageItem } from "../data-store";
+
+// ================================================
+// 類型定義
+// ================================================
+
+/**
+ * 右鍵點擊訊息介面
+ */
+interface RightClickMessage {
+  elementId: string | null;
+  downloadUrl: string | null;
+  lastModified?: string | null;
+  durationMs?: number;
+}
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(MODULE_NAMES.RIGHT_CLICK_HANDLER);
@@ -13,18 +28,18 @@ const logger = Logger.createModuleLogger(MODULE_NAMES.RIGHT_CLICK_HANDLER);
 /**
  * 處理右鍵點擊訊息
  *
- * @param {Object} voiceMessagesStore - 語音訊息資料存儲
- * @param {Object} message - 訊息物件
- * @param {Object} sender - 發送者資訊
- * @param {Function} sendResponse - 回應函數
- * @returns {boolean} - 是否需要保持連接開啟
+ * @param voiceMessagesStore - 語音訊息資料存儲
+ * @param message - 訊息物件
+ * @param sender - 發送者資訊
+ * @param sendResponse - 回應函數
+ * @returns 是否需要保持連接開啟
  */
 export function handleRightClick(
-  voiceMessagesStore,
-  message,
-  sender,
-  sendResponse
-) {
+  voiceMessagesStore: VoiceMessageStore,
+  message: RightClickMessage,
+  sender: chrome.runtime.MessageSender,
+  sendResponse: (response?: any) => void
+): boolean {
   const { elementId, downloadUrl, lastModified, durationMs } = message;
   logger.debug("處理右鍵點擊訊息詳細資訊", {
     elementId,
@@ -140,20 +155,19 @@ export function handleRightClick(
 /**
  * 根據持續時間查找匹配的項目
  *
- * @param {Object} voiceMessagesStore - 語音訊息資料存儲
- * @param {number} durationMs - 目標持續時間（毫秒）
- * @returns {Object|null} - 匹配的項目或 null
- * @private
+ * @param voiceMessagesStore - 語音訊息資料存儲
+ * @param durationMs - 目標持續時間（毫秒）
+ * @returns 匹配的項目或 null
  */
-function findItemByDuration(voiceMessagesStore, durationMs) {
+function findItemByDuration(
+  voiceMessagesStore: VoiceMessageStore,
+  durationMs: number
+): VoiceMessageItem | null {
   // 方法 1: 使用 findItemByDuration 函數
   let matchingItem = null;
   if (typeof voiceMessagesStore.findItemByDuration === "function") {
     logger.debug("使用 findItemByDuration 函數查找");
-    matchingItem = voiceMessagesStore.findItemByDuration(
-      voiceMessagesStore,
-      durationMs
-    );
+    matchingItem = voiceMessagesStore.findItemByDuration(durationMs);
     logger.debug("findItemByDuration 結果", {
       found: !!matchingItem,
     });
@@ -230,10 +244,9 @@ function findItemByDuration(voiceMessagesStore, durationMs) {
 /**
  * 輸出所有項目的持續時間和下載 URL 狀態，用於調試
  *
- * @param {Object} voiceMessagesStore - 語音訊息資料存儲
- * @private
+ * @param voiceMessagesStore - 語音訊息資料存儲
  */
-function logStoreItems(voiceMessagesStore) {
+function logStoreItems(voiceMessagesStore: VoiceMessageStore): void {
   logger.debug("所有項目的持續時間和下載 URL 狀態");
   for (const [id, item] of voiceMessagesStore.items.entries()) {
     logger.debug(`項目狀態`, {
@@ -248,10 +261,9 @@ function logStoreItems(voiceMessagesStore) {
 /**
  * 輸出所有項目的持續時間以進行比較
  *
- * @param {Object} voiceMessagesStore - 語音訊息資料存儲
- * @private
+ * @param voiceMessagesStore - 語音訊息資料存儲
  */
-function logAllDurations(voiceMessagesStore) {
+function logAllDurations(voiceMessagesStore: VoiceMessageStore): void {
   // 輸出資料存儲的狀態以協助調試
   logger.debug("資料存儲中的項目數量", {
     itemsCount: voiceMessagesStore.items.size,
