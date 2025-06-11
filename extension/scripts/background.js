@@ -4,11 +4,11 @@
  */
 
 // 使用 import 語句
-import { initMenuManager } from "./background/menu-manager.js";
-import { initDownloadManager } from "./background/download-manager.js";
-import { initMessageHandler } from "./background/message-handler.js";
-import { initWebRequestInterceptor } from "./background/web-request-interceptor.js";
-import { createDataStore, cleanupOldItems } from "./background/data-store.js";
+import { initMenuManager } from "./background/menu-manager";
+import { initDownloadManager } from "./background/download-manager";
+import { initMessageHandler } from "./background/message-handler";
+import { initWebRequestInterceptor } from "./background/web-request-interceptor";
+import { createDataStore, cleanupOldItems } from "./background/data-store";
 import { Logger } from "./utils/logger";
 import {
   UI_CONSTANTS,
@@ -18,7 +18,7 @@ import {
 import {
   checkOnboardingStatus,
   markOnboardingShown,
-} from "./background/onboarding-utils.js";
+} from "./background/onboarding-utils";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(MODULE_NAMES.BACKGROUND);
