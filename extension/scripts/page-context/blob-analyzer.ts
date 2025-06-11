@@ -1,11 +1,10 @@
 /**
- * blob-analyzer.js
+ * blob-analyzer.ts
  * 負責處理音檔分析相關功能，包含持續時間計算和音訊資料處理
  */
 
 import { Logger } from "../utils/logger";
 import {
-  TIME_CONSTANTS,
   MODULE_NAMES,
   BLOB_MONITOR_CONSTANTS,
 } from "../utils/constants";
@@ -14,12 +13,21 @@ import {
 const logger = Logger.createModuleLogger(MODULE_NAMES.BLOB_ANALYZER);
 
 /**
+ * Blob 內容結果介面
+ */
+export interface BlobContentResult {
+  base64data: string;
+  blobType: string;
+  blobSize: number;
+}
+
+/**
  * 提取 Blob 內容並轉換為 base64 格式
  *
- * @param {string} blobUrl - blob URL
- * @returns {Promise<Object>} - 包含 base64data、blobType 和 blobSize 的對象
+ * @param blobUrl - blob URL
+ * @returns 包含 base64data、blobType 和 blobSize 的對象
  */
-export async function extractBlobContent(blobUrl) {
+export async function extractBlobContent(blobUrl: string): Promise<BlobContentResult> {
   try {
     logger.debug("開始提取 blob 內容", { blobUrl });
 
@@ -39,13 +47,17 @@ export async function extractBlobContent(blobUrl) {
     });
 
     // 將 blob 轉換為 base64
-    return new Promise((resolve, reject) => {
+    return new Promise<BlobContentResult>((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
         try {
           // 確保我們取得正確的 base64 數據
-          const base64String = reader.result;
-          const base64data = base64String.split(",")[1];
+          const result = reader.result;
+          if (typeof result !== 'string') {
+            throw new Error("FileReader 結果不是字串格式");
+          }
+          
+          const base64data = result.split(",")[1];
 
           if (!base64data) {
             throw new Error("無法取得有效的 base64 數據");
@@ -80,10 +92,10 @@ export async function extractBlobContent(blobUrl) {
  * 檢查 Blob 是否可能是音訊檔案
  * 根據多項指標評估可能性並返回信心分數
  *
- * @param {Blob} blob - 要評估的 Blob 對象
- * @returns {Object} - 包含評估結果的對象
+ * @param blob - 要評估的 Blob 對象
+ * @returns 評估結果
  */
-export function isLikelyVoiceMessageBlob(blob) {
+export function isLikelyVoiceMessageBlob(blob: Blob): boolean {
   logger.debug("評估 Blob 是否為音訊檔案", {
     blobType: blob.type,
     blobSize: blob.size,

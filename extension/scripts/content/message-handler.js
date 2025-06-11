@@ -9,8 +9,8 @@ import {
   MESSAGE_ACTIONS,
   MODULE_NAMES,
 } from "../utils/constants";
-import { handleGetAudioDurationRequest } from "../page-context/audio-analyzer.js";
-import { handleExtractBlobRequest } from "../page-context/blob-monitor.js";
+import { handleGetAudioDurationRequest } from "../page-context/audio-analyzer";
+import { handleExtractBlobRequest } from "../page-context/blob-monitor";
 
 // 創建模組特定的日誌記錄器
 const logger = Logger.createModuleLogger(MODULE_NAMES.CONTENT_MESSAGE_HANDLER);

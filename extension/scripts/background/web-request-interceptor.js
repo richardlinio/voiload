@@ -3,7 +3,7 @@
  * 使用 Chrome 的 webRequest API 監控網路請求，用於攔截語音訊息的下載 URL
  */
 
-import { isLikelyVoiceMessage } from "../page-context/audio-analyzer.js";
+import { isLikelyVoiceMessage } from "../page-context/audio-analyzer";
 import { Logger } from "../utils/logger";
 import {
   MODULE_NAMES,
