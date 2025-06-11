@@ -4,23 +4,7 @@
  */
 
 import { LOG_LEVELS, type LogLevel, type ModuleName } from "./constants";
-
-// 類型定義
-interface LoggerConfig {
-  level: LogLevel;
-  showTimestamp: boolean;
-  showLevel: boolean;
-  showModule: boolean;
-  consoleOutput: boolean;
-  moduleConfig: Record<string, LogLevel>;
-}
-
-interface ModuleLogger {
-  debug: (message: string, data?: any) => void;
-  info: (message: string, data?: any) => void;
-  warn: (message: string, data?: any) => void;
-  error: (message: string, data?: any) => void;
-}
+import type { LoggerConfig, ModuleLogger } from "../types/utils";
 
 // 預設配置
 let config: LoggerConfig = {

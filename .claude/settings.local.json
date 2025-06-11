@@ -17,7 +17,8 @@
       "Bash(pnpm type-check:*)",
       "Bash(mv:*)",
       "mcp__ide__getDiagnostics",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": []
   }

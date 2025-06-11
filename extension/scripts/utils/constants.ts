@@ -3,6 +3,8 @@
  * 定義整個擴充功能共用的常數
  */
 
+import type { LogLevel, ModuleName, AudioContentType, SuccessStatusCode, AudioFileType } from "../types/utils";
+
 // ===========================================
 // 模組名稱常數
 // ===========================================
@@ -207,11 +209,10 @@ export const DOM_CONSTANTS = {
 // 日誌相關常數
 // ===========================================
 export const LOG_LEVELS = {
-  DEBUG: 0,
-  INFO: 1,
-  WARN: 2,
-  ERROR: 3,
-  NONE: 4,
+  DEBUG: 0 as LogLevel,
+  INFO: 1 as LogLevel,
+  WARN: 2 as LogLevel,
+  ERROR: 3 as LogLevel,
 } as const;
 
 // ===========================================
@@ -238,11 +239,11 @@ export const DOWNLOAD_CONSTANTS = {
 } as const;
 
 // ===========================================
-// 類型定義
+// 類型定義 - 已遷移到 types/utils.ts，保留相容性導出
 // ===========================================
-export type ModuleName = typeof MODULE_NAMES[keyof typeof MODULE_NAMES];
+export type { LogLevel, ModuleName, AudioContentType, SuccessStatusCode, AudioFileType } from "../types/utils";
+
+// 專屬於此模組的類型
 export type MessageSource = typeof MESSAGE_SOURCES[keyof typeof MESSAGE_SOURCES];
 export type MessageAction = typeof MESSAGE_ACTIONS[keyof typeof MESSAGE_ACTIONS];
-export type LogLevel = typeof LOG_LEVELS[keyof typeof LOG_LEVELS];
-export type AudioContentType = typeof WEB_REQUEST_CONSTANTS.AUDIO_CONTENT_TYPES[number];
 export type SupportedDomain = typeof SUPPORTED_SITES.DOMAINS[number];
