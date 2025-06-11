@@ -122,7 +122,7 @@ export async function shouldShowOnboarding(): Promise<boolean> {
   // 如果已顯示但未完成，可以考慮是否要再次提醒
   // 這裡可以加入時間判斷，例如超過一週未完成就再次提醒
   const oneWeek = 7 * 24 * 60 * 60 * 1000;
-  const timeSinceInstall = Date.now() - status.installTime;
+  const timeSinceInstall = Date.now() - (status.installTime || 0);
 
   if (timeSinceInstall > oneWeek) {
     return true;

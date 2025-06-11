@@ -86,7 +86,7 @@ export function handleAudioUrlRegistration(
       message: "成功註冊 Audio URL",
       id: id,
     });
-  } catch (error) {
+  } catch (error: any) {
     logger.error("註冊 Audio URL 時發生錯誤", {
       error: error.message,
       stack: error.stack,
