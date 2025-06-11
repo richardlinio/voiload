@@ -115,3 +115,8 @@ The extension uses a multi-layer architecture:
 - Load unpacked extension from `dist/` directory for testing
 - Use Chrome Developer Tools for debugging content and background scripts
 - Monitor console logs from different contexts (page, content, background)
+
+## Claude Memory
+
+- Use traditional chinese to write comments
+- Use ripgrep (rg) when you need grep
