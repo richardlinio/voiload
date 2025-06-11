@@ -18,7 +18,8 @@
       "Bash(mv:*)",
       "mcp__ide__getDiagnostics",
       "Bash(npx tsc:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(pnpm lint:*)"
     ],
     "deny": []
   }
