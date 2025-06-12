@@ -20,7 +20,9 @@
       "Bash(npx tsc:*)",
       "Bash(mkdir:*)",
       "Bash(pnpm lint:*)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "Bash(pnpm dev:*)",
+      "Bash(pnpm webpack:*)"
     ],
     "deny": []
   }
