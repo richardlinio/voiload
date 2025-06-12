@@ -7,10 +7,16 @@ import type { LoggerConfig, ModuleLogger } from "../types/utils";
 
 import { LOG_LEVELS, type LogLevel, type ModuleName } from "./constants";
 
+// 宣告建置時注入的環境變數
+declare const __IS_PRODUCTION__: boolean;
+
+// 根據環境設定預設日誌級別
+const defaultLogLevel = __IS_PRODUCTION__ ? LOG_LEVELS.WARN : LOG_LEVELS.DEBUG;
+
 // 預設配置
 let config: LoggerConfig = {
-  // 當前日誌級別，可透過設置調整
-  level: LOG_LEVELS.DEBUG,
+  // 當前日誌級別，根據環境自動調整
+  level: defaultLogLevel,
 
   // 是否顯示時間戳
   showTimestamp: true,
