@@ -1,16 +1,16 @@
 /**
  * messages.ts
- * 所有訊息相關介面定義 - 統一的訊息類型系統
+ * All message-related interface definitions - Unified message type system
  */
 
 import type { RequestMetadata } from "./audio";
 
 // ================================================
-// 基礎訊息介面
+// Base Message Interface
 // ================================================
 
 /**
- * 基礎訊息介面 - 所有訊息的共同結構
+ * Base message interface - common structure for all messages
  */
 export interface BaseMessage {
   action?: string;
@@ -18,11 +18,11 @@ export interface BaseMessage {
 }
 
 // ================================================
-// 右鍵點擊相關訊息
+// Right Click Related Messages
 // ================================================
 
 /**
- * 右鍵點擊訊息介面 - 統一版本
+ * Right click message interface - unified version
  */
 export interface RightClickMessage extends BaseMessage {
   elementId: string | null;
@@ -32,11 +32,11 @@ export interface RightClickMessage extends BaseMessage {
 }
 
 // ================================================
-// 元素註冊相關訊息
+// Element Registration Related Messages
 // ================================================
 
 /**
- * 元素註冊訊息介面
+ * Element registration message interface
  */
 export interface ElementRegistrationMessage extends BaseMessage {
   elementId: string;
@@ -44,7 +44,7 @@ export interface ElementRegistrationMessage extends BaseMessage {
 }
 
 /**
- * 音訊 URL 註冊訊息介面 - 統一版本
+ * Audio URL registration message interface - unified version
  */
 export interface AudioUrlRegistrationMessage extends BaseMessage {
   audioUrl: string;
@@ -52,11 +52,11 @@ export interface AudioUrlRegistrationMessage extends BaseMessage {
 }
 
 // ================================================
-// Blob 相關訊息
+// Blob Related Messages
 // ================================================
 
 /**
- * Blob URL 註冊訊息介面
+ * Blob URL registration message interface
  */
 export interface BlobUrlMessage extends BaseMessage {
   blobUrl: string;
@@ -66,7 +66,7 @@ export interface BlobUrlMessage extends BaseMessage {
 }
 
 /**
- * Blob 內容訊息介面
+ * Blob content message interface
  */
 export interface BlobContentMessage extends BaseMessage {
   blobUrl: string;
@@ -76,7 +76,7 @@ export interface BlobContentMessage extends BaseMessage {
 }
 
 /**
- * Blob 偵測訊息介面
+ * Blob detection message interface
  */
 export interface BlobDetectionMessage extends BaseMessage {
   url: string;
@@ -89,7 +89,7 @@ export interface BlobDetectionMessage extends BaseMessage {
 }
 
 /**
- * Blob 下載請求訊息介面
+ * Blob download request message interface
  */
 export interface BlobDownloadMessage extends BaseMessage {
   blobUrl: string;
@@ -98,25 +98,25 @@ export interface BlobDownloadMessage extends BaseMessage {
 }
 
 // ================================================
-// 音訊相關訊息
+// Audio Related Messages
 // ================================================
 
 /**
- * 音訊持續時間請求訊息介面 - 統一版本
+ * Audio duration request message interface - unified version
  */
 export interface AudioDurationMessage extends BaseMessage {
   url: string;
   metadata?: RequestMetadata;
 }
 
-// Chrome Extension 事件訊息已移至 chrome-extension.ts
+// Chrome Extension event messages have been moved to chrome-extension.ts
 
 // ================================================
-// 頁面上下文特定訊息
+// Page Context Specific Messages
 // ================================================
 
 /**
- * Blob 佇列項目介面
+ * Blob queue item interface
  */
 export interface BlobQueueItem {
   blob: Blob;
@@ -124,7 +124,7 @@ export interface BlobQueueItem {
 }
 
 /**
- * 提取 Blob 請求訊息介面
+ * Extract Blob request message interface
  */
 export interface ExtractBlobRequestMessage extends BaseMessage {
   blobUrl: string;
@@ -133,7 +133,7 @@ export interface ExtractBlobRequestMessage extends BaseMessage {
 }
 
 /**
- * 發送到內容腳本的訊息介面
+ * Message interface sent to content script
  */
 export interface SendToContentMessage extends BaseMessage {
   blobUrl: string;

@@ -1,9 +1,9 @@
 /**
  * background.ts
- * 主要背景腳本，負責初始化和協調背景模組
+ * Main background script responsible for initializing and coordinating background modules
  */
 
-// 使用 import 語句
+// Use import statements
 import { initMenuManager } from "./background/menu-manager";
 import { initDownloadManager } from "./background/download-manager";
 import { initMessageHandler } from "./background/message-handler";
@@ -20,15 +20,15 @@ import {
   markOnboardingShown,
 } from "./background/onboarding-utils";
 
-// 創建模組特定的日誌記錄器
+// Create a module-specific logger
 const logger = Logger.createModuleLogger(MODULE_NAMES.BACKGROUND);
 
-// 添加調試資訊
-logger.debug("背景腳本開始加載");
-logger.debug("模組導入成功");
+// Add debug information
+logger.debug("Background script is starting to load");
+logger.debug("Modules imported successfully");
 
-// 檢查 chrome API 是否可用
-logger.debug("chrome API 可用性", {
+// Check if chrome API is available
+logger.debug("Chrome API availability", {
   chrome: typeof chrome !== "undefined",
   webRequest:
     typeof chrome !== "undefined" && typeof chrome.webRequest !== "undefined",
@@ -39,55 +39,58 @@ logger.debug("chrome API 可用性", {
 });
 
 /**
- * 主要初始化函數
+ * Main initialization function
  */
 function initialize(): VoiceMessageStore {
-  logger.info("初始化背景腳本");
+  logger.info("Initializing background script");
 
   try {
-    // 創建語音訊息資料存儲
+    // Create voice message data store
     const voiceMessages = createDataStore();
-    logger.debug("語音訊息資料存儲已創建");
+    logger.debug("Voice message data store created");
 
-    // 初始化右鍵選單管理器
+    // Initialize context menu manager
     initMenuManager();
-    logger.debug("右鍵選單管理器已初始化");
+    logger.debug("Context menu manager initialized");
 
-    // 初始化下載管理器
+    // Initialize download manager
     initDownloadManager();
-    logger.debug("下載管理器已初始化");
+    logger.debug("Download manager initialized");
 
-    // 初始化訊息處理器
+    // Initialize message handler
     initMessageHandler(voiceMessages);
-    logger.debug("訊息處理器已初始化");
+    logger.debug("Message handler initialized");
 
-    // 初始化 webRequest 攔截器
-    logger.debug("準備初始化 webRequest 攔截器");
+    // Initialize webRequest interceptor
+    logger.debug("Preparing to initialize webRequest interceptor");
     initWebRequestInterceptor(voiceMessages);
-    logger.debug("webRequest 攔截器已初始化");
+    logger.debug("webRequest interceptor initialized");
 
-    // 設置定期清理過期項目
+    // Set up periodic cleanup of old items
     setInterval(() => {
       cleanupOldItems(voiceMessages);
-    }, TIME_CONSTANTS.CLEANUP_INTERVAL); // 每 30 分鐘清理一次
+    }, TIME_CONSTANTS.CLEANUP_INTERVAL); // Clean up every 30 minutes
 
-    logger.info("背景腳本初始化完成");
-    return voiceMessages; // 返回語音訊息資料存儲，以便其他函數使用
+    logger.info("Background script initialization complete");
+    return voiceMessages; // Return voice message data store for use by other functions
   } catch (error: any) {
-    logger.error("初始化過程中發生錯誤", { error });
-    throw error; // 重新拋出錯誤，以便上層函數可以捕捉
+    logger.error("Error during initialization", { error });
+    throw error; // Rethrow error for upper functions to catch
   }
 }
 
-// 當擴充功能安裝或更新時執行
+// Execute when the extension is installed or updated
 chrome.runtime.onInstalled.addListener(
   async (details: chrome.runtime.InstalledDetails) => {
-    logger.info("Facebook Messenger 語音訊息下載器已安裝或更新", {
-      reason: details.reason,
-      previousVersion: details.previousVersion,
-    });
+    logger.info(
+      "Facebook Messenger voice message downloader has been installed or updated",
+      {
+        reason: details.reason,
+        previousVersion: details.previousVersion,
+      }
+    );
 
-    // 初始化擴充功能狀態
+    // Initialize extension state
     chrome.action.setBadgeText({
       text: UI_CONSTANTS.BADGE_TEXT,
     });
@@ -96,21 +99,23 @@ chrome.runtime.onInstalled.addListener(
       color: UI_CONSTANTS.BADGE_COLOR,
     });
 
-    // 處理首次安裝
+    // Handle first installation
     if (details.reason === "install") {
-      logger.info("首次安裝擴充功能，準備開啟 onboarding");
+      logger.info(
+        "First time installation of the extension, preparing to open onboarding"
+      );
 
       try {
-        // 記錄安裝時間
+        // Record installation time
         await chrome.storage.local.set({
           installTime: Date.now(),
         });
 
-        // 檢查 onboarding 狀態
+        // Check onboarding status
         const status = await checkOnboardingStatus();
 
         if (!status.completed) {
-          // 開啟 onboarding 頁面
+          // Open onboarding page
           const onboardingUrl = chrome.runtime.getURL(
             "onboarding/welcome.html"
           );
@@ -119,31 +124,31 @@ chrome.runtime.onInstalled.addListener(
             active: true,
           });
 
-          // 標記已顯示 onboarding
+          // Mark onboarding as shown
           await markOnboardingShown();
-          logger.info("已開啟 onboarding 頁面");
+          logger.info("Onboarding page opened");
         }
       } catch (error) {
-        logger.error("處理首次安裝時發生錯誤", { error });
+        logger.error("Error during first installation handling", { error });
       }
     } else if (details.reason === "update") {
-      logger.info("擴充功能已更新", {
+      logger.info("Extension has been updated", {
         fromVersion: details.previousVersion,
         toVersion: chrome.runtime.getManifest().version,
       });
 
-      // 可以在這裡添加版本更新的提醒邏輯
+      // Logic for version update notifications can be added here
     }
   }
 );
 
-// 執行初始化
+// Execute initialization
 try {
-  logger.debug("準備執行初始化函數");
+  logger.debug("Preparing to execute initialization function");
   initialize();
-  logger.debug("初始化函數已執行完成");
+  logger.debug("Initialization function executed successfully");
 } catch (error: any) {
-  logger.error("執行初始化函數時發生錯誤", {
+  logger.error("Error during execution of initialization function", {
     message: error.message,
     stack: error.stack,
   });

@@ -1,6 +1,6 @@
 /**
  * blob-handler.ts
- * 處理 Blob 相關的訊息
+ * Handles messages related to Blob objects
  */
 
 import { Logger } from "../../utils/logger";
@@ -8,11 +8,11 @@ import { MODULE_NAMES } from "../../utils/constants";
 import { type VoiceMessageStore } from "../data-store";
 
 // ================================================
-// 類型定義
+// Type Definitions
 // ================================================
 
 /**
- * Blob URL 註冊訊息介面
+ * Blob URL registration message interface
  */
 interface BlobUrlMessage {
   blobUrl: string;
@@ -23,7 +23,7 @@ interface BlobUrlMessage {
 }
 
 /**
- * Blob 內容訊息介面
+ * Blob content message interface
  */
 interface BlobContentMessage {
   blobUrl: string;
@@ -34,7 +34,7 @@ interface BlobContentMessage {
 }
 
 /**
- * Blob 偵測訊息介面
+ * Blob detection message interface
  */
 interface BlobDetectionMessage {
   url: string;
@@ -47,18 +47,18 @@ interface BlobDetectionMessage {
   error?: string;
 }
 
-// 創建模組特定的日誌記錄器
+// Create a module-specific logger
 const logger = Logger.createModuleLogger(MODULE_NAMES.BLOB_HANDLER);
 
 /**
- * 處理 Blob URL 註冊訊息
- * 將 Blob URL 與其持續時間一起存儲到 voiceMessagesStore 中
+ * Handle Blob URL registration message
+ * Stores the Blob URL and its duration in the voiceMessagesStore
  *
- * @param {Object} voiceMessagesStore - 語音訊息資料存儲
- * @param {Object} message - 訊息物件，包含 blobUrl, durationMs 等資訊
- * @param {Object} sender - 發送者資訊
- * @param {Function} sendResponse - 回應函數
- * @returns {boolean} - 是否需要保持連接開啟
+ * @param {Object} voiceMessagesStore - Voice message data store
+ * @param {Object} message - Message object containing blobUrl, durationMs, etc.
+ * @param {Object} sender - Sender information
+ * @param {Function} sendResponse - Response callback
+ * @returns {boolean} - Whether to keep the connection open
  */
 export function handleBlobUrl(
   voiceMessagesStore: VoiceMessageStore,
@@ -66,11 +66,11 @@ export function handleBlobUrl(
   sender: chrome.runtime.MessageSender,
   sendResponse: (response?: any) => void
 ): boolean {
-  // 取得基本資訊
+  // Get basic info
   const { blobUrl, blobType, blobSize, durationMs, timestamp } = message;
   const urlFeatures = blobUrl ? blobUrl.substring(0, 30) + "..." : null;
 
-  logger.debug("處理 Blob URL 註冊訊息", {
+  logger.debug("Handling Blob URL registration message", {
     blobUrl: urlFeatures,
     durationMs,
     blobType,
@@ -78,77 +78,79 @@ export function handleBlobUrl(
     timestamp,
   });
 
-  // 確保我們有 voiceMessagesStore
+  // Ensure we have voiceMessagesStore
   if (!voiceMessagesStore) {
-    logger.error("voiceMessagesStore 不存在");
+    logger.error("voiceMessagesStore does not exist");
     sendResponse({
       success: false,
-      message: "內部錯誤：voiceMessagesStore 不存在",
+      message: "Internal error: voiceMessagesStore does not exist",
     });
     return true;
   }
 
-  // 確保有必要的資訊
+  // Ensure required info is present
   if (!blobUrl || !durationMs) {
-    logger.error("缺少必要的 Blob URL 或持續時間資訊");
+    logger.error("Missing required Blob URL or duration information");
     sendResponse({
       success: false,
-      message: "缺少必要的 Blob URL 或持續時間資訊",
+      message: "Missing required Blob URL or duration information",
     });
     return true;
   }
 
   try {
-    // 使用 registerDownloadUrl 函數將 Blob URL 註冊到 voiceMessagesStore
+    // Use registerDownloadUrl to register the Blob URL in voiceMessagesStore
     const id = voiceMessagesStore.registerDownloadUrl(
       durationMs,
       blobUrl,
-      null, // 沒有 lastModified 資訊
+      null, // No lastModified info
       blobType,
       blobSize
     );
 
-    logger.info(`成功註冊 Blob URL，ID: ${id}，持續時間: ${durationMs}ms`);
+    logger.info(
+      `Successfully registered Blob URL, ID: ${id}, duration: ${durationMs}ms`
+    );
 
-    // 輸出當前 voiceMessagesStore 的狀態
-    logger.debug("voiceMessagesStore 當前項目數量", {
+    // Output current state of voiceMessagesStore
+    logger.debug("Current voiceMessagesStore item count", {
       itemsCount: voiceMessagesStore.items.size,
     });
 
     sendResponse({
       success: true,
-      message: "成功註冊 Blob URL",
+      message: "Successfully registered Blob URL",
       id: id,
     });
   } catch (error: any) {
-    logger.error("註冊 Blob URL 時發生錯誤", {
+    logger.error("Error occurred while registering Blob URL", {
       error: error.message,
       stack: error.stack,
     });
     sendResponse({
       success: false,
-      message: `註冊 Blob URL 時發生錯誤: ${error.message}`,
+      message: `Error occurred while registering Blob URL: ${error.message}`,
     });
   }
 
-  return true; // 保持連接開啟，以便異步回應
+  return true; // Keep the connection open for async response
 }
 
 /**
- * 處理 Blob URL 偵測訊息
- * 記錄 Blob URL 資訊，但不進行註冊（因為沒有持續時間資訊）
+ * Handle Blob URL detection message
+ * Logs Blob URL info but does not register (since duration info is missing)
  *
- * @param {Object} message - 訊息物件
- * @param {Object} sender - 發送者資訊
- * @param {Function} sendResponse - 回應函數
- * @returns {boolean} - 是否需要保持連接開啟
+ * @param {Object} message - Message object
+ * @param {Object} sender - Sender information
+ * @param {Function} sendResponse - Response callback
+ * @returns {boolean} - Whether to keep the connection open
  */
 export function handleBlobDetection(
   message: BlobDetectionMessage,
   sender: chrome.runtime.MessageSender,
   sendResponse: (response?: any) => void
 ): boolean {
-  logger.debug("處理 Blob URL 偵測訊息", {
+  logger.debug("Handling Blob URL detection message", {
     blobUrl: message.blobUrl ? message.blobUrl.substring(0, 30) + "..." : null,
     blobType: message.blobType,
     blobSize: message.blobSize,
@@ -156,29 +158,29 @@ export function handleBlobDetection(
     error: message.error,
   });
 
-  // 只記錄資訊，不進行實際的註冊
-  // 如果有錯誤，記錄錯誤資訊
+  // Only log info, do not actually register
+  // If there is an error, log the error info
   if (message.error) {
-    logger.error("Blob URL 偵測中的錯誤", {
+    logger.error("Error in Blob URL detection", {
       error: message.error,
     });
   }
 
   sendResponse({
     success: true,
-    message: "已記錄 Blob URL 偵測資訊",
+    message: "Blob URL detection info logged",
   });
 
-  return true; // 保持連接開啟，以便異步回應
+  return true; // Keep the connection open for async response
 }
 
 /**
- * 處理 blob 內容下載訊息
+ * Handle blob content download message
  *
- * @param {Object} message - 訊息物件
- * @param {Object} sender - 發送者資訊
- * @param {Function} sendResponse - 回應函數
- * @returns {boolean} - 是否需要保持連接開啟
+ * @param {Object} message - Message object
+ * @param {Object} sender - Sender information
+ * @param {Function} sendResponse - Response callback
+ * @returns {boolean} - Whether to keep the connection open
  */
 export function handleBlobContent(
   message: BlobContentMessage,
@@ -186,32 +188,32 @@ export function handleBlobContent(
   sendResponse: (response?: any) => void
 ): boolean {
   try {
-    logger.debug("處理 blob 內容下載訊息", {
+    logger.debug("Handling blob content download message", {
       blobType: message.blobType,
       base64Length: message.base64data ? message.base64data.length : 0,
       requestId: message.requestId,
       timestamp: message.timestamp,
     });
 
-    // 檢查必要的參數
+    // Check required parameters
     if (!message.base64data || !message.blobType) {
-      logger.error("缺少必要的參數");
-      sendResponse({ success: false, error: "缺少必要的參數" });
+      logger.error("Missing required parameters");
+      sendResponse({ success: false, error: "Missing required parameters" });
       return true;
     }
 
-    // 注意：在背景腳本（Service Worker）中不能使用 URL.createObjectURL
+    // Note: URL.createObjectURL cannot be used in background scripts (Service Worker)
 
-    // 直接使用 base64 資料，不需要轉換為 blob
-    logger.debug("使用 base64 資料直接下載:", {
+    // Use base64 data directly, no need to convert to blob
+    logger.debug("Downloading directly using base64 data:", {
       blobType: message.blobType,
       base64Length: message.base64data.length,
     });
 
-    // 根據 MIME 類型決定副檔名
+    // Determine file extension based on MIME type
     const fileExtension = getFileExtensionForMimeType(message.blobType);
 
-    // 生成檔案名稱
+    // Generate file name
     const timestamp = message.timestamp
       ? new Date(message.timestamp)
       : new Date();
@@ -221,10 +223,10 @@ export function handleBlobContent(
       .slice(0, 19);
     const filename = `voice-message-${formattedDate}${fileExtension}`;
 
-    // 創建 Data URL
+    // Create Data URL
     const dataUrl = `data:${message.blobType};base64,${message.base64data}`;
 
-    // 下載檔案
+    // Download file
     chrome.downloads.download(
       {
         url: dataUrl,
@@ -233,7 +235,7 @@ export function handleBlobContent(
       },
       (downloadId) => {
         if (chrome.runtime.lastError) {
-          logger.error("下載檔案時發生錯誤", {
+          logger.error("Error occurred while downloading file", {
             error: chrome.runtime.lastError,
           });
           sendResponse({
@@ -243,7 +245,7 @@ export function handleBlobContent(
           return;
         }
 
-        logger.info("已開始下載檔案", {
+        logger.info("Started file download", {
           downloadId,
           filename,
           blobType: message.blobType,
@@ -251,28 +253,28 @@ export function handleBlobContent(
 
         sendResponse({
           success: true,
-          message: "已開始下載檔案",
+          message: "File download started",
           downloadId,
           filename,
         });
       }
     );
   } catch (error: any) {
-    logger.error("處理 blob 內容下載時發生錯誤", {
+    logger.error("Error occurred while handling blob content download", {
       error: error.message,
       stack: error.stack,
     });
     sendResponse({ success: false, error: error.message });
   }
 
-  return true; // 保持連接開啟，以便異步回應
+  return true; // Keep the connection open for async response
 }
 
 /**
- * 根據 MIME 類型獲取適當的檔案副檔名
+ * Get appropriate file extension based on MIME type
  *
- * @param {string} mimeType - MIME 類型
- * @returns {string} - 檔案副檔名（包含點號）
+ * @param {string} mimeType - MIME type
+ * @returns {string} - File extension (with dot)
  * @private
  */
 function getFileExtensionForMimeType(mimeType: string): string {
@@ -287,5 +289,5 @@ function getFileExtensionForMimeType(mimeType: string): string {
   } else if (mimeType.includes("audio/aac")) {
     return ".aac";
   }
-  return ".bin"; // 預設二進制檔案副檔名
+  return ".bin"; // Default binary file extension
 }

@@ -1,6 +1,6 @@
 /**
  * content.ts
- * 主要內容腳本，負責初始化和協調其他模組
+ * Main content script responsible for initializing and coordinating other modules
  */
 
 import { Logger } from "./utils/logger";
@@ -12,15 +12,15 @@ import {
 import { initMessageHandler } from "./content/message-handler";
 import { initContextMenuHandler } from "./content/context-menu-handler";
 
-// 創建模組特定的日誌記錄器
+// Create a module-specific logger
 const logger = Logger.createModuleLogger(MODULE_NAMES.CONTENT_SCRIPT);
 
 // ================================================
-// 類型定義
+// Type Definitions
 // ================================================
 
 /**
- * 頁面上下文訊息事件介面
+ * Page context message event interface
  */
 interface PageContextMessageEvent extends MessageEvent {
   data: {
@@ -30,7 +30,7 @@ interface PageContextMessageEvent extends MessageEvent {
 }
 
 /**
- * Chrome 運行時訊息監聽器回調類型
+ * Chrome runtime message listener callback type
  */
 type RuntimeMessageListener = (
   message: any,
@@ -39,61 +39,68 @@ type RuntimeMessageListener = (
 ) => boolean | void;
 
 // ================================================
-// 主要初始化邏輯
+// Main Initialization Logic
 // ================================================
 
-// 檢查是否在支援的網站上
+// Check if on a supported site
 const isSupportedSite = SUPPORTED_SITES.DOMAINS.some((domain) =>
   window.location.hostname.includes(domain)
 );
 
 if (!isSupportedSite) {
-  logger.debug("不支援的網站，擴充功能不會啟動");
+  logger.debug("Unsupported site, extension will not start");
 } else {
-  // 創建頁面上下文腳本標籤
+  // Create page context script tag
   const script = document.createElement("script");
   script.type = "module";
   script.src = chrome.runtime.getURL("scripts/page-context.js");
   script.onload = function () {
-    logger.debug("Facebook Messenger 語音訊息下載器已載入頁面上下文模組");
-    script.remove(); // 載入後移除腳本標籤
+    logger.debug(
+      "Facebook Messenger voice message downloader has loaded the page context module"
+    );
+    script.remove(); // Remove the script tag after loading
   };
 
-  // 確保腳本標籤被添加到頁面
+  // Ensure the script tag is added to the page
   try {
-    // 添加到頁面
+    // Add to the page
     (document.head || document.documentElement).appendChild(script);
-    logger.debug("頁面上下文腳本已添加到頁面");
+    logger.debug("Page context script has been added to the page");
   } catch (error) {
-    logger.error("添加頁面上下文腳本時出錯", { error });
+    logger.error("Error adding page context script", { error });
   }
 
-  // 設置訊息監聽器，處理腳本與背景腳本的通訊
+  // Set up message listener to handle communication between scripts and background scripts
   window.addEventListener("message", function (event: MessageEvent) {
-    // 確保訊息來自同一個頁面
-    if (event.source !== window) {return;}
+    // Ensure the message comes from the same page
+    if (event.source !== window) {
+      return;
+    }
 
-    // 處理來自頁面上下文的訊息
+    // Handle messages from the page context
     if (event.data.type && event.data.type === MESSAGE_SOURCES.PAGE_CONTEXT) {
       const pageEvent = event as PageContextMessageEvent;
-      logger.debug("收到頁面上下文訊息，轉發到背景腳本", {
-        message: pageEvent.data.message,
-      });
+      logger.debug(
+        "Received page context message, forwarding to background script",
+        {
+          message: pageEvent.data.message,
+        }
+      );
       chrome.runtime.sendMessage(pageEvent.data.message, function (response) {
-        logger.debug("背景腳本回應", { response });
+        logger.debug("Background script response", { response });
       });
     }
   });
 
-  // 將來自背景腳本的訊息轉發到頁面上下文
+  // Forward messages from the background script to the page context
   const messageListener: RuntimeMessageListener = function (
     message: any,
     _sender: chrome.runtime.MessageSender,
     _sendResponse: (response?: any) => void
   ): boolean {
-    logger.debug("收到背景腳本訊息", { message });
+    logger.debug("Received background script message", { message });
 
-    // 轉發到頁面上下文
+    // Forward to the page context
     window.postMessage(
       {
         type: MESSAGE_SOURCES.BACKGROUND_SCRIPT,
@@ -106,16 +113,18 @@ if (!isSupportedSite) {
 
   chrome.runtime.onMessage.addListener(messageListener);
 
-  // 初始化右鍵選單處理器
+  // Initialize context menu handler
   initContextMenuHandler();
-  logger.debug("已初始化右鍵選單處理器");
+  logger.debug("Context menu handler has been initialized");
 
-  // 初始化內容腳本訊息處理器
-  // 確保頁面上下文已經載入
+  // Initialize content script message handler
+  // Ensure the page context has been loaded
   setTimeout(() => {
     initMessageHandler();
-    logger.debug("內容腳本訊息處理器已初始化");
+    logger.debug("Content script message handler has been initialized");
   }, 300);
 
-  logger.info("Facebook Messenger 語音訊息下載器已初始化");
+  logger.info(
+    "Facebook Messenger voice message downloader has been initialized"
+  );
 }

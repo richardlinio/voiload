@@ -1,6 +1,6 @@
 /**
  * element-registration-handler.ts
- * 處理語音訊息元素註冊相關的訊息
+ * Handles voice message element registration related messages
  */
 
 import { Logger } from "../../utils/logger";
@@ -8,13 +8,13 @@ import { MODULE_NAMES } from "../../utils/constants";
 import { type VoiceMessageStore, type VoiceMessageItem } from "../data-store";
 import type { ElementRegistrationMessage } from "../../types/messages";
 
-// 創建模組特定的日誌記錄器
+// Create a module-specific logger
 const logger = Logger.createModuleLogger(
   MODULE_NAMES.ELEMENT_REGISTRATION_HANDLER
 );
 
 /**
- * 處理語音訊息元素註冊訊息
+ * Handle voice message element registration message
  */
 export function handleElementRegistration(
   voiceMessagesStore: VoiceMessageStore,
@@ -23,19 +23,21 @@ export function handleElementRegistration(
   sendResponse: (response?: any) => void
 ): boolean {
   const { elementId, durationMs } = message;
-  logger.debug("處理語音訊息元素註冊訊息", {
+  logger.debug("Handling voice message element registration message", {
     elementId,
     durationMs,
   });
 
   if (!elementId || !durationMs || !voiceMessagesStore) {
-    logger.error("缺少必要資訊或 voiceMessagesStore 不存在");
-    sendResponse({ success: false, error: "缺少必要資訊" });
+    logger.error(
+      "Missing required information or voiceMessagesStore does not exist"
+    );
+    sendResponse({ success: false, error: "Missing required information" });
     return true;
   }
 
   try {
-    // 在 voiceMessages 中建立新項目
+    // Create a new item in voiceMessages
     voiceMessagesStore.items.set(elementId, {
       id: elementId,
       element: null,
@@ -46,7 +48,7 @@ export function handleElementRegistration(
       isPending: true,
     });
 
-    // 檢查是否有待處理的下載 URL 可以匹配
+    // Check if there is a pending download URL that can be matched
     const matchingItem = findMatchingPendingItem(
       voiceMessagesStore,
       elementId,
@@ -54,14 +56,14 @@ export function handleElementRegistration(
     );
 
     if (matchingItem && matchingItem.downloadUrl) {
-      // 如果找到匹配項目，更新元素的下載 URL
+      // If a matching item is found, update the element's download URL
       updateElementWithMatchingItem(
         voiceMessagesStore,
         elementId,
         matchingItem
       );
 
-      // 通知內容腳本更新 UI
+      // Notify content script to update UI
       notifyContentScriptToUpdateUI(
         _sender.tab?.id,
         elementId,
@@ -74,40 +76,43 @@ export function handleElementRegistration(
         lastModified: matchingItem.lastModified,
       });
     } else {
-      logger.debug("未找到匹配的待處理項目");
+      logger.debug("No matching pending item found");
       sendResponse({
         success: true,
-        message: "元素已註冊，但無匹配的下載 URL",
+        message: "Element registered, but no matching download URL",
       });
     }
   } catch (error: any) {
-    logger.error("處理語音訊息元素註冊訊息時發生錯誤:", error);
+    logger.error(
+      "Error occurred while handling voice message element registration:",
+      error
+    );
     sendResponse({ success: false, error: error.message });
   }
 
-  return true; // 保持連接開啟，以便異步回應
+  return true; // Keep the connection open for async response
 }
 
 /**
- * 查找匹配的待處理項目
+ * Find a matching pending item
  */
 function findMatchingPendingItem(
   voiceMessagesStore: VoiceMessageStore,
   elementId: string,
   durationMs: number
 ): VoiceMessageItem | null {
-  // 使用容差值尋找匹配的項目
-  const tolerance = 5; // 容差值（毫秒）
+  // Use a tolerance value to find a matching item
+  const tolerance = 5; // Tolerance (milliseconds)
 
   for (const [id, item] of voiceMessagesStore.items) {
     if (
-      id !== elementId && // 不是自己
-      item.downloadUrl && // 有下載 URL
-      item.durationMs && // 有持續時間
+      id !== elementId && // Not itself
+      item.downloadUrl && // Has download URL
+      item.durationMs && // Has duration
       Math.abs(item.durationMs - durationMs) <= tolerance
     ) {
-      // 持續時間匹配
-      logger.debug("找到匹配的待處理項目", { item });
+      // Duration matches
+      logger.debug("Found matching pending item", { item });
       return item;
     }
   }
@@ -116,11 +121,11 @@ function findMatchingPendingItem(
 }
 
 /**
- * 使用匹配項目更新元素
+ * Update element with matching item
  *
- * @param {Object} voiceMessagesStore - 語音訊息資料存儲
- * @param {string} elementId - 元素 ID
- * @param {Object} matchingItem - 匹配的項目
+ * @param {Object} voiceMessagesStore - Voice message data store
+ * @param {string} elementId - Element ID
+ * @param {Object} matchingItem - Matching item
  * @private
  */
 function updateElementWithMatchingItem(
@@ -130,24 +135,24 @@ function updateElementWithMatchingItem(
 ) {
   const currentItem = voiceMessagesStore.items.get(elementId);
   if (!currentItem) {
-    logger.error("無法找到要更新的項目", { elementId });
+    logger.error("Cannot find item to update", { elementId });
     return;
   }
   currentItem.downloadUrl = matchingItem.downloadUrl;
   currentItem.lastModified = matchingItem.lastModified;
 
-  logger.debug("已更新元素的下載 URL:", {
+  logger.debug("Updated element's download URL:", {
     elementId,
     downloadUrl: matchingItem.downloadUrl.substring(0, 50) + "...",
   });
 }
 
 /**
- * 通知內容腳本更新 UI
+ * Notify content script to update UI
  *
- * @param {number|undefined} tabId - 標籤頁 ID
- * @param {string} elementId - 元素 ID
- * @param {string} downloadUrl - 下載 URL
+ * @param {number|undefined} tabId - Tab ID
+ * @param {string} elementId - Element ID
+ * @param {string} downloadUrl - Download URL
  * @private
  */
 function notifyContentScriptToUpdateUI(
@@ -163,7 +168,10 @@ function notifyContentScriptToUpdateUI(
         downloadUrl: downloadUrl,
       });
     } catch (error) {
-      logger.error("發送更新訊息到內容腳本時發生錯誤:", error);
+      logger.error(
+        "Error occurred while sending update message to content script:",
+        error
+      );
     }
   }
 }

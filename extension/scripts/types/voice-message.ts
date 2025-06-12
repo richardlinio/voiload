@@ -1,14 +1,14 @@
 /**
  * voice-message.ts
- * 語音訊息相關資料結構 - 核心資料模型
+ * Voice message related data structures - Core data model
  */
 
 // ================================================
-// 語音訊息核心資料結構
+// Core data structure for voice messages
 // ================================================
 
 /**
- * 語音訊息項目介面
+ * Voice message item interface
  */
 export interface VoiceMessageItem {
   id: string;
@@ -23,7 +23,7 @@ export interface VoiceMessageItem {
 }
 
 /**
- * 語音訊息資料存儲介面
+ * Voice message data store interface
  */
 export interface VoiceMessageStore {
   items: Map<string, VoiceMessageItem>;
@@ -45,7 +45,7 @@ export interface VoiceMessageStore {
 }
 
 /**
- * 下載 URL 查找結果介面
+ * Download URL lookup result interface
  */
 export interface DownloadUrlResult {
   downloadUrl: string | null;

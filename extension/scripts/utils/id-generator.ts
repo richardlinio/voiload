@@ -1,39 +1,42 @@
 /**
  * id-generator.ts
- * 提供生成唯一 ID 的功能，用於標識語音訊息元素和相關資料
+ * Provides unique ID generation functionality for identifying voice message elements and related data
  */
 
 import { Logger } from "./logger";
 import { ID_CONSTANTS } from "./constants";
 
 /**
- * 生成語音訊息的唯一 ID
- * 格式：voice-msg-{timestamp}-{隨機字串}
+ * Generate a unique ID for a voice message
+ * Format: voice-msg-{timestamp}-{randomString}
  */
 export function generateVoiceMessageId(): string {
   const timestamp = Date.now();
   const randomString = Math.random().toString(36).substring(2, 10);
   const id = `${ID_CONSTANTS.VOICE_MESSAGE_ID_PREFIX}${timestamp}-${randomString}`;
 
-  Logger.debug("生成語音訊息 ID", { id, timestamp });
+  Logger.debug("Generated voice message ID", { id, timestamp });
   return id;
 }
 
 /**
- * 檢查 ID 是否為語音訊息 ID
+ * Check if the ID is a voice message ID
  */
 export function isVoiceMessageId(id: string): boolean {
-  return typeof id === "string" && id.startsWith(ID_CONSTANTS.VOICE_MESSAGE_ID_PREFIX);
+  return (
+    typeof id === "string" &&
+    id.startsWith(ID_CONSTANTS.VOICE_MESSAGE_ID_PREFIX)
+  );
 }
 
 /**
- * 從 ID 中提取時間戳
- * 
- * @returns 時間戳（毫秒），如果 ID 格式不正確則返回 null
+ * Extract timestamp from ID
+ *
+ * @returns timestamp (milliseconds), or null if the ID format is invalid
  */
 export function extractTimestampFromId(id: string): number | null {
   if (!isVoiceMessageId(id)) {
-    Logger.warn("嘗試從無效 ID 提取時間戳", { id });
+    Logger.warn("Attempted to extract timestamp from invalid ID", { id });
     return null;
   }
 
@@ -41,13 +44,16 @@ export function extractTimestampFromId(id: string): number | null {
   if (parts.length >= 3 && parts[2]) {
     const timestamp = parseInt(parts[2], 10);
     if (isNaN(timestamp)) {
-      Logger.warn("從 ID 提取的時間戳無效", { id, parts });
+      Logger.warn("Extracted timestamp from ID is invalid", { id, parts });
       return null;
     }
-    Logger.debug("從 ID 提取時間戳成功", { id, timestamp });
+    Logger.debug("Successfully extracted timestamp from ID", { id, timestamp });
     return timestamp;
   }
 
-  Logger.warn("ID 格式不正確，無法提取時間戳", { id, parts });
+  Logger.warn("ID format incorrect, unable to extract timestamp", {
+    id,
+    parts,
+  });
   return null;
 }

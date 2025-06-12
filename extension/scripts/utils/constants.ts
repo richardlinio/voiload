@@ -1,12 +1,12 @@
 /**
  * constants.ts
- * 定義整個擴充功能共用的常數
+ * Defines shared constants for the entire extension
  */
 
 import type { LogLevel } from "../types/utils";
 
 // ===========================================
-// 模組名稱常數
+// Module Name Constants
 // ===========================================
 export const MODULE_NAMES = {
   BACKGROUND: "background",
@@ -30,26 +30,26 @@ export const MODULE_NAMES = {
 } as const;
 
 // ===========================================
-// Blob 監控相關常數
+// Blob Monitor Related Constants
 // ===========================================
 export const BLOB_MONITOR_CONSTANTS = {
-  THROTTLE_INTERVAL: 10, // 最小處理間隔（毫秒）
-  PERIODIC_CLEANUP_INTERVAL: 300000, // 每 5 分鐘清空已處理的 URL
-  MIN_VALID_DURATION: 500, // 最小有效持續時間（毫秒）
-  MAX_VALID_DURATION: 1200000, // 最大有效持續時間（毫秒）
-  MIN_VALID_AUDIO_SIZE: 20 * 1024, // 音訊的最小合理大小 (20KB)
-  MAX_VALID_AUDIO_SIZE: 200 * 1024 * 1024, // 音訊的最大合理大小 (200MB)
-  POSSIBLE_AUDIO_TYPES: ["audio", "video/mp4", "mp4", "mp3", "mpeg"] as const, // 可能為音訊的檔案類型
+  THROTTLE_INTERVAL: 10, // Minimum processing interval (ms)
+  PERIODIC_CLEANUP_INTERVAL: 300000, // Clear processed URLs every 5 minutes
+  MIN_VALID_DURATION: 500, // Minimum valid duration (ms)
+  MAX_VALID_DURATION: 1200000, // Maximum valid duration (ms)
+  MIN_VALID_AUDIO_SIZE: 20 * 1024, // Minimum reasonable audio size (20KB)
+  MAX_VALID_AUDIO_SIZE: 200 * 1024 * 1024, // Maximum reasonable audio size (200MB)
+  POSSIBLE_AUDIO_TYPES: ["audio", "video/mp4", "mp4", "mp3", "mpeg"] as const, // Possible audio file types
 } as const;
 
 // ===========================================
-// 音訊監控相關常數
+// Audio Monitoring Related Constants
 // ===========================================
 export const WEB_REQUEST_CONSTANTS = {
-  // 平均音訊比特率（kbps）- 用於估計持續時間
+  // Average audio bitrate (kbps) - used to estimate duration
   AVERAGE_AUDIO_BITRATE: 32, // 32kbps
 
-  // 成功的 HTTP 狀態碼
+  // Successful HTTP status codes
   SUCCESS_STATUS_CODES: [200, 206] as const, // OK, Partial Content
 
   AUDIO_CONTENT_TYPES: [
@@ -62,7 +62,7 @@ export const WEB_REQUEST_CONSTANTS = {
 } as const;
 
 // ===========================================
-// 支援的網站相關常數
+// Supported Sites Related Constants
 // ===========================================
 export const SUPPORTED_SITES = {
   PATTERNS: ["*://*.facebook.com/*", "*://*.messenger.com/*"] as const,
@@ -74,14 +74,14 @@ export const SUPPORTED_SITES = {
   ] as const,
 } as const;
 
-// 語音訊息 URL 的匹配模式 - 合併 SUPPORTED_SITES 中的模式
+// Voice message URL matching patterns - combines patterns from SUPPORTED_SITES
 export const VOICE_MESSAGE_URL_PATTERNS = [
   ...SUPPORTED_SITES.PATTERNS,
   ...SUPPORTED_SITES.CDN_PATTERNS,
 ] as const;
 
 // ===========================================
-// 訊息處理相關常數
+// Message Handling Related Constants
 // ===========================================
 export const MESSAGE_SOURCES = {
   CONTENT_SCRIPT: "CONTENT_SCRIPT",
@@ -101,19 +101,19 @@ export const MESSAGE_ACTIONS = {
 } as const;
 
 // ===========================================
-// 時間相關常數
+// Time Related Constants
 // ===========================================
 export const TIME_CONSTANTS = {
-  CLEANUP_INTERVAL: 30 * 60 * 1000, // 30 分鐘
-  AUDIO_LOAD_TIMEOUT: 3000, // 3 秒
-  ELEMENT_DETECTION_INTERVAL: 1000, // 1 秒
-  URL_CACHE_EXPIRATION: 10 * 60 * 1000, // 10分鐘
+  CLEANUP_INTERVAL: 30 * 60 * 1000, // 30 minutes
+  AUDIO_LOAD_TIMEOUT: 3000, // 3 seconds
+  ELEMENT_DETECTION_INTERVAL: 1000, // 1 second
+  URL_CACHE_EXPIRATION: 10 * 60 * 1000, // 10 minutes
 } as const;
 
-export const MATCHING_TOLERANCE = 5; // 毫秒
+export const MATCHING_TOLERANCE = 5; // ms
 
 // ===========================================
-// UI 相關常數
+// UI Related Constants
 // ===========================================
 export const UI_CONSTANTS = {
   BADGE_TEXT: "ON",
@@ -123,90 +123,91 @@ export const UI_CONSTANTS = {
 } as const;
 
 // ===========================================
-// DOM 相關常數
+// DOM Related Constants
 // ===========================================
 export const DOM_CONSTANTS = {
-  // 語音訊息滑桿的 aria-label
+  // aria-labels for voice message slider
   VOICE_MESSAGE_SLIDER_ARIA_LABEL: [
-    "音訊滑桿",
-    "音频时间刷",
-    "Barra de arrastre de audio",
-    "Audio scrubber",
-    "অডিও স্ক্রাবার",
-    "ऑडियो स्क्रबर",
-    "شريط تمرير المقطع الصوتي",
-    "Barra seletora de áudio",
-    "Barra de duração do áudio",
-    "Ползунок аудио",
-    "音声スライダー",
-    "Schieberegler für Audio",
-    "Curseur audio",
-    "Scrubber Audio",
-    "오디오 스크러버",
+    "音訊滑桿", // Traditional Chinese
+    "音频时间刷", // Simplified Chinese
+    "Barra de arrastre de audio", // Spanish
+    "Audio scrubber", // English
+    "অডিও স্ক্রাবার", // Bengali
+    "ऑडियो स्क्रबर", // Hindi
+    "شريط تمرير المقطع الصوتي", // Arabic
+    "Barra seletora de áudio", // Portuguese (Brazil/Portugal)
+    "Barra de duração do áudio", // Portuguese (Brazil/Portugal)
+    "Ползунок аудио", // Russian
+    "音声スライダー", // Japanese
+    "Schieberegler für Audio", // German
+    "Curseur audio", // French
+    "Scrubber Audio", // Javanese
+    "오디오 스크러버", // Korean
   ] as const,
 
-  // 語言代碼到 aria-label 的映射表
+  // Mapping from language code to aria-label
   LANGUAGE_LABELS: {
     "zh-Hant": {
-      // 繁體中文（台灣、香港）
+      // Traditional Chinese (Taiwan, Hong Kong)
       audioSlider: "音訊滑桿",
     },
     "zh-Hans": {
-      // 簡體中文（中國）
+      // Simplified Chinese (China)
       audioSlider: "音频时间刷",
     },
     es: {
-      // 西班牙語
+      // Spanish
       audioSlider: "Barra de arrastre de audio",
     },
     en: {
-      // 英語
+      // English
       audioSlider: "Audio scrubber",
     },
     bn: {
-      // 孟加拉語
+      // Bengali
       audioSlider: "অডিও স্ক্রাবার",
     },
     hi: {
-      // 北印度語
+      // Hindi
       audioSlider: "ऑडियो स्क्रबर",
     },
     ar: {
-      // 阿拉伯語
+      // Arabic
       audioSlider: "شريط تمرير المقطع الصوتي",
     },
     pt: {
-      // 葡萄牙語（包含巴西和葡萄牙）
+      // Portuguese (including Brazil and Portugal)
       audioSlider: ["Barra seletora de áudio", "Barra de duração do áudio"],
     },
     ru: {
+      // Russian
       audioSlider: "Ползунок аудио",
     },
     ja: {
-      // 日語
+      // Japanese
       audioSlider: "音声スライダー",
     },
     de: {
-      // 德語
+      // German
       audioSlider: "Schieberegler für Audio",
     },
     fr: {
-      // 法語
+      // French
       audioSlider: "Curseur audio",
     },
     jv: {
-      // 爪哇語
+      // Javanese
       audioSlider: "Scrubber Audio",
     },
     ko: {
-      // 韓語
+      // Korean
       audioSlider: "오디오 스크러버",
     },
   } as const,
 } as const;
 
 // ===========================================
-// 日誌相關常數
+// Logging Related Constants
 // ===========================================
 export const LOG_LEVELS = {
   DEBUG: 0 as LogLevel,
@@ -216,34 +217,34 @@ export const LOG_LEVELS = {
 } as const;
 
 // ===========================================
-// 檔名相關常數
+// Filename Related Constants
 // ===========================================
 export const FILENAME_CONSTANTS = {
-  // 語音訊息檔名前綴
+  // Voice message filename prefix
   VOICE_MESSAGE_FILENAME_PREFIX: "voice-message-",
 } as const;
 
 // ===========================================
-// ID 相關常數
+// ID Related Constants
 // ===========================================
 export const ID_CONSTANTS = {
-  // 語音訊息 ID 前綴
+  // Voice message ID prefix
   VOICE_MESSAGE_ID_PREFIX: "voice-msg-",
 } as const;
 
 // ===========================================
-// 下載相關常數
+// Download Related Constants
 // ===========================================
 export const DOWNLOAD_CONSTANTS = {
   SAVE_AS: true,
 } as const;
 
 // ===========================================
-// 類型定義 - 已遷移到 types/utils.ts，保留相容性導出
+// Type Definitions - migrated to types/utils.ts, keep for compatibility export
 // ===========================================
 export type { LogLevel, ModuleName } from "../types/utils";
 
-// 專屬於此模組的類型
+// Types exclusive to this module
 export type MessageSource =
   (typeof MESSAGE_SOURCES)[keyof typeof MESSAGE_SOURCES];
 export type MessageAction =
