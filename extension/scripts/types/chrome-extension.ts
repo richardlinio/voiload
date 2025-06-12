@@ -1,14 +1,14 @@
 /**
  * chrome-extension.ts
- * Chrome Extension API 相關類型擴展
+ * Chrome Extension API related type extensions
  */
 
 // ================================================
-// Chrome Extension 事件和 API 擴展
+// Chrome Extension Events and API Extensions
 // ================================================
 
 /**
- * 通用擴充功能訊息事件介面
+ * Generic extension message event interface
  */
 export interface ExtensionMessageEvent<T = any> extends MessageEvent {
   data: {
@@ -18,21 +18,21 @@ export interface ExtensionMessageEvent<T = any> extends MessageEvent {
 }
 
 /**
- * 頁面上下文訊息事件介面
+ * Page context message event interface
  */
 export interface PageContextMessageEvent extends ExtensionMessageEvent {
-  // 繼承通用介面，專用於頁面上下文
+  // Inherits the generic interface, specialized for page context
 }
 
 /**
- * 背景腳本訊息事件介面
+ * Background script message event interface
  */
 export interface BackgroundScriptMessageEvent extends ExtensionMessageEvent {
-  // 繼承通用介面，專用於背景腳本
+  // Inherits the generic interface, specialized for background scripts
 }
 
 // ================================================
-// Window 全域介面擴展 (從 blob-monitor.ts 遷移)
+// Window global interface extension (migrated from blob-monitor.ts)
 // ================================================
 
 import type { SendToContentMessage } from "./messages";

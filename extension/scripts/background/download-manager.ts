@@ -1,6 +1,6 @@
 /**
  * download-manager.ts
- * 負責處理下載功能
+ * Responsible for handling download functionality
  */
 
 import { generateVoiceMessageFilename } from "../utils/time-utils";
@@ -8,32 +8,32 @@ import { Logger } from "../utils/logger";
 import { DOWNLOAD_CONSTANTS } from "../utils/constants";
 import type { RightClickInfo, DownloadMessage } from "../types/download";
 
-// 創建模組特定的日誌記錄器
+// Create a module-specific logger
 const logger = Logger.createModuleLogger("download-manager");
 
-// 儲存最後一次右鍵點擊的資訊
+// Store the last right-clicked info
 let lastRightClickedInfo: RightClickInfo | null = null;
 
 /**
- * 初始化下載管理器
+ * Initialize the download manager
  */
 export function initDownloadManager(): void {
-  logger.info("初始化下載管理器");
+  logger.info("Initializing download manager");
 
-  // 監聽右鍵選單點擊事件
+  // Listen for context menu click events
   chrome.contextMenus.onClicked.addListener(
     (
       info: chrome.contextMenus.OnClickData,
       _tab: chrome.tabs.Tab | undefined
     ) => {
-      logger.debug("右鍵選單點擊", {
+      logger.debug("Context menu clicked", {
         menuItemId: info.menuItemId,
         hasLastRightClickedInfo: !!lastRightClickedInfo,
       });
 
       if (info.menuItemId === "downloadVoiceMessage") {
         if (lastRightClickedInfo) {
-          logger.info("開始下載語音訊息", {
+          logger.info("Starting voice message download", {
             url: lastRightClickedInfo.downloadUrl
               ? lastRightClickedInfo.downloadUrl.substring(0, 50) + "..."
               : null,
@@ -44,7 +44,7 @@ export function initDownloadManager(): void {
             lastRightClickedInfo.lastModified || undefined
           );
         } else {
-          logger.error("無法下載，沒有右鍵點擊資訊");
+          logger.error("Cannot download, no right-click info available");
         }
       }
     }
@@ -52,14 +52,14 @@ export function initDownloadManager(): void {
 }
 
 /**
- * 設置最後一次右鍵點擊的資訊
+ * Set the last right-clicked info
  *
- * @param info - 右鍵點擊資訊
+ * @param info - Right-click info
  */
 export function setLastRightClickedInfo(info: RightClickInfo): void {
   lastRightClickedInfo = info;
 
-  logger.debug("設置最後一次右鍵點擊的資訊", {
+  logger.debug("Set last right-clicked info", {
     elementId: info.elementId,
     downloadUrl: info.downloadUrl
       ? info.downloadUrl.substring(0, 50) + "..."
@@ -70,25 +70,25 @@ export function setLastRightClickedInfo(info: RightClickInfo): void {
 }
 
 /**
- * 下載語音訊息
+ * Download a voice message
  *
- * @param url - 下載 URL
- * @param lastModified - Last-Modified 標頭值
+ * @param url - Download URL
+ * @param lastModified - Last-Modified header value
  */
 export function downloadVoiceMessage(url: string, lastModified?: string): void {
-  logger.debug("下載語音訊息函數被調用");
+  logger.debug("downloadVoiceMessage function called");
 
   if (!url) {
-    logger.error("下載 URL 無效");
+    logger.error("Invalid download URL");
     return;
   }
 
-  // 生成檔案名稱
+  // Generate filename
   const filename = `${generateVoiceMessageFilename(lastModified)}.mp4`;
-  logger.debug("生成的檔案名稱", { filename });
+  logger.debug("Generated filename", { filename });
 
-  // 使用 Chrome 下載 API 下載檔案
-  logger.debug("準備調用 chrome.downloads.download API");
+  // Use Chrome downloads API to download the file
+  logger.debug("Preparing to call chrome.downloads.download API");
   chrome.downloads.download(
     {
       url: url,
@@ -97,25 +97,25 @@ export function downloadVoiceMessage(url: string, lastModified?: string): void {
     },
     (downloadId) => {
       if (chrome.runtime.lastError) {
-        logger.error("下載失敗", chrome.runtime.lastError);
+        logger.error("Download failed", chrome.runtime.lastError);
       } else {
-        logger.info("下載成功", { downloadId });
+        logger.info("Download succeeded", { downloadId });
       }
     }
   );
 
-  logger.info("開始下載語音訊息", {
+  logger.info("Started voice message download", {
     url: url.substring(0, 50) + "...",
     filename,
   });
 }
 
 /**
- * 處理 blob 內容下載訊息
+ * Handle blob content download message
  *
- * @param message - 訊息物件
- * @param sender - 發送者資訊
- * @param sendResponse - 回應函數
+ * @param message - Message object
+ * @param sender - Sender info
+ * @param sendResponse - Response callback
  */
 export function downloadBlobContent(
   message: DownloadMessage,
@@ -123,29 +123,29 @@ export function downloadBlobContent(
   sendResponse: (response?: any) => void
 ): void {
   try {
-    logger.debug("處理 blob 內容下載訊息", {
+    logger.debug("Handling blob content download message", {
       blobType: message.blobType,
       base64Length: message.base64data ? message.base64data.length : 0,
       requestId: message.requestId,
       timestamp: message.timestamp,
     });
 
-    // 檢查必要的參數
+    // Check required parameters
     if (!message.base64data || !message.blobType) {
-      logger.error("缺少必要的參數");
-      sendResponse({ success: false, error: "缺少必要的參數" });
+      logger.error("Missing required parameters");
+      sendResponse({ success: false, error: "Missing required parameters" });
       return;
     }
 
-    // 注意：在背景腳本（Service Worker）中不能使用 URL.createObjectURL
+    // Note: URL.createObjectURL cannot be used in background scripts (Service Worker)
 
-    // 直接使用 base64 資料，不需要轉換為 blob
-    logger.debug("使用 base64 資料直接下載:", {
+    // Use base64 data directly, no need to convert to blob
+    logger.debug("Downloading directly using base64 data:", {
       blobType: message.blobType,
       base64Length: message.base64data.length,
     });
 
-    // 根據 MIME 類型決定副檔名
+    // Determine file extension based on MIME type
     let fileExtension = ".bin";
     if (
       message.blobType.includes("audio/mpeg") ||
@@ -165,7 +165,7 @@ export function downloadBlobContent(
       fileExtension = ".aac";
     }
 
-    // 生成檔案名稱
+    // Generate filename
     const timestamp = message.timestamp
       ? new Date(message.timestamp)
       : new Date();
@@ -175,10 +175,10 @@ export function downloadBlobContent(
       .slice(0, 19);
     const filename = `voice-message-${formattedDate}${fileExtension}`;
 
-    // 創建 Data URL
+    // Create Data URL
     const dataUrl = `data:${message.blobType};base64,${message.base64data}`;
 
-    // 下載檔案
+    // Download file
     chrome.downloads.download(
       {
         url: dataUrl,
@@ -187,7 +187,7 @@ export function downloadBlobContent(
       },
       (downloadId) => {
         if (chrome.runtime.lastError) {
-          logger.error("下載檔案時發生錯誤", {
+          logger.error("Error occurred while downloading file", {
             error: chrome.runtime.lastError,
           });
           sendResponse({
@@ -197,7 +197,7 @@ export function downloadBlobContent(
           return;
         }
 
-        logger.info("已開始下載檔案", {
+        logger.info("Started file download", {
           downloadId,
           filename,
           blobType: message.blobType,
@@ -205,14 +205,14 @@ export function downloadBlobContent(
 
         sendResponse({
           success: true,
-          message: "已開始下載檔案",
+          message: "File download started",
           downloadId,
           filename,
         });
       }
     );
   } catch (error: any) {
-    logger.error("處理 blob 內容下載時發生錯誤", {
+    logger.error("Error occurred while handling blob content download", {
       error: error.message,
       stack: error.stack,
     });

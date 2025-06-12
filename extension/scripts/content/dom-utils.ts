@@ -1,24 +1,24 @@
 /**
  * dom-utils.ts
- * 提供 DOM 操作相關的輔助函數
+ * Provides helper functions for DOM operations
  */
 
 import { Logger } from "../utils/logger";
 import { DOM_CONSTANTS } from "../utils/constants";
 import type { VoiceMessageElementResult } from "../types/dom";
 
-// 重新導出類型以保持向後相容性
+// Re-export type for backward compatibility
 export type { VoiceMessageElementResult };
 
 // ================================================
-// DOM 操作函數
+// DOM Utility Functions
 // ================================================
 
 /**
- * 檢查元素是否為語音訊息滑桿
+ * Check if an element is a voice message slider
  *
- * @param element - 要檢查的元素
- * @returns 如果元素是語音訊息滑桿則返回 true
+ * @param element - The element to check
+ * @returns True if the element is a voice message slider
  */
 export function isVoiceMessageSlider(
   element: Element | null
@@ -36,21 +36,21 @@ export function isVoiceMessageSlider(
     return false;
   }
 
-  // 檢查元素的 aria-label 是否在支援的標籤列表中
+  // Check if the element's aria-label is in the supported label list
   return DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL.includes(
     elementLabel as any
   );
 }
 
 /**
- * 從滑桿元素獲取音訊持續時間（秒）
+ * Get audio duration (in seconds) from a slider element
  *
- * @param sliderElement - 滑桿元素
- * @returns 持續時間（秒），如果無法獲取則返回 null
+ * @param sliderElement - The slider element
+ * @returns Duration in seconds, or null if not available
  */
 export function getDurationFromSlider(sliderElement: Element): number | null {
   if (!isVoiceMessageSlider(sliderElement)) {
-    Logger.warn("嘗試從非滑杆元素獲取持續時間", {
+    Logger.warn("Attempted to get duration from a non-slider element", {
       element: (sliderElement as any)?.tagName,
     });
     return null;
@@ -58,7 +58,7 @@ export function getDurationFromSlider(sliderElement: Element): number | null {
 
   const ariaValueMax = sliderElement.getAttribute("aria-valuemax");
   if (!ariaValueMax) {
-    Logger.warn("滑杆元素缺少 aria-valuemax 屬性", {
+    Logger.warn("Slider element is missing aria-valuemax attribute", {
       element: sliderElement.tagName,
     });
     return null;
@@ -66,22 +66,24 @@ export function getDurationFromSlider(sliderElement: Element): number | null {
 
   const durationSec = parseFloat(ariaValueMax);
   if (isNaN(durationSec)) {
-    Logger.warn("從滑杆元素獲取的持續時間無效", {
+    Logger.warn("Invalid duration value from slider element", {
       element: sliderElement.tagName,
       ariaValueMax,
     });
     return null;
   }
 
-  Logger.debug("從滑杆元素獲取持續時間成功", { durationSec });
+  Logger.debug("Successfully got duration from slider element", {
+    durationSec,
+  });
   return durationSec;
 }
 
 /**
- * 檢查元素是否為潛在的語音訊息容器
+ * Check if an element is a potential voice message container
  *
- * @param element - 要檢查的元素
- * @returns 如果元素是潛在的語音訊息容器則返回 true
+ * @param element - The element to check
+ * @returns True if the element is a potential voice message container
  */
 export function isPotentialVoiceMessageContainer(
   element: Element | null
@@ -90,10 +92,10 @@ export function isPotentialVoiceMessageContainer(
     return false;
   }
 
-  // 檢查元素是否包含語音訊息相關元素
+  // Check if the element contains any voice message related elements
   let hasSlider = false;
 
-  // 遍歷所有可能的語音訊息滑桿標籤
+  // Iterate through all possible voice message slider labels
   for (const label of DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL) {
     if (element.querySelector(`[role="slider"][aria-label="${label}"]`)) {
       hasSlider = true;
@@ -105,33 +107,35 @@ export function isPotentialVoiceMessageContainer(
 }
 
 /**
- * 從點擊的元素查找語音訊息元素
- * 使用多種策略尋找相關的語音訊息元素
+ * Find the voice message element from a clicked element
+ * Uses multiple strategies to locate the relevant voice message element
  *
- * @param clickedElement - 被點擊的元素
- * @returns 包含 element（語音訊息元素）和 type（'slider' 或 'playButton'）的物件，如果找不到則返回 null
+ * @param clickedElement - The clicked element
+ * @returns An object containing element (the voice message element) and type ('slider' or 'playButton'), or null if not found
  */
 export function findVoiceMessageElement(
   clickedElement: Element | null
 ): VoiceMessageElementResult | null {
   if (!clickedElement) {
-    Logger.warn("嘗試在 null 元素上查找語音訊息元素");
+    Logger.warn("Attempted to find voice message element on a null element");
     return null;
   }
 
-  Logger.debug("開始尋找語音訊息元素", { elementTag: clickedElement.tagName });
+  Logger.debug("Start searching for voice message element", {
+    elementTag: clickedElement.tagName,
+  });
 
-  // 策略 1: 檢查點擊的元素自身
+  // Strategy 1: Check the clicked element itself
   if (isVoiceMessageSlider(clickedElement)) {
-    Logger.debug("直接找到語音訊息滑杆元素");
+    Logger.debug("Found voice message slider element directly");
     return { element: clickedElement, type: "slider" };
   }
 
-  // 策略 2: 在點擊元素內部查找
-  Logger.debug("在元素內部尋找語音訊息元素");
+  // Strategy 2: Search inside the clicked element
+  Logger.debug("Searching inside the element for voice message element");
   let sliderInside: Element | null = null;
 
-  // 遍歷所有可能的語音訊息滑桿標籤
+  // Iterate through all possible voice message slider labels
   for (const label of DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL) {
     const foundSlider = (clickedElement as Element).querySelector(
       `[role="slider"][aria-label="${label}"]`
@@ -142,28 +146,30 @@ export function findVoiceMessageElement(
     }
   }
   if (sliderInside) {
-    Logger.debug("在元素內部找到語音訊息滑杆");
+    Logger.debug("Found voice message slider inside the element");
     return { element: sliderInside, type: "slider" };
   }
 
-  // 策略 3: 向上遍歷 DOM 樹
-  Logger.debug("開始向上遍歷 DOM 樹尋找語音訊息元素");
+  // Strategy 3: Traverse up the DOM tree
+  Logger.debug(
+    "Start traversing up the DOM tree to find voice message element"
+  );
   let parent: Element | null = (clickedElement as Element).parentElement;
   let depth = 0;
 
   while (parent) {
     depth++;
-    // 檢查父元素是否為潛在容器
+    // Check if the parent is a potential container
     if (isPotentialVoiceMessageContainer(parent)) {
-      Logger.debug("找到潛在的語音訊息容器", {
+      Logger.debug("Found potential voice message container", {
         depth,
         elementTag: parent.tagName,
       });
 
-      // 在父元素中查找滑杆
+      // Search for slider in the parent element
       let slider: Element | null = null;
 
-      // 遍歷所有可能的語音訊息滑桿標籤
+      // Iterate through all possible voice message slider labels
       for (const label of DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL) {
         const foundSlider = parent.querySelector(
           `[role="slider"][aria-label="${label}"]`
@@ -174,21 +180,21 @@ export function findVoiceMessageElement(
         }
       }
       if (slider) {
-        Logger.debug("在容器中找到語音訊息滑杆");
+        Logger.debug("Found voice message slider in the container");
         return { element: slider, type: "slider" };
       }
     }
 
-    // 向上遍歷 DOM 樹
+    // Traverse up the DOM tree
     parent = parent.parentElement;
 
-    // 限制遍歷深度，避免無限循環
+    // Limit traversal depth to avoid infinite loop
     if (parent === document.body) {
-      Logger.debug("已達到 document.body，終止尋找");
+      Logger.debug("Reached document.body, stopping search");
       break;
     }
   }
 
-  Logger.warn("無法找到語音訊息元素");
+  Logger.warn("Could not find voice message element");
   return null;
 }

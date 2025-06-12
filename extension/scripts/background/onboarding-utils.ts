@@ -1,16 +1,16 @@
 /**
  * onboarding-utils.ts
- * 提供 onboarding 相關的輔助功能
+ * Provides helper functions related to onboarding
  */
 
 import { Logger } from "../utils/logger";
 
 // ================================================
-// 類型定義
+// Type Definitions
 // ================================================
 
 /**
- * Onboarding 狀態介面
+ * Onboarding status interface
  */
 export interface OnboardingStatus {
   completed: boolean;
@@ -19,12 +19,12 @@ export interface OnboardingStatus {
   completedAt: number | null;
 }
 
-// 創建模組特定的日誌記錄器
+// Create a module-specific logger
 const logger = Logger.createModuleLogger("onboarding-utils");
 
 /**
- * 檢查 onboarding 狀態
- * @returns 包含 onboarding 狀態的物件
+ * Check onboarding status
+ * @returns An object containing the onboarding status
  */
 export async function checkOnboardingStatus(): Promise<OnboardingStatus> {
   try {
@@ -42,10 +42,10 @@ export async function checkOnboardingStatus(): Promise<OnboardingStatus> {
       completedAt: result.completedAt || null,
     };
 
-    logger.debug("Onboarding 狀態", status);
+    logger.debug("Onboarding status", status);
     return status;
   } catch (error) {
-    logger.error("檢查 onboarding 狀態時發生錯誤", { error });
+    logger.error("Error checking onboarding status", { error });
     return {
       completed: false,
       shown: false,
@@ -56,7 +56,7 @@ export async function checkOnboardingStatus(): Promise<OnboardingStatus> {
 }
 
 /**
- * 重置 onboarding 狀態（用於測試）
+ * Reset onboarding status (for testing)
  */
 export async function resetOnboarding(): Promise<void> {
   try {
@@ -66,14 +66,14 @@ export async function resetOnboarding(): Promise<void> {
       "installTime",
       "completedAt",
     ]);
-    logger.info("Onboarding 狀態已重置");
+    logger.info("Onboarding status has been reset");
   } catch (error) {
-    logger.error("重置 onboarding 狀態時發生錯誤", { error });
+    logger.error("Error resetting onboarding status", { error });
   }
 }
 
 /**
- * 標記 onboarding 已顯示
+ * Mark onboarding as shown
  */
 export async function markOnboardingShown(): Promise<void> {
   try {
@@ -81,14 +81,14 @@ export async function markOnboardingShown(): Promise<void> {
       onboardingShown: true,
       shownAt: Date.now(),
     });
-    logger.info("已標記 onboarding 已顯示");
+    logger.info("Onboarding marked as shown");
   } catch (error) {
-    logger.error("標記 onboarding 已顯示時發生錯誤", { error });
+    logger.error("Error marking onboarding as shown", { error });
   }
 }
 
 /**
- * 標記 onboarding 已完成
+ * Mark onboarding as completed
  */
 export async function markOnboardingCompleted(): Promise<void> {
   try {
@@ -96,30 +96,30 @@ export async function markOnboardingCompleted(): Promise<void> {
       onboardingCompleted: true,
       completedAt: Date.now(),
     });
-    logger.info("已標記 onboarding 已完成");
+    logger.info("Onboarding marked as completed");
   } catch (error) {
-    logger.error("標記 onboarding 已完成時發生錯誤", { error });
+    logger.error("Error marking onboarding as completed", { error });
   }
 }
 
 /**
- * 判斷是否應該顯示 onboarding
+ * Determine whether onboarding should be shown
  */
 export async function shouldShowOnboarding(): Promise<boolean> {
   const status = await checkOnboardingStatus();
 
-  // 如果已完成，不再顯示
+  // If already completed, do not show
   if (status.completed) {
     return false;
   }
 
-  // 如果從未顯示過，應該顯示
+  // If never shown, should show
   if (!status.shown) {
     return true;
   }
 
-  // 如果已顯示但未完成，可以考慮是否要再次提醒
-  // 這裡可以加入時間判斷，例如超過一週未完成就再次提醒
+  // If shown but not completed, consider reminding again
+  // Here you can add a time check, e.g., remind again if not completed after a week
   const oneWeek = 7 * 24 * 60 * 60 * 1000;
   const timeSinceInstall = Date.now() - (status.installTime || 0);
 

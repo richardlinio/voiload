@@ -394,7 +394,7 @@ footer {
   font-size: 1rem;
 }
 
-/* 額外樣式 */
+/* Extra styles */
 .completed-notice {
   background: var(--surface-light);
   border: 1px solid var(--success);
@@ -457,13 +457,13 @@ footer {
   font-size: 1.5rem;
 }
 
-/* 載入狀態 */
+/* Loading state */
 button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-/* 響應式設計 */
+/* Responsive design */
 @media (max-width: 768px) {
   .video-container {
     margin: 24px 0;
@@ -525,7 +525,7 @@ button:disabled {
   }
 }
 
-/* 支援更暗的系統 dark mode */
+/* Support for darker system dark mode */
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0e1a;
@@ -534,7 +534,7 @@ button:disabled {
   }
 }
 
-/* 高對比度模式支援 */
+/* High contrast mode support */
 @media (prefers-contrast: high) {
   :root {
     --text-primary: #ffffff;

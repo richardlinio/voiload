@@ -1,14 +1,14 @@
 /**
  * dom.ts
- * DOM 操作相關類型定義
+ * DOM operation related type definitions
  */
 
 // ================================================
-// DOM 操作相關介面
+// DOM operation related interfaces
 // ================================================
 
 /**
- * 語音訊息元素查找結果介面
+ * Voice message element lookup result interface
  */
 export interface VoiceMessageElementResult {
   element: Element;

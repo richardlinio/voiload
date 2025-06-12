@@ -1,6 +1,6 @@
 /**
  * audio-analyzer.ts
- * 分析音訊的輔助函數
+ * Helper functions for analyzing audio
  */
 
 import { Logger } from "../utils/logger";
@@ -13,20 +13,20 @@ import {
 import type { RequestMetadata } from "../types/audio";
 import type { AudioDurationMessage } from "../types/messages";
 
-// 創建模組特定的日誌記錄器
+// Create a module-specific logger
 const logger = Logger.createModuleLogger(MODULE_NAMES.AUDIO_ANALYZER);
 
 // ================================================
-// 語音訊息檢測函數
+// Voice message detection functions
 // ================================================
 
 /**
- * 判斷請求是否為語音訊息
- * @param url - 請求 URL
- * @param method - HTTP 方法
- * @param statusCode - HTTP 狀態碼
- * @param metadata - 選擇性，請求的元數據
- * @returns 是否為語音訊息
+ * Determine if a request is likely a voice message
+ * @param url - Request URL
+ * @param method - HTTP method
+ * @param statusCode - HTTP status code
+ * @param metadata - Optional, request metadata
+ * @returns Whether it is likely a voice message
  */
 export function isLikelyVoiceMessage(
   url: string,
@@ -34,8 +34,10 @@ export function isLikelyVoiceMessage(
   statusCode?: number,
   metadata: RequestMetadata = {}
 ): boolean {
-  // 1. 基本檢查：URL 存在、為 GET 請求、狀態碼表示成功
-  if (!url || method !== "GET") {return false;}
+  // 1. Basic check: URL exists, is a GET request, status code indicates success
+  if (!url || method !== "GET") {
+    return false;
+  }
 
   if (
     statusCode &&
@@ -44,15 +46,17 @@ export function isLikelyVoiceMessage(
     return false;
   }
 
-  // 2. 網域檢查：是否來自已知 CDN
+  // 2. Domain check: is it from a known CDN
   const isFromKnownCdn = SUPPORTED_SITES.CDN_PATTERNS.some((pattern) => {
     const domain = pattern.replace("*://*.", "").replace("/*", "");
     return url.includes(domain);
   });
 
-  if (!isFromKnownCdn) {return false;}
+  if (!isFromKnownCdn) {
+    return false;
+  }
 
-  // 3. 內容類型檢查：是否為音訊
+  // 3. Content type check: is it audio
   if (
     metadata.contentType &&
     !WEB_REQUEST_CONSTANTS.AUDIO_CONTENT_TYPES.includes(
@@ -62,7 +66,7 @@ export function isLikelyVoiceMessage(
     return false;
   }
 
-  // 4. 檔案大小檢查：是否在合理範圍內
+  // 4. File size check: is it within a reasonable range
   if (metadata.contentLength) {
     const fileSizeBytes = parseInt(metadata.contentLength, 10);
     if (
@@ -78,91 +82,95 @@ export function isLikelyVoiceMessage(
 }
 
 // ===========================================
-// 獲得音訊持續時間
+// Get audio duration
 // ===========================================
 
 /**
- * 使用 HTML5 Audio 元素計算音訊持續時間
- * @param url - 音訊 URL
- * @returns 持續時間計算結果（毫秒）
+ * Calculate audio duration using HTML5 Audio element
+ * @param url - Audio URL
+ * @returns Duration in milliseconds
  */
 export function getAudioDuration(url: string): Promise<number> {
   return new Promise<number>((resolve, reject) => {
-    logger.debug("開始計算音訊持續時間", {
+    logger.debug("Start calculating audio duration", {
       url: url.substring(0, 50) + "...",
     });
 
-    // 創建音訊元素
+    // Create audio element
     const audio = new Audio();
 
-    // 關鍵設置：只預載 metadata，不下載整個檔案
+    // Key setting: only preload metadata, do not download the whole file
     audio.preload = "metadata";
 
-    // 設置事件監聽器
+    // Set up event listeners
     audio.addEventListener("loadedmetadata", onMetadataLoaded);
     audio.addEventListener("error", onError);
 
-    // 開始載入
+    // Start loading
     audio.src = url;
 
-    // 當載入元數據時
+    // When metadata is loaded
     function onMetadataLoaded() {
-      // 計算持續時間（毫秒）
+      // Calculate duration (milliseconds)
       const durationMs = Math.round(audio.duration * 1000);
 
-      logger.debug("音訊持續時間計算完成", {
+      logger.debug("Audio duration calculation complete", {
         url: url.substring(0, 50) + "...",
         durationMs: durationMs,
       });
 
-      // 清理監聽器
+      // Clean up listeners
       audio.removeEventListener("loadedmetadata", onMetadataLoaded);
       audio.removeEventListener("error", onError);
 
-      // 釋放資源
+      // Release resources
       audio.src = "";
 
       resolve(durationMs);
     }
 
-    // 處理錯誤
+    // Handle errors
     function onError(e: Event) {
       const errorEvent = e as ErrorEvent;
-      logger.error("載入音訊時發生錯誤", {
-        error: errorEvent.error || "未知錯誤",
+      logger.error("Error occurred while loading audio", {
+        error: errorEvent.error || "Unknown error",
         url: url.substring(0, 50) + "...",
       });
 
-      // 清理監聽器
+      // Clean up listeners
       audio.removeEventListener("loadedmetadata", onMetadataLoaded);
       audio.removeEventListener("error", onError);
 
-      // 釋放資源
+      // Release resources
       audio.src = "";
 
       reject(
-        new Error(`載入音訊時發生錯誤：${errorEvent.error || "未知錯誤"}`)
+        new Error(
+          `Error occurred while loading audio: ${
+            errorEvent.error || "Unknown error"
+          }`
+        )
       );
     }
   });
 }
 
 /**
- * 處理計算音訊持續時間的請求
- * @param message - 請求訊息
- * @returns 持續時間或 undefined
+ * Handle request to calculate audio duration
+ * @param message - Request message
+ * @returns Duration or undefined
  */
 export async function handleGetAudioDurationRequest(
   message: AudioDurationMessage
 ): Promise<number | undefined> {
   try {
-    // 使用 await 等待計算結果
+    // Await calculation result
     const result = await getAudioDuration(message.url);
 
-    logger.debug("已取得音訊持續時間計算結果", { result });
+    logger.debug("Obtained audio duration calculation result", { result });
     return result;
   } catch (error) {
-    logger.error("計算音訊持續時間時發生錯誤", {
+    logger.error("Error occurred while calculating audio duration", {
       error: error instanceof Error ? error.message : String(error),
       url: message.url.substring(0, 50) + "...",
     });
