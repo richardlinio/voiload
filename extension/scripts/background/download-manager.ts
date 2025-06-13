@@ -166,9 +166,27 @@ export function downloadBlobContent(
     }
 
     // Generate filename
-    const timestamp = message.timestamp
-      ? new Date(message.timestamp)
-      : new Date();
+    let timestamp: Date;
+    try {
+      timestamp = message.timestamp
+        ? new Date(message.timestamp)
+        : new Date();
+      
+      // Check if timestamp is valid
+      if (isNaN(timestamp.getTime())) {
+        logger.warn("Invalid timestamp provided, using current time", {
+          providedTimestamp: message.timestamp,
+        });
+        timestamp = new Date();
+      }
+    } catch (error) {
+      logger.warn("Error parsing timestamp, using current time", {
+        providedTimestamp: message.timestamp,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      timestamp = new Date();
+    }
+    
     const formattedDate = timestamp
       .toISOString()
       .replace(/[:.]/g, "-")
