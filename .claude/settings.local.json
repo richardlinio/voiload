@@ -22,7 +22,9 @@
       "Bash(pnpm lint:*)",
       "Bash(rg:*)",
       "Bash(pnpm dev:*)",
-      "Bash(pnpm webpack:*)"
+      "Bash(pnpm webpack:*)",
+      "Bash(sed:*)",
+      "Bash(tree:*)"
     ],
     "deny": []
   }
