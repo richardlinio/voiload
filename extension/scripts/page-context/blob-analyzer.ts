@@ -95,16 +95,16 @@ export async function extractBlobContent(
  * @returns Evaluation result
  */
 export function isLikelyVoiceMessageBlob(blob: Blob): boolean {
-  logger.debug("Evaluating if Blob is an audio file", {
-    blobType: blob.type,
-    blobSize: blob.size,
-  });
-
   // Basic check - blob must exist, have a type, and have a size
   if (!blob || !blob.type || !blob.size) {
     logger.debug("Blob does not exist or lacks basic info");
     return false;
   }
+
+  logger.debug("Evaluating if Blob is an audio file", {
+    blobType: blob.type,
+    blobSize: blob.size,
+  });
 
   // Must be one of the possible audio types
   if (
