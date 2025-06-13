@@ -150,3 +150,4 @@ The extension uses a multi-layer architecture:
 
 - Use traditional chinese to write comments
 - Use ripgrep (rg) when you need grep
+- **Referenced Project**: /Users/linporu/Documents/world-of-code/evoprompt/test-god.md
