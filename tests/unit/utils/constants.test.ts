@@ -16,7 +16,7 @@ import {
   FILENAME_CONSTANTS,
   ID_CONSTANTS,
   DOWNLOAD_CONSTANTS,
-} from "../../extension/scripts/utils/constants";
+} from "../../../extension/scripts/utils/constants";
 
 describe("Constants", () => {
   describe("MODULE_NAMES", () => {

@@ -3,8 +3,8 @@
 // Mock environment variable before any imports
 (global as any).__IS_PRODUCTION__ = false;
 
-import { Logger } from "../../extension/scripts/utils/logger";
-import { LOG_LEVELS } from "../../extension/scripts/utils/constants";
+import { Logger } from "../../../extension/scripts/utils/logger";
+import { LOG_LEVELS } from "../../../extension/scripts/utils/constants";
 
 // Mock console methods to avoid actual output during tests
 const mockConsole = {
@@ -15,7 +15,7 @@ const mockConsole = {
 };
 
 // Mock constants
-jest.mock("../../extension/scripts/utils/constants", () => ({
+jest.mock("../../../extension/scripts/utils/constants", () => ({
   LOG_LEVELS: {
     DEBUG: 0,
     INFO: 1,

@@ -6,10 +6,10 @@ import {
   generateVoiceMessageFilename,
   millisecondsToSeconds,
   secondsToMilliseconds,
-} from "../../extension/scripts/utils/time-utils";
+} from "../../../extension/scripts/utils/time-utils";
 
 // Mock Logger to avoid side effects
-jest.mock("../../extension/scripts/utils/logger", () => ({
+jest.mock("../../../extension/scripts/utils/logger", () => ({
   Logger: {
     error: jest.fn(),
   },
