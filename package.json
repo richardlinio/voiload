@@ -24,6 +24,7 @@
     "@babel/preset-typescript": "^7.27.1",
     "@jest/types": "^30.0.0",
     "@types/chrome": "^0.0.312",
+    "@types/jest": "^29.5.14",
     "@types/node": "^24.0.0",
     "@typescript-eslint/eslint-plugin": "^8.34.0",
     "@typescript-eslint/parser": "^8.34.0",
