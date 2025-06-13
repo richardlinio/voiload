@@ -1,10 +1,10 @@
 /**
- * menu-manager.test.js
+ * menu-manager.test.ts
  * Unit tests for menu-manager module
  */
 
 // Mock the chrome API before importing
-const mockChrome = {
+const menuManagerMockChrome: any = {
   contextMenus: {
     create: jest.fn(),
     onClicked: {
@@ -35,20 +35,20 @@ jest.mock("../../../extension/scripts/utils/logger", () => ({
 }));
 
 // Set up global chrome mock
-global.chrome = mockChrome;
+(global as any).chrome = menuManagerMockChrome;
 
 describe("MenuManager", () => {
-  let initMenuManager;
-  let mockLogger;
+  let initMenuManager: any;
+  let mockLogger: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
     jest.resetModules();
 
     // Reset chrome API mocks
-    mockChrome.runtime.lastError = null;
-    mockChrome.contextMenus.create.mockClear();
-    mockChrome.contextMenus.onClicked.addListener.mockClear();
+    menuManagerMockChrome.runtime.lastError = null;
+    menuManagerMockChrome.contextMenus.create.mockClear();
+    menuManagerMockChrome.contextMenus.onClicked.addListener.mockClear();
 
     // Create fresh mock logger for each test
     mockLogger = {
@@ -78,7 +78,7 @@ describe("MenuManager", () => {
     it("should correctly create the context menu", () => {
       initMenuManager();
 
-      expect(mockChrome.contextMenus.create).toHaveBeenCalledWith(
+      expect(menuManagerMockChrome.contextMenus.create).toHaveBeenCalledWith(
         {
           id: "downloadVoiceMessage",
           title: "Download Voice Message",
@@ -96,10 +96,10 @@ describe("MenuManager", () => {
       initMenuManager();
 
       // Get the callback passed to create
-      const createCallback = mockChrome.contextMenus.create.mock.calls[0][1];
+      const createCallback = menuManagerMockChrome.contextMenus.create.mock.calls[0][1];
 
       // Simulate success (no error)
-      mockChrome.runtime.lastError = null;
+      menuManagerMockChrome.runtime.lastError = null;
       createCallback();
 
       expect(mockLogger.info).toHaveBeenCalledWith(
@@ -111,11 +111,11 @@ describe("MenuManager", () => {
       initMenuManager();
 
       // Get the callback passed to create
-      const createCallback = mockChrome.contextMenus.create.mock.calls[0][1];
+      const createCallback = menuManagerMockChrome.contextMenus.create.mock.calls[0][1];
 
       // Simulate error condition
       const mockError = { message: "Failed to create menu" };
-      mockChrome.runtime.lastError = mockError;
+      (menuManagerMockChrome.runtime as any).lastError = mockError;
       createCallback();
 
       expect(mockLogger.error).toHaveBeenCalledWith(
@@ -128,20 +128,20 @@ describe("MenuManager", () => {
       initMenuManager();
 
       expect(
-        mockChrome.contextMenus.onClicked.addListener
+        menuManagerMockChrome.contextMenus.onClicked.addListener
       ).toHaveBeenCalledWith(expect.any(Function));
     });
   });
 
   describe("context menu click handling", () => {
-    let clickHandler;
+    let clickHandler: any;
 
     beforeEach(() => {
       initMenuManager();
 
       // Get the registered click handler
       clickHandler =
-        mockChrome.contextMenus.onClicked.addListener.mock.calls[0][0];
+        menuManagerMockChrome.contextMenus.onClicked.addListener.mock.calls[0][0];
     });
 
     it("should log basic information about the click event", () => {

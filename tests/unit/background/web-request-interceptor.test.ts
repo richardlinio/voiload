@@ -1,10 +1,10 @@
 /**
- * web-request-interceptor.test.js
+ * web-request-interceptor.test.ts
  * Unit tests for web-request-interceptor module
  */
 
 // Mock the chrome API before importing
-const mockChrome = {
+const webRequestMockChrome: any = {
   webRequest: {
     onHeadersReceived: {
       addListener: jest.fn(),
@@ -54,27 +54,27 @@ jest.mock("../../../extension/scripts/page-context/audio-analyzer", () => ({
 }));
 
 // Set up global chrome mock
-global.chrome = mockChrome;
+(global as any).chrome = webRequestMockChrome;
 
 // Mock timers
 jest.useFakeTimers();
 
 describe("WebRequestInterceptor", () => {
-  let initWebRequestInterceptor;
-  let mockLogger;
-  let mockVoiceMessagesStore;
-  let mockIsLikelyVoiceMessage;
+  let initWebRequestInterceptor: any;
+  let mockLogger: any;
+  let mockVoiceMessagesStore: any;
+  let mockIsLikelyVoiceMessage: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
     jest.resetModules();
 
     // Reset chrome API mocks
-    mockChrome.webRequest.onHeadersReceived.addListener.mockClear();
-    mockChrome.webRequest.onCompleted.addListener.mockClear();
-    mockChrome.tabs.query.mockClear();
-    mockChrome.tabs.sendMessage.mockClear();
-    mockChrome.runtime.lastError = null;
+    webRequestMockChrome.webRequest.onHeadersReceived.addListener.mockClear();
+    webRequestMockChrome.webRequest.onCompleted.addListener.mockClear();
+    webRequestMockChrome.tabs.query.mockClear();
+    webRequestMockChrome.tabs.sendMessage.mockClear();
+    webRequestMockChrome.runtime.lastError = null;
 
     // Create fresh mock logger for each test
     mockLogger = {
@@ -131,7 +131,7 @@ describe("WebRequestInterceptor", () => {
       initWebRequestInterceptor(mockVoiceMessagesStore);
 
       expect(
-        mockChrome.webRequest.onHeadersReceived.addListener
+        webRequestMockChrome.webRequest.onHeadersReceived.addListener
       ).toHaveBeenCalledWith(
         expect.any(Function),
         { urls: ["*://*.fbcdn.net/*", "*://*.facebook.com/*"] },
@@ -139,7 +139,7 @@ describe("WebRequestInterceptor", () => {
       );
 
       expect(
-        mockChrome.webRequest.onCompleted.addListener
+        webRequestMockChrome.webRequest.onCompleted.addListener
       ).toHaveBeenCalledWith(
         expect.any(Function),
         { urls: ["*://*.fbcdn.net/*", "*://*.facebook.com/*"] },
@@ -149,7 +149,7 @@ describe("WebRequestInterceptor", () => {
 
     it("should log an error when webRequest API is not available", () => {
       // Mock webRequest API not available
-      global.chrome = { ...mockChrome, webRequest: undefined };
+      (global as any).chrome = { ...webRequestMockChrome, webRequest: undefined };
 
       initWebRequestInterceptor(mockVoiceMessagesStore);
 
@@ -160,8 +160,8 @@ describe("WebRequestInterceptor", () => {
 
     it("should handle errors during initialization", () => {
       // Ensure webRequest API is available
-      global.chrome = {
-        ...mockChrome,
+      (global as any).chrome = {
+        ...webRequestMockChrome,
         webRequest: {
           onHeadersReceived: {
             addListener: jest.fn(() => {
@@ -187,17 +187,17 @@ describe("WebRequestInterceptor", () => {
   });
 
   describe("request handling", () => {
-    let requestHandler;
+    let requestHandler: any;
 
     beforeEach(() => {
       // Reset chrome API to normal state
-      global.chrome = mockChrome;
+      (global as any).chrome = webRequestMockChrome;
 
       initWebRequestInterceptor(mockVoiceMessagesStore);
 
       // Get registered request handler
       requestHandler =
-        mockChrome.webRequest.onHeadersReceived.addListener.mock.calls[0][0];
+        webRequestMockChrome.webRequest.onHeadersReceived.addListener.mock.calls[0][0];
     });
 
     it("should handle voice message requests", () => {
@@ -369,15 +369,15 @@ describe("WebRequestInterceptor", () => {
   });
 
   describe("broadcasting to content scripts", () => {
-    let requestHandler;
+    let requestHandler: any;
 
     beforeEach(() => {
       // Reset chrome API to normal state
-      global.chrome = mockChrome;
+      (global as any).chrome = webRequestMockChrome;
 
       initWebRequestInterceptor(mockVoiceMessagesStore);
       requestHandler =
-        mockChrome.webRequest.onHeadersReceived.addListener.mock.calls[0][0];
+        webRequestMockChrome.webRequest.onHeadersReceived.addListener.mock.calls[0][0];
     });
 
     it("should broadcast messages to content scripts", () => {
@@ -388,7 +388,7 @@ describe("WebRequestInterceptor", () => {
         { id: 2, url: "https://www.messenger.com" },
       ];
 
-      mockChrome.tabs.query.mockImplementation((filter, callback) => {
+      webRequestMockChrome.tabs.query.mockImplementation((filter: any, callback: any) => {
         callback(mockTabs);
       });
 
@@ -404,13 +404,13 @@ describe("WebRequestInterceptor", () => {
 
       requestHandler(mockDetails);
 
-      expect(mockChrome.tabs.query).toHaveBeenCalledWith(
+      expect(webRequestMockChrome.tabs.query).toHaveBeenCalledWith(
         { url: ["https://*.facebook.com/*", "https://*.messenger.com/*"] },
         expect.any(Function)
       );
 
-      expect(mockChrome.tabs.sendMessage).toHaveBeenCalledTimes(2);
-      expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(
+      expect(webRequestMockChrome.tabs.sendMessage).toHaveBeenCalledTimes(2);
+      expect(webRequestMockChrome.tabs.sendMessage).toHaveBeenCalledWith(
         1,
         {
           action: "GET_AUDIO_DURATION",
@@ -431,12 +431,12 @@ describe("WebRequestInterceptor", () => {
 
       const mockTabs = [{ id: 1, url: "https://www.facebook.com/messages" }];
 
-      mockChrome.tabs.query.mockImplementation((filter, callback) => {
+      webRequestMockChrome.tabs.query.mockImplementation((filter: any, callback: any) => {
         callback(mockTabs);
       });
 
-      mockChrome.tabs.sendMessage.mockImplementation(
-        (tabId, message, callback) => {
+      webRequestMockChrome.tabs.sendMessage.mockImplementation(
+        (tabId: any, _message: any, callback: any) => {
           callback({ success: true, data: "test response" });
         }
       );
@@ -463,13 +463,13 @@ describe("WebRequestInterceptor", () => {
 
       const mockTabs = [{ id: 1, url: "https://www.facebook.com/messages" }];
 
-      mockChrome.tabs.query.mockImplementation((filter, callback) => {
+      webRequestMockChrome.tabs.query.mockImplementation((filter: any, callback: any) => {
         callback(mockTabs);
       });
 
-      mockChrome.tabs.sendMessage.mockImplementation(
-        (tabId, message, callback) => {
-          mockChrome.runtime.lastError = { message: "Tab not found" };
+      webRequestMockChrome.tabs.sendMessage.mockImplementation(
+        (tabId: any, _message: any, callback: any) => {
+          (webRequestMockChrome.runtime as any).lastError = { message: "Tab not found" };
           callback();
         }
       );
