@@ -7,7 +7,7 @@
 import { generateVoiceMessageId } from "../utils/id-generator";
 import { secondsToMilliseconds } from "../utils/time-utils";
 import { Logger } from "../utils/logger";
-import { MODULE_NAMES } from "../utils/constants";
+import { MODULE_NAMES, MATCHING_TOLERANCE } from "../utils/constants";
 import type {
   VoiceMessageItem,
   VoiceMessageStore,
@@ -47,7 +47,7 @@ export function createDataStore(): VoiceMessageStore {
     isDurationMatch: (
       duration1Ms: number,
       duration2Ms: number,
-      toleranceMs: number = 5
+      toleranceMs: number = MATCHING_TOLERANCE
     ) => isDurationMatch(duration1Ms, duration2Ms, toleranceMs),
     registerDownloadUrl: (
       durationMs: number,
@@ -86,7 +86,7 @@ export function createDataStore(): VoiceMessageStore {
 export function isDurationMatch(
   duration1Ms: number,
   duration2Ms: number,
-  toleranceMs: number = 5
+  toleranceMs: number = MATCHING_TOLERANCE
 ): boolean {
   if (typeof duration1Ms !== "number" || typeof duration2Ms !== "number") {
     return false;
