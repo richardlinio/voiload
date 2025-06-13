@@ -1,10 +1,10 @@
 /**
- * message-handler.test.js
+ * message-handler.test.ts
  * Unit tests for message-handler module
  */
 
 // Mock the chrome API before importing
-const mockChrome = {
+const messageHandlerMockChrome: any = {
   runtime: {
     onMessage: {
       addListener: jest.fn(),
@@ -79,20 +79,20 @@ jest.mock("../../../extension/scripts/background/data-store", () => ({
 }));
 
 // Set up global chrome mock
-global.chrome = mockChrome;
+(global as any).chrome = messageHandlerMockChrome;
 
 describe("MessageHandler", () => {
-  let initMessageHandler;
-  let mockLogger;
-  let mockDataStore;
-  let mockHandlers;
+  let initMessageHandler: any;
+  let mockLogger: any;
+  let mockDataStore: any;
+  let mockHandlers: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
     jest.resetModules();
 
     // Reset chrome API mocks
-    mockChrome.runtime.onMessage.addListener.mockClear();
+    messageHandlerMockChrome.runtime.onMessage.addListener.mockClear();
 
     // Create fresh mock logger for each test
     mockLogger = {
@@ -201,23 +201,23 @@ describe("MessageHandler", () => {
     it("should register the message listener", () => {
       initMessageHandler();
 
-      expect(mockChrome.runtime.onMessage.addListener).toHaveBeenCalledWith(
+      expect(messageHandlerMockChrome.runtime.onMessage.addListener).toHaveBeenCalledWith(
         expect.any(Function)
       );
     });
   });
 
   describe("message routing", () => {
-    let messageListener;
-    let mockSender;
-    let mockSendResponse;
+    let messageListener: any;
+    let mockSender: any;
+    let mockSendResponse: any;
 
     beforeEach(() => {
       initMessageHandler();
 
       // Get the registered message listener
       messageListener =
-        mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
+        messageHandlerMockChrome.runtime.onMessage.addListener.mock.calls[0][0];
 
       mockSender = { tab: { id: 1 } };
       mockSendResponse = jest.fn();
@@ -353,9 +353,9 @@ describe("MessageHandler", () => {
   });
 
   describe("store initialization error handling", () => {
-    let messageListener;
-    let mockSender;
-    let mockSendResponse;
+    let messageListener: any;
+    let mockSender: any;
+    let mockSendResponse: any;
 
     beforeEach(() => {
       jest.resetModules();
@@ -418,12 +418,12 @@ describe("MessageHandler", () => {
       // Mock the voiceMessagesStore to be null by providing a null parameter
       try {
         messageHandler.initMessageHandler(null);
-      } catch (error) {
+      } catch {
         // Expected to fail, we'll manually set up the listener for testing
       }
 
       // Manually set up message listener for testing error cases
-      const mockMessageListener = (message, sender, sendResponse) => {
+      const mockMessageListener = (message: any, sender: any, sendResponse: any) => {
         // Simulate the null store check
         const storeRequiredActions = [
           "RIGHT_CLICK",
