@@ -4,10 +4,10 @@ import {
   generateVoiceMessageId,
   isVoiceMessageId,
   extractTimestampFromId,
-} from "../../extension/scripts/utils/id-generator";
+} from "../../../extension/scripts/utils/id-generator";
 
 // Mock Logger to avoid side effects
-jest.mock("../../extension/scripts/utils/logger", () => ({
+jest.mock("../../../extension/scripts/utils/logger", () => ({
   Logger: {
     debug: jest.fn(),
     warn: jest.fn(),
@@ -15,7 +15,7 @@ jest.mock("../../extension/scripts/utils/logger", () => ({
 }));
 
 // Mock constants to have control over test environment
-jest.mock("../../extension/scripts/utils/constants", () => ({
+jest.mock("../../../extension/scripts/utils/constants", () => ({
   ID_CONSTANTS: {
     VOICE_MESSAGE_ID_PREFIX: "voice-msg-",
   },

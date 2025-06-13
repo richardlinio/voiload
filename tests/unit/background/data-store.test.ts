@@ -8,27 +8,32 @@ import {
   findItemByDuration,
   getDownloadUrlForElement,
   cleanupOldItems,
-} from "../../extension/scripts/background/data-store";
-import type { VoiceMessageStore, VoiceMessageItem } from "../../extension/scripts/types/voice-message";
+} from "../../../extension/scripts/background/data-store";
+import type {
+  VoiceMessageStore,
+  VoiceMessageItem,
+} from "../../../extension/scripts/types/voice-message";
 
 // Helper to reset singleton instance via module scope manipulation
 function resetDataStoreSingleton() {
   // Access the module's singleton instance and reset it
-  const dataStoreModule = require("../../extension/scripts/background/data-store");
+  const dataStoreModule = require("../../../extension/scripts/background/data-store");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (dataStoreModule as any).voiceMessagesInstance = null;
 }
 
 // Mock dependencies
-jest.mock("../../extension/scripts/utils/id-generator", () => ({
+jest.mock("../../../extension/scripts/utils/id-generator", () => ({
   generateVoiceMessageId: jest.fn(() => "voice-msg-1710859680000-abcd1234"),
 }));
 
-jest.mock("../../extension/scripts/utils/time-utils", () => ({
-  secondsToMilliseconds: jest.fn((seconds: number) => Math.round(seconds * 1000)),
+jest.mock("../../../extension/scripts/utils/time-utils", () => ({
+  secondsToMilliseconds: jest.fn((seconds: number) =>
+    Math.round(seconds * 1000)
+  ),
 }));
 
-jest.mock("../../extension/scripts/utils/logger", () => ({
+jest.mock("../../../extension/scripts/utils/logger", () => ({
   Logger: {
     createModuleLogger: jest.fn(() => ({
       debug: jest.fn(),
@@ -39,7 +44,7 @@ jest.mock("../../extension/scripts/utils/logger", () => ({
   },
 }));
 
-jest.mock("../../extension/scripts/utils/constants", () => ({
+jest.mock("../../../extension/scripts/utils/constants", () => ({
   MODULE_NAMES: {
     DATA_STORE: "data-store",
   },
@@ -47,18 +52,21 @@ jest.mock("../../extension/scripts/utils/constants", () => ({
 }));
 
 // Helper function to create a mock element
-function createMockElement(
-  id?: string,
-  ariaValuemax?: string
-): Element {
+function createMockElement(id?: string, ariaValuemax?: string): Element {
   const element = {
     getAttribute: jest.fn((attr: string) => {
-      if (attr === "data-voice-message-id") return id || null;
-      if (attr === "aria-valuemax") return ariaValuemax || null;
+      if (attr === "data-voice-message-id") {
+        return id || null;
+      }
+      if (attr === "aria-valuemax") {
+        return ariaValuemax || null;
+      }
       return null;
     }),
     hasAttribute: jest.fn((attr: string) => {
-      if (attr === "aria-valuemax") return !!ariaValuemax;
+      if (attr === "aria-valuemax") {
+        return !!ariaValuemax;
+      }
       return false;
     }),
   } as unknown as Element;
@@ -81,7 +89,7 @@ describe("data-store.ts", () => {
     it("should create a singleton data store instance", () => {
       const store1 = createDataStore();
       const store2 = createDataStore();
-      
+
       expect(store1).toBe(store2);
       expect(store1).toHaveProperty("items");
       expect(store1.items).toBeInstanceOf(Map);
@@ -89,7 +97,7 @@ describe("data-store.ts", () => {
 
     it("should have all required methods", () => {
       const store = createDataStore();
-      
+
       expect(typeof store.isDurationMatch).toBe("function");
       expect(typeof store.registerDownloadUrl).toBe("function");
       expect(typeof store.findPendingItemByDuration).toBe("function");
@@ -99,7 +107,7 @@ describe("data-store.ts", () => {
 
     it("should initialize with empty items map", () => {
       const store = createDataStore();
-      
+
       expect(store.items.size).toBe(0);
     });
   });
@@ -114,32 +122,32 @@ describe("data-store.ts", () => {
 
       it("should return true for durations within default tolerance", () => {
         expect(isDurationMatch(1000, 1005)).toBe(true); // +5ms
-        expect(isDurationMatch(1000, 995)).toBe(true);  // -5ms
+        expect(isDurationMatch(1000, 995)).toBe(true); // -5ms
         expect(isDurationMatch(1000, 1003)).toBe(true); // +3ms
-        expect(isDurationMatch(1000, 997)).toBe(true);  // -3ms
+        expect(isDurationMatch(1000, 997)).toBe(true); // -3ms
       });
 
       it("should return false for durations outside default tolerance", () => {
         expect(isDurationMatch(1000, 1006)).toBe(false); // +6ms
-        expect(isDurationMatch(1000, 994)).toBe(false);  // -6ms
+        expect(isDurationMatch(1000, 994)).toBe(false); // -6ms
         expect(isDurationMatch(1000, 1010)).toBe(false); // +10ms
-        expect(isDurationMatch(1000, 990)).toBe(false);  // -10ms
+        expect(isDurationMatch(1000, 990)).toBe(false); // -10ms
       });
 
       it("should respect custom tolerance values", () => {
-        expect(isDurationMatch(1000, 1010, 10)).toBe(true);  // Within 10ms
-        expect(isDurationMatch(1000, 990, 10)).toBe(true);   // Within 10ms
+        expect(isDurationMatch(1000, 1010, 10)).toBe(true); // Within 10ms
+        expect(isDurationMatch(1000, 990, 10)).toBe(true); // Within 10ms
         expect(isDurationMatch(1000, 1011, 10)).toBe(false); // Outside 10ms
-        expect(isDurationMatch(1000, 989, 10)).toBe(false);  // Outside 10ms
+        expect(isDurationMatch(1000, 989, 10)).toBe(false); // Outside 10ms
       });
     });
 
     describe("Boundary Conditions", () => {
       it("should handle zero values", () => {
         expect(isDurationMatch(0, 0)).toBe(true);
-        expect(isDurationMatch(0, 5)).toBe(true);  // Within tolerance
+        expect(isDurationMatch(0, 5)).toBe(true); // Within tolerance
         expect(isDurationMatch(0, 6)).toBe(false); // Outside tolerance
-        expect(isDurationMatch(5, 0)).toBe(true);  // Within tolerance
+        expect(isDurationMatch(5, 0)).toBe(true); // Within tolerance
       });
 
       it("should handle negative numbers", () => {
@@ -190,8 +198,12 @@ describe("data-store.ts", () => {
 
   describe("registerDownloadUrl", () => {
     beforeEach(() => {
-      const { generateVoiceMessageId } = require("../../extension/scripts/utils/id-generator");
-      generateVoiceMessageId.mockReturnValue("voice-msg-1710859680000-abcd1234");
+      const {
+        generateVoiceMessageId,
+      } = require("../../../extension/scripts/utils/id-generator");
+      generateVoiceMessageId.mockReturnValue(
+        "voice-msg-1710859680000-abcd1234"
+      );
     });
 
     describe("Normal Cases", () => {
@@ -207,7 +219,7 @@ describe("data-store.ts", () => {
 
         expect(id).toBe("voice-msg-1710859680000-abcd1234");
         expect(mockStore.items.size).toBe(1);
-        
+
         const item = mockStore.items.get(id);
         expect(item).toBeDefined();
         expect(item?.durationMs).toBe(5000);
@@ -242,7 +254,7 @@ describe("data-store.ts", () => {
 
         expect(id).toBe("existing-id");
         expect(mockStore.items.size).toBe(1);
-        
+
         const updatedItem = mockStore.items.get("existing-id");
         expect(updatedItem?.downloadUrl).toBe("https://new-url.com/audio.mp3");
         expect(updatedItem?.lastModified).toBe("Wed, 19 Mar 2025 14:04:40 GMT");
@@ -251,7 +263,11 @@ describe("data-store.ts", () => {
       });
 
       it("should handle optional parameters", () => {
-        const id = registerDownloadUrl(mockStore, 3000, "https://example.com/audio.mp3");
+        const id = registerDownloadUrl(
+          mockStore,
+          3000,
+          "https://example.com/audio.mp3"
+        );
 
         const item = mockStore.items.get(id);
         expect(item?.durationMs).toBe(3000);
@@ -264,8 +280,12 @@ describe("data-store.ts", () => {
 
     describe("Boundary Conditions", () => {
       it("should handle zero duration", () => {
-        const id = registerDownloadUrl(mockStore, 0, "https://example.com/audio.mp3");
-        
+        const id = registerDownloadUrl(
+          mockStore,
+          0,
+          "https://example.com/audio.mp3"
+        );
+
         const item = mockStore.items.get(id);
         expect(item?.durationMs).toBe(0);
       });
@@ -273,14 +293,14 @@ describe("data-store.ts", () => {
       it("should handle very long URLs", () => {
         const longUrl = "https://example.com/" + "a".repeat(1000) + ".mp3";
         const id = registerDownloadUrl(mockStore, 1000, longUrl);
-        
+
         const item = mockStore.items.get(id);
         expect(item?.downloadUrl).toBe(longUrl);
       });
 
       it("should handle empty string parameters", () => {
         const id = registerDownloadUrl(mockStore, 1000, "", "", "", null);
-        
+
         const item = mockStore.items.get(id);
         expect(item?.downloadUrl).toBe("");
         expect(item?.lastModified).toBe("");
@@ -303,11 +323,11 @@ describe("data-store.ts", () => {
 
         // Test various durations within tolerance
         const testCases = [995, 997, 1000, 1003, 1005];
-        
+
         testCases.forEach((duration, index) => {
           const newUrl = `new-url-${index}`;
           const id = registerDownloadUrl(mockStore, duration, newUrl);
-          
+
           expect(id).toBe("test-id");
           expect(mockStore.items.get("test-id")?.downloadUrl).toBe(newUrl);
         });
@@ -325,7 +345,7 @@ describe("data-store.ts", () => {
         mockStore.items.set("test-id", existingItem);
 
         const id = registerDownloadUrl(mockStore, 1010, "new-url"); // Outside tolerance
-        
+
         expect(id).not.toBe("test-id");
         expect(mockStore.items.size).toBe(2);
       });
@@ -360,7 +380,7 @@ describe("data-store.ts", () => {
     describe("Normal Cases", () => {
       it("should find pending item by exact duration", () => {
         const item = findPendingItemByDuration(mockStore, 5000);
-        
+
         expect(item).toBeDefined();
         expect(item?.id).toBe("pending-1");
         expect(item?.isPending).toBe(true);
@@ -368,20 +388,20 @@ describe("data-store.ts", () => {
 
       it("should find pending item within tolerance", () => {
         const item = findPendingItemByDuration(mockStore, 5003);
-        
+
         expect(item).toBeDefined();
         expect(item?.id).toBe("pending-1");
       });
 
       it("should not find processed items", () => {
         const item = findPendingItemByDuration(mockStore, 3000);
-        
+
         expect(item).toBeNull();
       });
 
       it("should return null when no matching pending item exists", () => {
         const item = findPendingItemByDuration(mockStore, 8000);
-        
+
         expect(item).toBeNull();
       });
     });
@@ -390,7 +410,7 @@ describe("data-store.ts", () => {
       it("should handle empty store", () => {
         mockStore.items.clear();
         const item = findPendingItemByDuration(mockStore, 5000);
-        
+
         expect(item).toBeNull();
       });
 
@@ -406,7 +426,7 @@ describe("data-store.ts", () => {
         mockStore.items.set("pending-2", pendingItem2);
 
         const item = findPendingItemByDuration(mockStore, 5000);
-        
+
         expect(item).toBeDefined();
         // Should return one of the matching items
         expect(["pending-1", "pending-2"]).toContain(item?.id);
@@ -442,20 +462,20 @@ describe("data-store.ts", () => {
       it("should find item by exact duration regardless of pending status", () => {
         const pendingItem = findItemByDuration(mockStore, 5000);
         const processedItem = findItemByDuration(mockStore, 3000);
-        
+
         expect(pendingItem?.id).toBe("item-1");
         expect(processedItem?.id).toBe("item-2");
       });
 
       it("should find item within tolerance", () => {
         const item = findItemByDuration(mockStore, 5003);
-        
+
         expect(item?.id).toBe("item-1");
       });
 
       it("should return null when no matching item exists", () => {
         const item = findItemByDuration(mockStore, 8000);
-        
+
         expect(item).toBeNull();
       });
     });
@@ -464,7 +484,7 @@ describe("data-store.ts", () => {
       it("should handle empty store", () => {
         mockStore.items.clear();
         const item = findItemByDuration(mockStore, 5000);
-        
+
         expect(item).toBeNull();
       });
 
@@ -480,7 +500,7 @@ describe("data-store.ts", () => {
         mockStore.items.set("item-3", item3);
 
         const item = findItemByDuration(mockStore, 5000);
-        
+
         expect(["item-1", "item-3"]).toContain(item?.id);
       });
     });
@@ -488,8 +508,12 @@ describe("data-store.ts", () => {
 
   describe("getDownloadUrlForElement", () => {
     beforeEach(() => {
-      const { secondsToMilliseconds } = require("../../extension/scripts/utils/time-utils");
-      secondsToMilliseconds.mockImplementation((seconds: number) => Math.round(seconds * 1000));
+      const {
+        secondsToMilliseconds,
+      } = require("../../../extension/scripts/utils/time-utils");
+      secondsToMilliseconds.mockImplementation((seconds: number) =>
+        Math.round(seconds * 1000)
+      );
     });
 
     describe("Normal Cases", () => {
@@ -507,7 +531,7 @@ describe("data-store.ts", () => {
 
         const element = createMockElement("test-id");
         const result = getDownloadUrlForElement(mockStore, element);
-        
+
         expect(result).toEqual({
           downloadUrl: "https://example.com/audio.mp3",
           lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
@@ -528,7 +552,7 @@ describe("data-store.ts", () => {
 
         const element = createMockElement(undefined, "5.0"); // 5 seconds
         const result = getDownloadUrlForElement(mockStore, element);
-        
+
         expect(result).toEqual({
           downloadUrl: "https://example.com/audio.mp3",
           lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
@@ -548,7 +572,7 @@ describe("data-store.ts", () => {
 
         const element = createMockElement("test-id");
         const result = getDownloadUrlForElement(mockStore, element);
-        
+
         expect(result).toEqual({
           downloadUrl: "https://example.com/audio.mp3",
           lastModified: null,
@@ -559,28 +583,28 @@ describe("data-store.ts", () => {
     describe("Boundary Conditions", () => {
       it("should return null for null element", () => {
         const result = getDownloadUrlForElement(mockStore, null as any);
-        
+
         expect(result).toBeNull();
       });
 
       it("should return null when element ID not found in store", () => {
         const element = createMockElement("non-existent-id");
         const result = getDownloadUrlForElement(mockStore, element);
-        
+
         expect(result).toBeNull();
       });
 
       it("should return null when no aria-valuemax attribute", () => {
         const element = createMockElement(); // No ID, no aria-valuemax
         const result = getDownloadUrlForElement(mockStore, element);
-        
+
         expect(result).toBeNull();
       });
 
       it("should handle invalid aria-valuemax values", () => {
         const element = createMockElement(undefined, "invalid");
         const result = getDownloadUrlForElement(mockStore, element);
-        
+
         expect(result).toBeNull();
       });
 
@@ -597,7 +621,7 @@ describe("data-store.ts", () => {
 
         const element = createMockElement(undefined, "5.0");
         const result = getDownloadUrlForElement(mockStore, element);
-        
+
         expect(result).toBeNull();
       });
     });
@@ -617,7 +641,7 @@ describe("data-store.ts", () => {
         // Test duration within tolerance (5.003 seconds = 5003ms, within 5ms tolerance of 5000ms)
         const element = createMockElement(undefined, "5.003");
         const result = getDownloadUrlForElement(mockStore, element);
-        
+
         expect(result?.downloadUrl).toBe("https://example.com/audio.mp3");
       });
 
@@ -635,7 +659,7 @@ describe("data-store.ts", () => {
         // Duration outside tolerance (5.01 seconds = 5010ms, outside 5ms tolerance)
         const element = createMockElement(undefined, "5.01");
         const result = getDownloadUrlForElement(mockStore, element);
-        
+
         expect(result).toBeNull();
       });
     });
@@ -654,7 +678,7 @@ describe("data-store.ts", () => {
 
         const element = createMockElement(undefined, "0");
         const result = getDownloadUrlForElement(mockStore, element);
-        
+
         expect(result?.downloadUrl).toBe("https://example.com/audio.mp3");
       });
 
@@ -671,7 +695,7 @@ describe("data-store.ts", () => {
 
         const element = createMockElement(undefined, "0.1");
         const result = getDownloadUrlForElement(mockStore, element);
-        
+
         expect(result?.downloadUrl).toBe("https://example.com/audio.mp3");
       });
     });
@@ -680,7 +704,7 @@ describe("data-store.ts", () => {
   describe("cleanupOldItems", () => {
     beforeEach(() => {
       const now = Date.now();
-      
+
       // Add items with different ages
       const recentItem: VoiceMessageItem = {
         id: "recent",
@@ -717,9 +741,9 @@ describe("data-store.ts", () => {
     describe("Normal Cases", () => {
       it("should remove items older than default max age (1 hour)", () => {
         expect(mockStore.items.size).toBe(3);
-        
+
         cleanupOldItems(mockStore);
-        
+
         expect(mockStore.items.size).toBe(1);
         expect(mockStore.items.has("recent")).toBe(true);
         expect(mockStore.items.has("old")).toBe(false);
@@ -728,20 +752,20 @@ describe("data-store.ts", () => {
 
       it("should respect custom max age", () => {
         expect(mockStore.items.size).toBe(3);
-        
+
         // Use 30 minutes as max age
         cleanupOldItems(mockStore, 30 * 60 * 1000);
-        
+
         expect(mockStore.items.size).toBe(1);
         expect(mockStore.items.has("recent")).toBe(true);
       });
 
       it("should keep all items when max age is very large", () => {
         expect(mockStore.items.size).toBe(3);
-        
+
         // Use 7 days as max age
         cleanupOldItems(mockStore, 7 * 24 * 60 * 60 * 1000);
-        
+
         expect(mockStore.items.size).toBe(3);
       });
     });
@@ -750,17 +774,17 @@ describe("data-store.ts", () => {
       it("should handle empty store", () => {
         mockStore.items.clear();
         expect(mockStore.items.size).toBe(0);
-        
+
         cleanupOldItems(mockStore);
-        
+
         expect(mockStore.items.size).toBe(0);
       });
 
       it("should handle zero max age", () => {
         expect(mockStore.items.size).toBe(3);
-        
+
         cleanupOldItems(mockStore, 0);
-        
+
         expect(mockStore.items.size).toBe(0);
       });
 
@@ -774,12 +798,12 @@ describe("data-store.ts", () => {
           timestamp: now - 3600000, // Exactly 1 hour ago
           isPending: true,
         };
-        
+
         mockStore.items.clear();
         mockStore.items.set("exact-age", exactAgeItem);
-        
+
         cleanupOldItems(mockStore, 3600000); // 1 hour
-        
+
         expect(mockStore.items.size).toBe(1); // Should be kept (equals maxAge, condition is >)
       });
     });
@@ -794,20 +818,20 @@ describe("data-store.ts", () => {
           timestamp: Date.now() + 1000, // 1 second in future
           isPending: true,
         };
-        
+
         mockStore.items.clear();
         mockStore.items.set("future", futureItem);
-        
+
         cleanupOldItems(mockStore);
-        
+
         expect(mockStore.items.size).toBe(1); // Should keep future items
       });
 
       it("should handle negative max age", () => {
         expect(mockStore.items.size).toBe(3);
-        
+
         cleanupOldItems(mockStore, -1000);
-        
+
         expect(mockStore.items.size).toBe(0); // Should remove all items
       });
     });
@@ -817,9 +841,13 @@ describe("data-store.ts", () => {
     it("should work with realistic workflow", async () => {
       // Ensure we start with clean store
       mockStore.items.clear();
-      
+
       // 1. Register a download URL (creates pending item)
-      const id1 = registerDownloadUrl(mockStore, 5000, "https://example.com/audio1.mp3");
+      const id1 = registerDownloadUrl(
+        mockStore,
+        5000,
+        "https://example.com/audio1.mp3"
+      );
       expect(mockStore.items.size).toBe(1);
       expect(mockStore.items.get(id1)?.isPending).toBe(true);
 
@@ -833,14 +861,18 @@ describe("data-store.ts", () => {
       expect(result?.downloadUrl).toBe("https://example.com/audio1.mp3");
 
       // 4. Register another URL with different duration
-      const { generateVoiceMessageId } = require("../../extension/scripts/utils/id-generator");
-      generateVoiceMessageId.mockReturnValueOnce("voice-msg-1710859680000-efgh5678");
-      
-      const id2 = registerDownloadUrl(mockStore, 8000, "https://example.com/audio2.mp3");
+      const {
+        generateVoiceMessageId,
+      } = require("../../../extension/scripts/utils/id-generator");
+      generateVoiceMessageId.mockReturnValueOnce(
+        "voice-msg-1710859680000-efgh5678"
+      );
+
+      registerDownloadUrl(mockStore, 8000, "https://example.com/audio2.mp3");
       expect(mockStore.items.size).toBe(2);
 
-      // 5. Cleanup old items (add small delay to ensure age > 0)
-      await new Promise(resolve => setTimeout(resolve, 1));
+      // 5. Cleanup old items (add delay to ensure age > 0)
+      await new Promise((resolve) => setTimeout(resolve, 10));
       cleanupOldItems(mockStore, 0); // Remove all items
       expect(mockStore.items.size).toBe(0);
     });
@@ -848,7 +880,7 @@ describe("data-store.ts", () => {
     it("should handle concurrent registrations with same duration", () => {
       const id1 = registerDownloadUrl(mockStore, 5000, "url1");
       const id2 = registerDownloadUrl(mockStore, 5003, "url2"); // Within tolerance
-      
+
       // Should update the same item, not create new one
       expect(id1).toBe(id2);
       expect(mockStore.items.size).toBe(1);

@@ -5,11 +5,14 @@ import {
   setLastRightClickedInfo,
   downloadVoiceMessage,
   downloadBlobContent,
-} from "../../extension/scripts/background/download-manager";
-import type { RightClickInfo, DownloadMessage } from "../../extension/scripts/types/download";
+} from "../../../extension/scripts/background/download-manager";
+import type {
+  RightClickInfo,
+  DownloadMessage,
+} from "../../../extension/scripts/types/download";
 
 // Mock dependencies
-jest.mock("../../extension/scripts/utils/time-utils", () => ({
+jest.mock("../../../extension/scripts/utils/time-utils", () => ({
   generateVoiceMessageFilename: jest.fn((lastModified?: string) => {
     if (lastModified) {
       return "voice-message-2025-03-19-14-04-40";
@@ -18,7 +21,7 @@ jest.mock("../../extension/scripts/utils/time-utils", () => ({
   }),
 }));
 
-jest.mock("../../extension/scripts/utils/logger", () => ({
+jest.mock("../../../extension/scripts/utils/logger", () => ({
   Logger: {
     createModuleLogger: jest.fn(() => ({
       debug: jest.fn(),
@@ -29,7 +32,7 @@ jest.mock("../../extension/scripts/utils/logger", () => ({
   },
 }));
 
-jest.mock("../../extension/scripts/utils/constants", () => ({
+jest.mock("../../../extension/scripts/utils/constants", () => ({
   DOWNLOAD_CONSTANTS: {
     SAVE_AS: true,
   },
@@ -80,15 +83,15 @@ function createMockDownloadMessage(
   return {
     base64data: base64data !== undefined ? base64data : "",
     blobType: blobType !== undefined ? blobType : "",
-    requestId,
-    timestamp,
+    requestId: requestId !== undefined ? requestId : "",
+    timestamp: timestamp !== undefined ? timestamp : "",
   };
 }
 
 // Helper function to create mock sender
 function createMockSender(tabId?: number): chrome.runtime.MessageSender {
   return {
-    tab: tabId ? { id: tabId } as chrome.tabs.Tab : undefined,
+    tab: tabId ? ({ id: tabId } as chrome.tabs.Tab) : undefined,
   };
 }
 
@@ -103,16 +106,18 @@ describe("download-manager.ts", () => {
     it("should initialize download manager and add context menu listener", () => {
       initDownloadManager();
 
-      expect(mockChrome.contextMenus.onClicked.addListener).toHaveBeenCalledTimes(1);
-      expect(mockChrome.contextMenus.onClicked.addListener).toHaveBeenCalledWith(
-        expect.any(Function)
-      );
+      expect(
+        mockChrome.contextMenus.onClicked.addListener
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        mockChrome.contextMenus.onClicked.addListener
+      ).toHaveBeenCalledWith(expect.any(Function));
     });
 
     it("should handle context menu click without last right-clicked info", () => {
       // Initialize without setting any right-click info
       initDownloadManager();
-      
+
       // Get the correct listener (the most recent one added)
       const allCalls = mockChrome.contextMenus.onClicked.addListener.mock.calls;
       const addedListener = allCalls[allCalls.length - 1][0];
@@ -137,7 +142,8 @@ describe("download-manager.ts", () => {
 
       // Initialize and capture the listener
       initDownloadManager();
-      const addedListener = mockChrome.contextMenus.onClicked.addListener.mock.calls[0][0];
+      const addedListener =
+        mockChrome.contextMenus.onClicked.addListener.mock.calls[0][0];
 
       // Set the right-click info
       setLastRightClickedInfo(rightClickInfo);
@@ -161,7 +167,8 @@ describe("download-manager.ts", () => {
 
     it("should handle context menu click with null download URL", () => {
       initDownloadManager();
-      const addedListener = mockChrome.contextMenus.onClicked.addListener.mock.calls[0][0];
+      const addedListener =
+        mockChrome.contextMenus.onClicked.addListener.mock.calls[0][0];
 
       // Set right-click info with null download URL
       setLastRightClickedInfo(createMockRightClickInfo("test-id", null));
@@ -179,7 +186,8 @@ describe("download-manager.ts", () => {
 
     it("should ignore non-download menu items", () => {
       initDownloadManager();
-      const addedListener = mockChrome.contextMenus.onClicked.addListener.mock.calls[0][0];
+      const addedListener =
+        mockChrome.contextMenus.onClicked.addListener.mock.calls[0][0];
 
       const mockInfo: chrome.contextMenus.OnClickData = {
         menuItemId: "otherMenuItem",
@@ -205,7 +213,8 @@ describe("download-manager.ts", () => {
 
       // Initialize and trigger context menu to verify the info was stored
       initDownloadManager();
-      const addedListener = mockChrome.contextMenus.onClicked.addListener.mock.calls[0][0];
+      const addedListener =
+        mockChrome.contextMenus.onClicked.addListener.mock.calls[0][0];
 
       const mockInfo: chrome.contextMenus.OnClickData = {
         menuItemId: "downloadVoiceMessage",
@@ -231,15 +240,22 @@ describe("download-manager.ts", () => {
     });
 
     it("should overwrite previous right-click info", () => {
-      const firstInfo = createMockRightClickInfo("id1", "https://first.com/audio.mp4");
-      const secondInfo = createMockRightClickInfo("id2", "https://second.com/audio.mp4");
+      const firstInfo = createMockRightClickInfo(
+        "id1",
+        "https://first.com/audio.mp4"
+      );
+      const secondInfo = createMockRightClickInfo(
+        "id2",
+        "https://second.com/audio.mp4"
+      );
 
       setLastRightClickedInfo(firstInfo);
       setLastRightClickedInfo(secondInfo);
 
       // Initialize and trigger to verify the second info is used
       initDownloadManager();
-      const addedListener = mockChrome.contextMenus.onClicked.addListener.mock.calls[0][0];
+      const addedListener =
+        mockChrome.contextMenus.onClicked.addListener.mock.calls[0][0];
 
       const mockInfo: chrome.contextMenus.OnClickData = {
         menuItemId: "downloadVoiceMessage",
@@ -258,12 +274,14 @@ describe("download-manager.ts", () => {
 
   describe("downloadVoiceMessage", () => {
     it("should download voice message with URL and lastModified", () => {
-      const mockCallback = jest.fn();
       mockChrome.downloads.download.mockImplementation((options, callback) => {
         callback(123); // Mock download ID
       });
 
-      downloadVoiceMessage("https://example.com/audio.mp4", "Wed, 19 Mar 2025 14:04:40 GMT");
+      downloadVoiceMessage(
+        "https://example.com/audio.mp4",
+        "Wed, 19 Mar 2025 14:04:40 GMT"
+      );
 
       expect(mockChrome.downloads.download).toHaveBeenCalledWith(
         {
@@ -276,7 +294,6 @@ describe("download-manager.ts", () => {
     });
 
     it("should download voice message without lastModified", () => {
-      const mockCallback = jest.fn();
       mockChrome.downloads.download.mockImplementation((options, callback) => {
         callback(456);
       });
@@ -300,7 +317,6 @@ describe("download-manager.ts", () => {
     });
 
     it("should handle download success", () => {
-      const mockCallback = jest.fn();
       mockChrome.downloads.download.mockImplementation((options, callback) => {
         // Simulate successful download
         mockChrome.runtime.lastError = undefined;
@@ -313,7 +329,6 @@ describe("download-manager.ts", () => {
     });
 
     it("should handle download error", () => {
-      const mockCallback = jest.fn();
       mockChrome.downloads.download.mockImplementation((options, callback) => {
         // Simulate download error
         mockChrome.runtime.lastError = { message: "Download failed" };
@@ -337,9 +352,11 @@ describe("download-manager.ts", () => {
 
     describe("Normal Cases", () => {
       it("should download blob content with MP3 type", () => {
-        mockChrome.downloads.download.mockImplementation((options, callback) => {
-          callback(123);
-        });
+        mockChrome.downloads.download.mockImplementation(
+          (options, callback) => {
+            callback(123);
+          }
+        );
 
         const message = createMockDownloadMessage(
           "SGVsbG8gV29ybGQ=", // "Hello World" in base64
@@ -368,9 +385,11 @@ describe("download-manager.ts", () => {
       });
 
       it("should download blob content with MP4 type", () => {
-        mockChrome.downloads.download.mockImplementation((options, callback) => {
-          callback(456);
-        });
+        mockChrome.downloads.download.mockImplementation(
+          (options, callback) => {
+            callback(456);
+          }
+        );
 
         const message = createMockDownloadMessage(
           "dGVzdCBkYXRh", // "test data" in base64
@@ -391,9 +410,11 @@ describe("download-manager.ts", () => {
       });
 
       it("should download blob content with WAV type", () => {
-        mockChrome.downloads.download.mockImplementation((options, callback) => {
-          callback(789);
-        });
+        mockChrome.downloads.download.mockImplementation(
+          (options, callback) => {
+            callback(789);
+          }
+        );
 
         const message = createMockDownloadMessage(
           "d2F2IGRhdGE=", // "wav data" in base64
@@ -411,9 +432,11 @@ describe("download-manager.ts", () => {
       });
 
       it("should download blob content with OGG type", () => {
-        mockChrome.downloads.download.mockImplementation((options, callback) => {
-          callback(101);
-        });
+        mockChrome.downloads.download.mockImplementation(
+          (options, callback) => {
+            callback(101);
+          }
+        );
 
         const message = createMockDownloadMessage(
           "b2dnIGRhdGE=", // "ogg data" in base64
@@ -431,9 +454,11 @@ describe("download-manager.ts", () => {
       });
 
       it("should download blob content with AAC type", () => {
-        mockChrome.downloads.download.mockImplementation((options, callback) => {
-          callback(202);
-        });
+        mockChrome.downloads.download.mockImplementation(
+          (options, callback) => {
+            callback(202);
+          }
+        );
 
         const message = createMockDownloadMessage(
           "YWFjIGRhdGE=", // "aac data" in base64
@@ -451,9 +476,11 @@ describe("download-manager.ts", () => {
       });
 
       it("should use .bin extension for unknown blob type", () => {
-        mockChrome.downloads.download.mockImplementation((options, callback) => {
-          callback(303);
-        });
+        mockChrome.downloads.download.mockImplementation(
+          (options, callback) => {
+            callback(303);
+          }
+        );
 
         const message = createMockDownloadMessage(
           "dW5rbm93biBkYXRh", // "unknown data" in base64
@@ -476,9 +503,11 @@ describe("download-manager.ts", () => {
         (global.Date as any) = jest.fn(() => mockDate);
         global.Date.now = jest.fn(() => mockDate.getTime());
 
-        mockChrome.downloads.download.mockImplementation((options, callback) => {
-          callback(404);
-        });
+        mockChrome.downloads.download.mockImplementation(
+          (options, callback) => {
+            callback(404);
+          }
+        );
 
         const message = createMockDownloadMessage(
           "dGVzdA==", // "test" in base64
@@ -530,15 +559,14 @@ describe("download-manager.ts", () => {
       });
 
       it("should handle download error from Chrome API", () => {
-        mockChrome.downloads.download.mockImplementation((options, callback) => {
-          mockChrome.runtime.lastError = { message: "Permission denied" };
-          callback(undefined);
-        });
-
-        const message = createMockDownloadMessage(
-          "dGVzdA==",
-          "audio/mp3"
+        mockChrome.downloads.download.mockImplementation(
+          (options, callback) => {
+            mockChrome.runtime.lastError = { message: "Permission denied" };
+            callback(undefined);
+          }
         );
+
+        const message = createMockDownloadMessage("dGVzdA==", "audio/mp3");
 
         downloadBlobContent(message, mockSender, mockSendResponse);
 
@@ -549,18 +577,15 @@ describe("download-manager.ts", () => {
       });
 
       it("should handle severe exceptions during processing", () => {
-        // Reset lastError before this test  
+        // Reset lastError before this test
         mockChrome.runtime.lastError = undefined;
-        
+
         // Mock chrome.downloads.download to throw an error
         mockChrome.downloads.download.mockImplementation(() => {
           throw new Error("Chrome API unavailable");
         });
 
-        const message = createMockDownloadMessage(
-          "dGVzdA==",
-          "audio/mp3"
-        );
+        const message = createMockDownloadMessage("dGVzdA==", "audio/mp3");
 
         downloadBlobContent(message, mockSender, mockSendResponse);
 
@@ -586,14 +611,13 @@ describe("download-manager.ts", () => {
 
       testCases.forEach(({ blobType, expectedExt }) => {
         it(`should use ${expectedExt} extension for ${blobType}`, () => {
-          mockChrome.downloads.download.mockImplementation((options, callback) => {
-            callback(123);
-          });
-
-          const message = createMockDownloadMessage(
-            "dGVzdA==",
-            blobType
+          mockChrome.downloads.download.mockImplementation(
+            (options, callback) => {
+              callback(123);
+            }
           );
+
+          const message = createMockDownloadMessage("dGVzdA==", blobType);
 
           downloadBlobContent(message, mockSender, mockSendResponse);
 
@@ -609,15 +633,14 @@ describe("download-manager.ts", () => {
 
     describe("Edge Cases", () => {
       it("should handle very long base64 data", () => {
-        mockChrome.downloads.download.mockImplementation((options, callback) => {
-          callback(999);
-        });
+        mockChrome.downloads.download.mockImplementation(
+          (options, callback) => {
+            callback(999);
+          }
+        );
 
         const longBase64 = "a".repeat(10000); // Very long base64 string
-        const message = createMockDownloadMessage(
-          longBase64,
-          "audio/mp3"
-        );
+        const message = createMockDownloadMessage(longBase64, "audio/mp3");
 
         downloadBlobContent(message, mockSender, mockSendResponse);
 
@@ -636,9 +659,11 @@ describe("download-manager.ts", () => {
       });
 
       it("should handle special characters in blobType", () => {
-        mockChrome.downloads.download.mockImplementation((options, callback) => {
-          callback(111);
-        });
+        mockChrome.downloads.download.mockImplementation(
+          (options, callback) => {
+            callback(111);
+          }
+        );
 
         const message = createMockDownloadMessage(
           "dGVzdA==",
@@ -657,9 +682,11 @@ describe("download-manager.ts", () => {
       });
 
       it("should handle invalid timestamp format gracefully", () => {
-        mockChrome.downloads.download.mockImplementation((options, callback) => {
-          callback(999);
-        });
+        mockChrome.downloads.download.mockImplementation(
+          (options, callback) => {
+            callback(999);
+          }
+        );
 
         const message = createMockDownloadMessage(
           "dGVzdA==", // Valid base64
@@ -683,12 +710,14 @@ describe("download-manager.ts", () => {
 
     describe("Integration", () => {
       it("should work with full realistic workflow", () => {
-        mockChrome.downloads.download.mockImplementation((options, callback) => {
-          // Simulate async download
-          setTimeout(() => {
-            callback(555);
-          }, 0);
-        });
+        mockChrome.downloads.download.mockImplementation(
+          (options, callback) => {
+            // Simulate async download
+            setTimeout(() => {
+              callback(555);
+            }, 0);
+          }
+        );
 
         const message = createMockDownloadMessage(
           "UklGRjAaAABXQVZFZm10IBAAAAABAAIAABAAAAAAAAAEAA==", // Real WAV header base64
