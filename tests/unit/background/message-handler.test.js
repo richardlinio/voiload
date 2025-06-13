@@ -159,7 +159,7 @@ describe("MessageHandler", () => {
   });
 
   describe("initMessageHandler", () => {
-    it("應該正確初始化訊息處理器", () => {
+    it("should correctly initialize the message handler", () => {
       initMessageHandler();
 
       expect(mockLogger.debug).toHaveBeenCalledWith(
@@ -176,7 +176,7 @@ describe("MessageHandler", () => {
       );
     });
 
-    it("應該使用提供的 voiceMessages 實例", () => {
+    it("should use the provided voiceMessages instance", () => {
       const customStore = {
         items: new Map([["test", "value"]]),
         addVoiceMessage: jest.fn(),
@@ -198,7 +198,7 @@ describe("MessageHandler", () => {
       );
     });
 
-    it("應該註冊訊息監聽器", () => {
+    it("should register the message listener", () => {
       initMessageHandler();
 
       expect(mockChrome.runtime.onMessage.addListener).toHaveBeenCalledWith(
@@ -215,7 +215,7 @@ describe("MessageHandler", () => {
     beforeEach(() => {
       initMessageHandler();
 
-      // 獲取註冊的訊息監聽器
+      // Get the registered message listener
       messageListener =
         mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
 
@@ -223,7 +223,7 @@ describe("MessageHandler", () => {
       mockSendResponse = jest.fn();
     });
 
-    it("應該處理 RIGHT_CLICK 訊息", () => {
+    it("should handle RIGHT_CLICK message", () => {
       const message = { action: "RIGHT_CLICK", data: "test" };
       mockHandlers.handleRightClick.mockReturnValue(true);
 
@@ -241,7 +241,7 @@ describe("MessageHandler", () => {
       expect(result).toBe(true);
     });
 
-    it("應該處理 REGISTER_ELEMENT 訊息", () => {
+    it("should handle REGISTER_ELEMENT message", () => {
       const message = { action: "REGISTER_ELEMENT", data: "test" };
       mockHandlers.handleElementRegistration.mockReturnValue(true);
 
@@ -259,7 +259,7 @@ describe("MessageHandler", () => {
       expect(result).toBe(true);
     });
 
-    it("應該處理 REGISTER_AUDIO_URL 訊息", () => {
+    it("should handle REGISTER_AUDIO_URL message", () => {
       const message = { action: "REGISTER_AUDIO_URL", data: "test" };
       mockHandlers.handleAudioUrlRegistration.mockReturnValue(true);
 
@@ -277,7 +277,7 @@ describe("MessageHandler", () => {
       expect(result).toBe(true);
     });
 
-    it("應該處理 DOWNLOAD_BLOB 訊息", () => {
+    it("should handle DOWNLOAD_BLOB message", () => {
       const message = { action: "DOWNLOAD_BLOB", data: "test" };
       mockHandlers.handleBlobContent.mockReturnValue(true);
 
@@ -294,7 +294,7 @@ describe("MessageHandler", () => {
       expect(result).toBe(true);
     });
 
-    it("應該處理 REGISTER_BLOB_URL 訊息", () => {
+    it("should handle REGISTER_BLOB_URL message", () => {
       const message = { action: "REGISTER_BLOB_URL", data: "test" };
       mockHandlers.handleBlobUrl.mockReturnValue(true);
 
@@ -312,7 +312,7 @@ describe("MessageHandler", () => {
       expect(result).toBe(true);
     });
 
-    it("應該處理 BLOB_DETECTED 訊息", () => {
+    it("should handle BLOB_DETECTED message", () => {
       const message = { action: "BLOB_DETECTED", data: "test" };
       mockHandlers.handleBlobDetection.mockReturnValue(true);
 
@@ -329,7 +329,7 @@ describe("MessageHandler", () => {
       expect(result).toBe(true);
     });
 
-    it("應該處理未知訊息類型", () => {
+    it("should handle unknown message types", () => {
       const message = { action: "UNKNOWN_ACTION", data: "test" };
 
       const result = messageListener(message, mockSender, mockSendResponse);
@@ -340,7 +340,7 @@ describe("MessageHandler", () => {
       expect(result).toBe(false);
     });
 
-    it("應該處理沒有 action 的訊息", () => {
+    it("should handle messages without action", () => {
       const message = { data: "test" };
 
       const result = messageListener(message, mockSender, mockSendResponse);
@@ -474,7 +474,7 @@ describe("MessageHandler", () => {
     ];
 
     storeRequiredActions.forEach((action) => {
-      it(`應該在 store 未初始化時處理 ${action} 訊息錯誤`, () => {
+      it(`should handle ${action} message error when store is not initialized`, () => {
         const message = { action, data: "test" };
 
         const result = messageListener(message, mockSender, mockSendResponse);
@@ -487,7 +487,7 @@ describe("MessageHandler", () => {
       });
     });
 
-    it("應該在 store 未初始化時仍能處理 DOWNLOAD_BLOB 訊息", () => {
+    it("should still handle DOWNLOAD_BLOB message when store is not initialized", () => {
       const message = { action: "DOWNLOAD_BLOB", data: "test" };
       mockHandlers.handleBlobContent.mockReturnValue(true);
 
@@ -501,7 +501,7 @@ describe("MessageHandler", () => {
       expect(result).toBe(true);
     });
 
-    it("應該在 store 未初始化時仍能處理 BLOB_DETECTED 訊息", () => {
+    it("should still handle BLOB_DETECTED message when store is not initialized", () => {
       const message = { action: "BLOB_DETECTED", data: "test" };
       mockHandlers.handleBlobDetection.mockReturnValue(true);
 
