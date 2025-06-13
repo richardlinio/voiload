@@ -26,7 +26,10 @@ describe("Constants", () => {
       expect(MODULE_NAMES).toHaveProperty("PAGE_CONTEXT", "page-context");
       expect(MODULE_NAMES).toHaveProperty("MENU_MANAGER", "menu-manager");
       expect(MODULE_NAMES).toHaveProperty("MESSAGE_HANDLER", "message-handler");
-      expect(MODULE_NAMES).toHaveProperty("DOWNLOAD_MANAGER", "download-manager");
+      expect(MODULE_NAMES).toHaveProperty(
+        "DOWNLOAD_MANAGER",
+        "download-manager"
+      );
       expect(MODULE_NAMES).toHaveProperty("DATA_STORE", "data-store");
     });
 
@@ -34,7 +37,7 @@ describe("Constants", () => {
       // TypeScript readonly check - this test ensures compilation safety
       // Runtime immutability would require Object.freeze()
       expect(MODULE_NAMES.BACKGROUND).toBe("background");
-      
+
       // Attempting to modify should not affect the original value
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -46,7 +49,7 @@ describe("Constants", () => {
     });
 
     it("should have consistent naming convention", () => {
-      Object.values(MODULE_NAMES).forEach(moduleName => {
+      Object.values(MODULE_NAMES).forEach((moduleName) => {
         expect(moduleName).toMatch(/^[a-z-]+$/);
         expect(moduleName).not.toContain("_");
         expect(moduleName).not.toContain(" ");
@@ -61,29 +64,45 @@ describe("Constants", () => {
     });
 
     it("should have reasonable cleanup interval", () => {
-      expect(BLOB_MONITOR_CONSTANTS.PERIODIC_CLEANUP_INTERVAL).toBeGreaterThan(60000); // At least 1 minute
-      expect(BLOB_MONITOR_CONSTANTS.PERIODIC_CLEANUP_INTERVAL).toBeLessThan(3600000); // Less than 1 hour
+      expect(BLOB_MONITOR_CONSTANTS.PERIODIC_CLEANUP_INTERVAL).toBeGreaterThan(
+        60000
+      ); // At least 1 minute
+      expect(BLOB_MONITOR_CONSTANTS.PERIODIC_CLEANUP_INTERVAL).toBeLessThan(
+        3600000
+      ); // Less than 1 hour
     });
 
     it("should have logical duration limits", () => {
       expect(BLOB_MONITOR_CONSTANTS.MIN_VALID_DURATION).toBeGreaterThan(0);
-      expect(BLOB_MONITOR_CONSTANTS.MAX_VALID_DURATION).toBeGreaterThan(BLOB_MONITOR_CONSTANTS.MIN_VALID_DURATION);
+      expect(BLOB_MONITOR_CONSTANTS.MAX_VALID_DURATION).toBeGreaterThan(
+        BLOB_MONITOR_CONSTANTS.MIN_VALID_DURATION
+      );
       expect(BLOB_MONITOR_CONSTANTS.MIN_VALID_DURATION).toBeLessThan(10000); // Less than 10 seconds
       expect(BLOB_MONITOR_CONSTANTS.MAX_VALID_DURATION).toBeGreaterThan(60000); // More than 1 minute
     });
 
     it("should have logical audio size limits", () => {
       expect(BLOB_MONITOR_CONSTANTS.MIN_VALID_AUDIO_SIZE).toBeGreaterThan(1024); // At least 1KB
-      expect(BLOB_MONITOR_CONSTANTS.MAX_VALID_AUDIO_SIZE).toBeGreaterThan(BLOB_MONITOR_CONSTANTS.MIN_VALID_AUDIO_SIZE);
-      expect(BLOB_MONITOR_CONSTANTS.MIN_VALID_AUDIO_SIZE).toBeLessThan(1024 * 1024); // Less than 1MB minimum
-      expect(BLOB_MONITOR_CONSTANTS.MAX_VALID_AUDIO_SIZE).toBeGreaterThan(10 * 1024 * 1024); // More than 10MB maximum
+      expect(BLOB_MONITOR_CONSTANTS.MAX_VALID_AUDIO_SIZE).toBeGreaterThan(
+        BLOB_MONITOR_CONSTANTS.MIN_VALID_AUDIO_SIZE
+      );
+      expect(BLOB_MONITOR_CONSTANTS.MIN_VALID_AUDIO_SIZE).toBeLessThan(
+        1024 * 1024
+      ); // Less than 1MB minimum
+      expect(BLOB_MONITOR_CONSTANTS.MAX_VALID_AUDIO_SIZE).toBeGreaterThan(
+        10 * 1024 * 1024
+      ); // More than 10MB maximum
     });
 
     it("should have valid audio types", () => {
-      expect(Array.isArray(BLOB_MONITOR_CONSTANTS.POSSIBLE_AUDIO_TYPES)).toBe(true);
-      expect(BLOB_MONITOR_CONSTANTS.POSSIBLE_AUDIO_TYPES.length).toBeGreaterThan(0);
-      
-      BLOB_MONITOR_CONSTANTS.POSSIBLE_AUDIO_TYPES.forEach(type => {
+      expect(Array.isArray(BLOB_MONITOR_CONSTANTS.POSSIBLE_AUDIO_TYPES)).toBe(
+        true
+      );
+      expect(
+        BLOB_MONITOR_CONSTANTS.POSSIBLE_AUDIO_TYPES.length
+      ).toBeGreaterThan(0);
+
+      BLOB_MONITOR_CONSTANTS.POSSIBLE_AUDIO_TYPES.forEach((type) => {
         expect(typeof type).toBe("string");
         expect(type.length).toBeGreaterThan(0);
       });
@@ -92,10 +111,12 @@ describe("Constants", () => {
     it("should be readonly in TypeScript", () => {
       // TypeScript readonly check
       expect(BLOB_MONITOR_CONSTANTS.THROTTLE_INTERVAL).toBe(10);
-      
+
       // Test that values are defined and have expected types
       expect(typeof BLOB_MONITOR_CONSTANTS.THROTTLE_INTERVAL).toBe("number");
-      expect(typeof BLOB_MONITOR_CONSTANTS.PERIODIC_CLEANUP_INTERVAL).toBe("number");
+      expect(typeof BLOB_MONITOR_CONSTANTS.PERIODIC_CLEANUP_INTERVAL).toBe(
+        "number"
+      );
     });
   });
 
@@ -106,21 +127,27 @@ describe("Constants", () => {
     });
 
     it("should contain valid HTTP success codes", () => {
-      expect(Array.isArray(WEB_REQUEST_CONSTANTS.SUCCESS_STATUS_CODES)).toBe(true);
+      expect(Array.isArray(WEB_REQUEST_CONSTANTS.SUCCESS_STATUS_CODES)).toBe(
+        true
+      );
       expect(WEB_REQUEST_CONSTANTS.SUCCESS_STATUS_CODES).toContain(200);
       expect(WEB_REQUEST_CONSTANTS.SUCCESS_STATUS_CODES).toContain(206);
-      
-      WEB_REQUEST_CONSTANTS.SUCCESS_STATUS_CODES.forEach(code => {
+
+      WEB_REQUEST_CONSTANTS.SUCCESS_STATUS_CODES.forEach((code) => {
         expect(code).toBeGreaterThan(199);
         expect(code).toBeLessThan(300);
       });
     });
 
     it("should contain valid audio content types", () => {
-      expect(Array.isArray(WEB_REQUEST_CONSTANTS.AUDIO_CONTENT_TYPES)).toBe(true);
-      expect(WEB_REQUEST_CONSTANTS.AUDIO_CONTENT_TYPES.length).toBeGreaterThan(0);
-      
-      WEB_REQUEST_CONSTANTS.AUDIO_CONTENT_TYPES.forEach(contentType => {
+      expect(Array.isArray(WEB_REQUEST_CONSTANTS.AUDIO_CONTENT_TYPES)).toBe(
+        true
+      );
+      expect(WEB_REQUEST_CONSTANTS.AUDIO_CONTENT_TYPES.length).toBeGreaterThan(
+        0
+      );
+
+      WEB_REQUEST_CONSTANTS.AUDIO_CONTENT_TYPES.forEach((contentType) => {
         expect(typeof contentType).toBe("string");
         expect(contentType).toMatch(/^(audio|video|application)\//);
       });
@@ -141,13 +168,15 @@ describe("Constants", () => {
     it("should contain CDN patterns", () => {
       expect(Array.isArray(SUPPORTED_SITES.CDN_PATTERNS)).toBe(true);
       expect(SUPPORTED_SITES.CDN_PATTERNS.length).toBeGreaterThan(0);
-      
+
       // Should include specific Facebook CDN patterns
       expect(SUPPORTED_SITES.CDN_PATTERNS).toContain("*://*.fbcdn.net/*");
-      expect(SUPPORTED_SITES.CDN_PATTERNS).toContain("*://*.cdninstagram.com/*");
+      expect(SUPPORTED_SITES.CDN_PATTERNS).toContain(
+        "*://*.cdninstagram.com/*"
+      );
       expect(SUPPORTED_SITES.CDN_PATTERNS).toContain("*://*.fbsbx.com/*");
-      
-      SUPPORTED_SITES.CDN_PATTERNS.forEach(pattern => {
+
+      SUPPORTED_SITES.CDN_PATTERNS.forEach((pattern) => {
         expect(pattern).toMatch(/^\*:\/\/\*\./);
         expect(pattern).toMatch(/\/\*$/); // Ends with /*
         expect(pattern).toMatch(/\.(net|com)\/\*$/); // Ends with .net/* or .com/*
@@ -157,15 +186,16 @@ describe("Constants", () => {
 
   describe("VOICE_MESSAGE_URL_PATTERNS", () => {
     it("should combine site patterns and CDN patterns", () => {
-      const expectedLength = SUPPORTED_SITES.PATTERNS.length + SUPPORTED_SITES.CDN_PATTERNS.length;
+      const expectedLength =
+        SUPPORTED_SITES.PATTERNS.length + SUPPORTED_SITES.CDN_PATTERNS.length;
       expect(VOICE_MESSAGE_URL_PATTERNS.length).toBe(expectedLength);
-      
+
       // Should include all patterns from SUPPORTED_SITES
-      SUPPORTED_SITES.PATTERNS.forEach(pattern => {
+      SUPPORTED_SITES.PATTERNS.forEach((pattern) => {
         expect(VOICE_MESSAGE_URL_PATTERNS).toContain(pattern);
       });
-      
-      SUPPORTED_SITES.CDN_PATTERNS.forEach(pattern => {
+
+      SUPPORTED_SITES.CDN_PATTERNS.forEach((pattern) => {
         expect(VOICE_MESSAGE_URL_PATTERNS).toContain(pattern);
       });
     });
@@ -179,7 +209,7 @@ describe("Constants", () => {
     });
 
     it("should have consistent naming", () => {
-      Object.values(MESSAGE_SOURCES).forEach(source => {
+      Object.values(MESSAGE_SOURCES).forEach((source) => {
         expect(source).toMatch(/^[A-Z_]+$/);
       });
     });
@@ -195,7 +225,7 @@ describe("Constants", () => {
     });
 
     it("should use camelCase for action values", () => {
-      Object.values(MESSAGE_ACTIONS).forEach(action => {
+      Object.values(MESSAGE_ACTIONS).forEach((action) => {
         expect(action).toMatch(/^[a-z][a-zA-Z]*$/);
       });
     });
@@ -247,10 +277,14 @@ describe("Constants", () => {
 
   describe("DOM_CONSTANTS", () => {
     it("should contain voice message slider aria labels", () => {
-      expect(Array.isArray(DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL)).toBe(true);
-      expect(DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL.length).toBeGreaterThan(0);
-      
-      DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL.forEach(label => {
+      expect(Array.isArray(DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL)).toBe(
+        true
+      );
+      expect(
+        DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL.length
+      ).toBeGreaterThan(0);
+
+      DOM_CONSTANTS.VOICE_MESSAGE_SLIDER_ARIA_LABEL.forEach((label) => {
         expect(typeof label).toBe("string");
         expect(label.length).toBeGreaterThan(0);
       });
@@ -258,14 +292,14 @@ describe("Constants", () => {
 
     it("should contain language labels mapping", () => {
       expect(typeof DOM_CONSTANTS.LANGUAGE_LABELS).toBe("object");
-      
+
       // Check some known languages
       expect(DOM_CONSTANTS.LANGUAGE_LABELS).toHaveProperty("en");
       expect(DOM_CONSTANTS.LANGUAGE_LABELS).toHaveProperty("zh-Hant");
       expect(DOM_CONSTANTS.LANGUAGE_LABELS).toHaveProperty("zh-Hans");
-      
+
       // Check that each language has audioSlider property
-      Object.values(DOM_CONSTANTS.LANGUAGE_LABELS).forEach(langConfig => {
+      Object.values(DOM_CONSTANTS.LANGUAGE_LABELS).forEach((langConfig) => {
         expect(langConfig).toHaveProperty("audioSlider");
       });
     });
@@ -273,12 +307,12 @@ describe("Constants", () => {
     it("should include multilingual support", () => {
       const languages = Object.keys(DOM_CONSTANTS.LANGUAGE_LABELS);
       expect(languages.length).toBeGreaterThan(5); // Should support multiple languages
-      
+
       // Should include major languages
-      expect(languages).toContain("en");  // English
+      expect(languages).toContain("en"); // English
       expect(languages).toContain("zh-Hant"); // Traditional Chinese
-      expect(languages).toContain("es");  // Spanish
-      expect(languages).toContain("ar");  // Arabic
+      expect(languages).toContain("es"); // Spanish
+      expect(languages).toContain("ar"); // Arabic
     });
   });
 
@@ -299,9 +333,15 @@ describe("Constants", () => {
 
   describe("FILENAME_CONSTANTS", () => {
     it("should have valid voice message filename prefix", () => {
-      expect(typeof FILENAME_CONSTANTS.VOICE_MESSAGE_FILENAME_PREFIX).toBe("string");
-      expect(FILENAME_CONSTANTS.VOICE_MESSAGE_FILENAME_PREFIX.length).toBeGreaterThan(0);
-      expect(FILENAME_CONSTANTS.VOICE_MESSAGE_FILENAME_PREFIX).toMatch(/^[a-z-]+$/);
+      expect(typeof FILENAME_CONSTANTS.VOICE_MESSAGE_FILENAME_PREFIX).toBe(
+        "string"
+      );
+      expect(
+        FILENAME_CONSTANTS.VOICE_MESSAGE_FILENAME_PREFIX.length
+      ).toBeGreaterThan(0);
+      expect(FILENAME_CONSTANTS.VOICE_MESSAGE_FILENAME_PREFIX).toMatch(
+        /^[a-z-]+$/
+      );
     });
   });
 
@@ -322,15 +362,21 @@ describe("Constants", () => {
   describe("Computed Values", () => {
     it("should calculate audio sizes correctly", () => {
       expect(BLOB_MONITOR_CONSTANTS.MIN_VALID_AUDIO_SIZE).toBe(20 * 1024); // 20KB
-      expect(BLOB_MONITOR_CONSTANTS.MAX_VALID_AUDIO_SIZE).toBe(200 * 1024 * 1024); // 200MB
+      expect(BLOB_MONITOR_CONSTANTS.MAX_VALID_AUDIO_SIZE).toBe(
+        200 * 1024 * 1024
+      ); // 200MB
     });
 
     it("should have consistent timing values", () => {
       // Cleanup interval should be much longer than detection interval
-      expect(TIME_CONSTANTS.CLEANUP_INTERVAL).toBeGreaterThan(TIME_CONSTANTS.ELEMENT_DETECTION_INTERVAL * 10);
-      
+      expect(TIME_CONSTANTS.CLEANUP_INTERVAL).toBeGreaterThan(
+        TIME_CONSTANTS.ELEMENT_DETECTION_INTERVAL * 10
+      );
+
       // Cache expiration should be reasonable compared to cleanup interval
-      expect(TIME_CONSTANTS.URL_CACHE_EXPIRATION).toBeLessThanOrEqual(TIME_CONSTANTS.CLEANUP_INTERVAL);
+      expect(TIME_CONSTANTS.URL_CACHE_EXPIRATION).toBeLessThanOrEqual(
+        TIME_CONSTANTS.CLEANUP_INTERVAL
+      );
     });
   });
 
@@ -339,7 +385,7 @@ describe("Constants", () => {
       // This test ensures types are exported (compilation test)
       const moduleNames: typeof MODULE_NAMES = MODULE_NAMES;
       const logLevels: typeof LOG_LEVELS = LOG_LEVELS;
-      
+
       expect(moduleNames).toBeDefined();
       expect(logLevels).toBeDefined();
     });

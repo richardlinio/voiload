@@ -59,11 +59,14 @@ jest.mock(
   })
 );
 
-jest.mock("../../../extension/scripts/background/handlers/blob-handler", () => ({
-  handleBlobUrl: jest.fn(),
-  handleBlobContent: jest.fn(),
-  handleBlobDetection: jest.fn(),
-}));
+jest.mock(
+  "../../../extension/scripts/background/handlers/blob-handler",
+  () => ({
+    handleBlobUrl: jest.fn(),
+    handleBlobContent: jest.fn(),
+    handleBlobDetection: jest.fn(),
+  })
+);
 
 jest.mock("../../../extension/scripts/background/data-store", () => ({
   createDataStore: jest.fn(() => ({
