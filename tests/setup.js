@@ -6,6 +6,7 @@ global.chrome = {
       addListener: jest.fn(),
       removeListener: jest.fn(),
     },
+    lastError: null,
   },
   contextMenus: {
     create: jest.fn(),
@@ -22,6 +23,19 @@ global.chrome = {
   },
   tabs: {
     sendMessage: jest.fn(),
+  },
+  storage: {
+    local: {
+      get: jest.fn(),
+      set: jest.fn(),
+      remove: jest.fn(),
+    },
+  },
+  webRequest: {
+    onBeforeRequest: {
+      addListener: jest.fn(),
+      removeListener: jest.fn(),
+    },
   },
 };
 

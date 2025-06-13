@@ -33,6 +33,12 @@ The extension uses a multi-layer architecture:
 - **menu-manager.ts** - Manages right-click context menus
 - **message-handler.ts** - Processes messages from content scripts
 - **web-request-interceptor.ts** - Monitors network requests for audio
+- **onboarding-utils.ts** - Manages user onboarding workflow and Chrome storage
+- **handlers/** - Message processing handlers
+  - **audio-url-registration-handler.ts** - Handles audio URL registration
+  - **blob-handler.ts** - Processes blob URL registration and downloads
+  - **element-registration-handler.ts** - Manages voice message element registration
+  - **right-click-handler.ts** - Handles right-click context menu interactions
 
 ### Content Scripts (`extension/scripts/content/`)
 
@@ -137,8 +143,19 @@ The extension uses a multi-layer architecture:
 ### Testing Approach
 
 - Jest with jsdom environment for DOM testing
-- Setup file configures test environment
-- Test files follow `*.test.js` pattern in `tests/` directory
+- Setup file configures test environment at `tests/setup.js`
+- Test files follow `*.test.{js,ts}` pattern in `tests/unit/` directory
+- **Test Structure**: Organized to mirror the `/extension` directory structure
+  - `tests/unit/background/` - Background script tests
+  - `tests/unit/background/handlers/` - Message handler tests
+  - `tests/unit/utils/` - Utility function tests
+- **Test Coverage**: 368 comprehensive unit tests across 14 test suites
+- **Chrome API Mocking**: Comprehensive mocks for chrome.storage, chrome.downloads, chrome.tabs, chrome.contextMenus, chrome.webRequest
+- **Key Testing Patterns**:
+  - Module isolation with jest.mock()
+  - Chrome API simulation and error handling
+  - Async function testing with proper cleanup
+  - Edge case and integration testing
 
 ### Extension Development
 
@@ -146,8 +163,43 @@ The extension uses a multi-layer architecture:
 - Use Chrome Developer Tools for debugging content and background scripts
 - Monitor console logs from different contexts (page, content, background)
 
+## Testing Status
+
+### Completed Unit Tests (368 tests across 14 suites)
+
+**Utilities (`tests/unit/utils/`)**:
+
+- ✅ **constants.test.ts** - Tests for application constants and configuration
+- ✅ **id-generator.test.ts** - Tests for unique ID generation functions
+- ✅ **logger.test.ts** - Tests for centralized logging system
+- ✅ **time-utils.test.ts** - Tests for time-related utility functions
+
+**Background Scripts (`tests/unit/background/`)**:
+
+- ✅ **data-store.test.ts** - Tests for voice message data storage and cleanup
+- ✅ **download-manager.test.ts** - Tests for audio file download management
+- ✅ **menu-manager.test.ts** - Tests for right-click context menu management
+- ✅ **message-handler.test.ts** - Tests for message routing and processing
+- ✅ **onboarding-utils.test.ts** - Tests for user onboarding workflow
+- ✅ **web-request-interceptor.test.ts** - Tests for network request monitoring
+
+**Message Handlers (`tests/unit/background/handlers/`)**:
+
+- ✅ **audio-url-registration-handler.test.ts** - Tests for audio URL registration
+- ✅ **blob-handler.test.ts** - Tests for blob URL processing and downloads
+- ✅ **element-registration-handler.test.ts** - Tests for voice message element registration
+- ✅ **right-click-handler.test.ts** - Tests for right-click interaction handling
+
+### Test Coverage Highlights
+
+- **Chrome API Mocking**: Complete simulation of Chrome Extension APIs
+- **Error Handling**: Comprehensive testing of edge cases and error scenarios
+- **Integration Testing**: End-to-end workflows and realistic usage patterns
+- **Duration Matching**: Tests for 5ms tolerance matching algorithm
+- **File Processing**: Base64 data handling and MIME type mapping
+- **State Management**: Voice message store operations and cleanup
+
 ## Claude Memory
 
-- Use traditional chinese to write comments
 - Use ripgrep (rg) when you need grep
 - **Referenced Project**: /Users/linporu/Documents/world-of-code/evoprompt/test-god.md
