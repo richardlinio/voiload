@@ -24,7 +24,8 @@
       "Bash(pnpm dev:*)",
       "Bash(pnpm webpack:*)",
       "Bash(sed:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": []
   }
