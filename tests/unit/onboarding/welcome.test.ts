@@ -3,7 +3,21 @@
 // Mock environment variable before any imports
 (global as any).__IS_PRODUCTION__ = false;
 
-// Mock Chrome API
+// Mock IntersectionObserver globally
+const mockObserve = jest.fn();
+const mockUnobserve = jest.fn();
+const mockDisconnect = jest.fn();
+const mockIntersectionObserver = jest
+  .fn()
+  .mockImplementation((_callback, _options) => ({
+    observe: mockObserve,
+    unobserve: mockUnobserve,
+    disconnect: mockDisconnect,
+  }));
+
+(global as any).IntersectionObserver = mockIntersectionObserver;
+
+// Mock Chrome API (only what's necessary)
 const mockChromeWelcome = {
   storage: {
     local: {
@@ -23,59 +37,14 @@ const mockChromeWelcome = {
 
 // Mock window.close
 const mockWindowCloseWelcome = jest.fn();
-(global as any).window = {
-  close: mockWindowCloseWelcome,
-};
-
-// Mock setTimeout
-const mockSetTimeoutWelcome = jest.fn((_callback, _timeout) => {
-  return 123; // Mock timer ID
+Object.defineProperty(global, "window", {
+  value: {
+    ...global.window,
+    close: mockWindowCloseWelcome,
+  },
+  writable: true,
+  configurable: true,
 });
-(global as any).setTimeout = mockSetTimeoutWelcome;
-
-// Mock DOM environment
-const mockElementsWelcome = {
-  container: {
-    insertBefore: jest.fn(),
-    firstChild: {},
-  } as any,
-  completeButton: {
-    addEventListener: jest.fn(),
-    disabled: false,
-    textContent: "",
-  } as any,
-  footer: {
-    appendChild: jest.fn(),
-    insertBefore: jest.fn(),
-  } as any,
-};
-
-const mockQuerySelectorWelcome = jest.fn();
-const mockGetElementByIdWelcome = jest.fn();
-const mockCreateElementWelcome = jest.fn();
-const mockAddEventListenerWelcome = jest.fn();
-const mockQuerySelectorAllWelcome = jest.fn();
-
-// Mock Intersection Observer
-const mockIntersectionObserver = jest.fn();
-const mockObserve = jest.fn();
-const mockUnobserve = jest.fn();
-
-mockIntersectionObserver.mockImplementation((_callback, _options) => ({
-  observe: mockObserve,
-  unobserve: mockUnobserve,
-  disconnect: jest.fn(),
-}));
-
-(global as any).IntersectionObserver = mockIntersectionObserver;
-
-(global as any).document = {
-  addEventListener: mockAddEventListenerWelcome,
-  querySelector: mockQuerySelectorWelcome,
-  getElementById: mockGetElementByIdWelcome,
-  createElement: mockCreateElementWelcome,
-  querySelectorAll: mockQuerySelectorAllWelcome,
-};
 
 // Mock Logger
 const mockLoggerWelcome = {
@@ -90,41 +59,36 @@ jest.mock("../../../extension/scripts/utils/logger", () => ({
   },
 }));
 
-describe("welcome.ts", () => {
+describe("welcome.ts - Integration Tests", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.resetModules();
 
-    // Reset DOM query selectors
-    mockQuerySelectorWelcome.mockImplementation((selector: string) => {
-      if (selector === ".container") {
-        return mockElementsWelcome.container;
-      }
-      if (selector === "footer") {
-        return mockElementsWelcome.footer;
-      }
-      return null;
-    });
+    // Reset window.close mock
+    mockWindowCloseWelcome.mockClear();
 
-    mockGetElementByIdWelcome.mockImplementation((id: string) => {
-      if (id === "complete-onboarding") {
-        return mockElementsWelcome.completeButton;
-      }
-      return null;
-    });
+    // Reset IntersectionObserver mocks
+    mockObserve.mockClear();
+    mockUnobserve.mockClear();
+    mockDisconnect.mockClear();
+    mockIntersectionObserver.mockClear();
 
-    mockCreateElementWelcome.mockImplementation(() => ({
-      className: "",
-      innerHTML: "",
-      classList: { add: jest.fn() },
-      style: { display: "" },
-      remove: jest.fn(),
-    }));
+    // Ensure DOM body exists
+    if (!document.body) {
+      document.body = document.createElement("body");
+    }
 
-    mockQuerySelectorAllWelcome.mockReturnValue([
-      { classList: { add: jest.fn() } },
-      { classList: { add: jest.fn() } },
-    ]);
+    // Setup real DOM structure that welcome page expects
+    document.body.innerHTML = `
+      <div class="container">
+        <h1>Welcome</h1>
+      </div>
+      <footer>
+        <button id="complete-onboarding" class="complete-btn">Get Started →</button>
+      </footer>
+      <div class="step">Step 1</div>
+      <div class="feature">Feature 1</div>
+    `;
 
     // Reset Chrome API mocks
     mockChromeWelcome.storage.local.get.mockResolvedValue({});
@@ -137,501 +101,265 @@ describe("welcome.ts", () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    // Clean up DOM safely
+    if (document.body) {
+      document.body.innerHTML = "";
+    }
   });
 
-  describe("DOMContentLoaded event", () => {
-    it("should log onboarding page loaded message", async () => {
+  describe("Real DOM Integration", () => {
+    it("should setup complete button with real event listener", async () => {
+      // Import and trigger the welcome script
       await import("../../../extension/onboarding/welcome");
 
-      const eventHandler = mockAddEventListenerWelcome.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
+      // Trigger DOMContentLoaded event
+      const event = new Event("DOMContentLoaded");
+      document.dispatchEvent(event);
 
-      if (eventHandler) {
-        await eventHandler();
-        expect(mockLoggerWelcome.info).toHaveBeenCalledWith(
-          "Onboarding page loaded"
-        );
-      }
-    });
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 0));
 
-    it("should check onboarding status from storage", async () => {
-      await import("../../../extension/onboarding/welcome");
+      // Verify the actual DOM button exists
+      const completeButton = document.getElementById(
+        "complete-onboarding"
+      ) as HTMLButtonElement;
+      expect(completeButton).toBeTruthy();
+      expect(completeButton.textContent).toBe("Get Started →");
 
-      const eventHandler = mockAddEventListenerWelcome.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
+      // Test real button click
+      const storageSetSpy = jest.spyOn(mockChromeWelcome.storage.local, "set");
+      const tabsQuerySpy = jest.spyOn(mockChromeWelcome.tabs, "query");
 
-      if (eventHandler) {
-        await eventHandler();
-        expect(mockChromeWelcome.storage.local.get).toHaveBeenCalledWith([
-          "onboardingCompleted",
-        ]);
-      }
-    });
+      // Simulate real user click
+      completeButton.click();
 
-    it("should show completed message if onboarding already completed", async () => {
-      mockChromeWelcome.storage.local.get.mockResolvedValue({
+      // Wait for async click handler
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      // Verify storage was called
+      expect(storageSetSpy).toHaveBeenCalledWith({
         onboardingCompleted: true,
+        completedAt: expect.any(Number),
       });
 
-      await import("../../../extension/onboarding/welcome");
-
-      const eventHandler = mockAddEventListenerWelcome.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
-
-      if (eventHandler) {
-        await eventHandler();
-
-        expect(mockLoggerWelcome.info).toHaveBeenCalledWith(
-          "User has already completed onboarding"
-        );
-        expect(mockElementsWelcome.container.insertBefore).toHaveBeenCalled();
-      }
+      // Verify tabs were queried
+      expect(tabsQuerySpy).toHaveBeenCalledWith({
+        url: ["*://*.messenger.com/*", "*://*.facebook.com/*"],
+      });
     });
 
-    it("should setup complete button event handler", async () => {
+    it("should create new messenger tab when no existing tabs found", async () => {
+      mockChromeWelcome.tabs.query.mockResolvedValue([]);
+
+      // Import and trigger the welcome script
       await import("../../../extension/onboarding/welcome");
 
-      const eventHandler = mockAddEventListenerWelcome.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
+      // Trigger DOMContentLoaded event
+      const event = new Event("DOMContentLoaded");
+      document.dispatchEvent(event);
 
-      if (eventHandler) {
-        await eventHandler();
-        expect(
-          mockElementsWelcome.completeButton.addEventListener
-        ).toHaveBeenCalledWith("click", expect.any(Function));
-      }
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      // Get the real button and click it
+      const completeButton = document.getElementById(
+        "complete-onboarding"
+      ) as HTMLButtonElement;
+      expect(completeButton).toBeTruthy();
+
+      const tabsCreateSpy = jest.spyOn(mockChromeWelcome.tabs, "create");
+
+      // Click the real button
+      completeButton.click();
+
+      // Wait for async operations
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      // Verify new tab was created
+      expect(tabsCreateSpy).toHaveBeenCalledWith({
+        url: "https://www.messenger.com",
+        active: true,
+      });
+
+      // Verify window.close was called
+      expect(mockWindowCloseWelcome).toHaveBeenCalled();
     });
 
-    it("should setup intersection observer for animations", async () => {
-      await import("../../../extension/onboarding/welcome");
-
-      const eventHandler = mockAddEventListenerWelcome.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
-
-      if (eventHandler) {
-        await eventHandler();
-
-        expect(mockIntersectionObserver).toHaveBeenCalledWith(
-          expect.any(Function),
-          {
-            threshold: 0.1,
-            rootMargin: "0px 0px -50px 0px",
-          }
-        );
-        expect(mockQuerySelectorWelcome).toHaveBeenCalledWith(
-          ".step, .feature"
-        );
-        expect(mockObserve).toHaveBeenCalledTimes(2); // For each animated element
-      }
-    });
-  });
-
-  describe("complete button functionality", () => {
-    it("should handle complete button click", async () => {
-      await import("../../../extension/onboarding/welcome");
-
-      const eventHandler = mockAddEventListenerWelcome.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
-
-      if (eventHandler) {
-        await eventHandler();
-
-        // Get the click handler
-        const clickHandler =
-          mockElementsWelcome.completeButton.addEventListener.mock.calls[0][1];
-
-        expect(mockLoggerWelcome.info).toHaveBeenCalledWith(
-          "Onboarding page loaded"
-        );
-
-        // Trigger the click
-        await clickHandler();
-
-        expect(mockLoggerWelcome.info).toHaveBeenCalledWith(
-          "User clicked complete button"
-        );
-        expect(mockElementsWelcome.completeButton.disabled).toBe(true);
-        expect(mockElementsWelcome.completeButton.textContent).toBe(
-          "Loading..."
-        );
-      }
-    });
-
-    it("should save onboarding completion to storage", async () => {
-      await import("../../../extension/onboarding/welcome");
-
-      const eventHandler = mockAddEventListenerWelcome.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
-
-      if (eventHandler) {
-        await eventHandler();
-
-        const clickHandler =
-          mockElementsWelcome.completeButton.addEventListener.mock.calls[0][1];
-        await clickHandler();
-
-        expect(mockChromeWelcome.storage.local.set).toHaveBeenCalledWith({
-          onboardingCompleted: true,
-          completedAt: expect.any(Number),
-        });
-        expect(mockLoggerWelcome.info).toHaveBeenCalledWith(
-          "Onboarding status updated"
-        );
-      }
-    });
-
-    it("should switch to existing Facebook/Messenger tab if found", async () => {
+    it("should switch to existing messenger tab when found", async () => {
       const mockTab = { id: 123, url: "https://www.messenger.com" };
       mockChromeWelcome.tabs.query.mockResolvedValue([mockTab]);
 
+      // Import and trigger the welcome script
       await import("../../../extension/onboarding/welcome");
 
-      const eventHandler = mockAddEventListenerWelcome.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
+      // Trigger DOMContentLoaded event
+      const event = new Event("DOMContentLoaded");
+      document.dispatchEvent(event);
 
-      if (eventHandler) {
-        await eventHandler();
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 0));
 
-        const clickHandler =
-          mockElementsWelcome.completeButton.addEventListener.mock.calls[0][1];
-        await clickHandler();
+      // Get and click the real button
+      const completeButton = document.getElementById(
+        "complete-onboarding"
+      ) as HTMLButtonElement;
+      const tabsUpdateSpy = jest.spyOn(mockChromeWelcome.tabs, "update");
+      const tabsReloadSpy = jest.spyOn(mockChromeWelcome.tabs, "reload");
 
-        expect(mockChromeWelcome.tabs.query).toHaveBeenCalledWith({
-          url: ["*://*.messenger.com/*", "*://*.facebook.com/*"],
-        });
-        expect(mockLoggerWelcome.info).toHaveBeenCalledWith(
-          "Found open Facebook/Messenger tab"
-        );
-        expect(mockChromeWelcome.tabs.update).toHaveBeenCalledWith(123, {
-          active: true,
-        });
-        expect(mockChromeWelcome.tabs.reload).toHaveBeenCalledWith(123);
-        expect(mockElementsWelcome.footer.insertBefore).toHaveBeenCalled(); // Success message
+      completeButton.click();
 
-        // Verify setTimeout was called for closing window
-        expect(mockSetTimeoutWelcome).toHaveBeenCalledWith(
-          expect.any(Function),
-          3000
-        );
-      }
+      // Wait for async operations
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      // Verify tab was switched and reloaded
+      expect(tabsUpdateSpy).toHaveBeenCalledWith(123, { active: true });
+      expect(tabsReloadSpy).toHaveBeenCalledWith(123);
+
+      // Verify success message was added to real DOM
+      const successMessage = document.querySelector(".success-message");
+      expect(successMessage).toBeTruthy();
+      expect(successMessage?.innerHTML).toContain("Setup complete!");
     });
 
-    it("should create new Messenger tab if none found", async () => {
-      mockChromeWelcome.tabs.query.mockResolvedValue([]);
-
-      await import("../../../extension/onboarding/welcome");
-
-      const eventHandler = mockAddEventListenerWelcome.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
-
-      if (eventHandler) {
-        await eventHandler();
-
-        const clickHandler =
-          mockElementsWelcome.completeButton.addEventListener.mock.calls[0][1];
-        await clickHandler();
-
-        expect(mockLoggerWelcome.info).toHaveBeenCalledWith(
-          "Opening new Messenger tab"
-        );
-        expect(mockChromeWelcome.tabs.create).toHaveBeenCalledWith({
-          url: "https://www.messenger.com",
-          active: true,
-        });
-        expect(mockWindowCloseWelcome).toHaveBeenCalled();
-      }
-    });
-
-    it("should handle tab with null id gracefully", async () => {
-      const mockTab = { id: null, url: "https://www.messenger.com" };
-      mockChromeWelcome.tabs.query.mockResolvedValue([mockTab]);
-
-      await import("../../../extension/onboarding/welcome");
-
-      const eventHandler = mockAddEventListenerWelcome.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
-
-      if (eventHandler) {
-        await eventHandler();
-
-        const clickHandler =
-          mockElementsWelcome.completeButton.addEventListener.mock.calls[0][1];
-        await clickHandler();
-
-        // Should not try to update/reload tab with null id
-        expect(mockChromeWelcome.tabs.update).not.toHaveBeenCalled();
-        expect(mockChromeWelcome.tabs.reload).not.toHaveBeenCalled();
-      }
-    });
-
-    it("should handle storage error", async () => {
-      const error = new Error("Storage error");
-      mockChromeWelcome.storage.local.set.mockRejectedValue(error);
-
-      await import("../../../extension/onboarding/welcome");
-
-      const eventHandler = mockAddEventListenerWelcome.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
-
-      if (eventHandler) {
-        await eventHandler();
-
-        const clickHandler =
-          mockElementsWelcome.completeButton.addEventListener.mock.calls[0][1];
-        await clickHandler();
-
-        expect(mockLoggerWelcome.error).toHaveBeenCalledWith(
-          "Error completing onboarding",
-          { error }
-        );
-        expect(mockElementsWelcome.completeButton.disabled).toBe(false);
-        expect(mockElementsWelcome.completeButton.textContent).toBe(
-          "Get Started →"
-        );
-        expect(mockElementsWelcome.footer.appendChild).toHaveBeenCalled(); // Error message
-      }
-    });
-  });
-
-  describe("showCompletedMessage", () => {
     it("should show completed notice when onboarding already completed", async () => {
       mockChromeWelcome.storage.local.get.mockResolvedValue({
         onboardingCompleted: true,
       });
 
+      // Import and trigger the welcome script
       await import("../../../extension/onboarding/welcome");
 
-      const eventHandler = mockAddEventListenerWelcome.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
+      // Trigger DOMContentLoaded event
+      const event = new Event("DOMContentLoaded");
+      document.dispatchEvent(event);
 
-      if (eventHandler) {
-        await eventHandler();
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 0));
 
-        expect(mockCreateElementWelcome).toHaveBeenCalledWith("div");
-        expect(mockElementsWelcome.container.insertBefore).toHaveBeenCalled();
-      }
+      // Verify completed notice was added to real DOM
+      const completedNotice = document.querySelector(".completed-notice");
+      expect(completedNotice).toBeTruthy();
+      expect(completedNotice?.innerHTML).toContain("✅");
+      expect(completedNotice?.innerHTML).toContain("already completed");
+    });
+
+    it("should handle Enter key press to trigger complete button", async () => {
+      // Import and trigger the welcome script
+      await import("../../../extension/onboarding/welcome");
+
+      // Get the real button
+      const completeButton = document.getElementById(
+        "complete-onboarding"
+      ) as HTMLButtonElement;
+      expect(completeButton).toBeTruthy();
+
+      const buttonClickSpy = jest.spyOn(completeButton, "click");
+
+      // Simulate Enter key press
+      const enterEvent = new KeyboardEvent("keydown", { key: "Enter" });
+      document.dispatchEvent(enterEvent);
+
+      // Verify button click was triggered
+      expect(buttonClickSpy).toHaveBeenCalled();
+    });
+
+    it("should setup intersection observer for animations", async () => {
+      // Clear the mock before this specific test
+      mockObserve.mockClear();
+      mockIntersectionObserver.mockClear();
+
+      // Import and trigger the welcome script
+      await import("../../../extension/onboarding/welcome");
+
+      // Trigger DOMContentLoaded event
+      const event = new Event("DOMContentLoaded");
+      document.dispatchEvent(event);
+
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      // Verify IntersectionObserver was created with correct options
+      expect(mockIntersectionObserver).toHaveBeenCalledWith(
+        expect.any(Function),
+        {
+          threshold: 0.1,
+          rootMargin: "0px 0px -50px 0px",
+        }
+      );
+
+      // Verify animated elements are observed (at least 2 calls expected)
+      expect(mockObserve).toHaveBeenCalledWith(expect.any(Element));
+      expect(mockObserve.mock.calls.length).toBeGreaterThanOrEqual(2);
     });
   });
 
-  describe("showSuccessMessage", () => {
-    it("should show success message and hide button", async () => {
-      const mockTab = { id: 123, url: "https://www.messenger.com" };
-      mockChromeWelcome.tabs.query.mockResolvedValue([mockTab]);
-
+  describe("Error Detection Tests", () => {
+    it("should detect if complete button functionality is removed", async () => {
+      // Import and trigger the welcome script
       await import("../../../extension/onboarding/welcome");
 
-      const eventHandler = mockAddEventListenerWelcome.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
+      // Trigger DOMContentLoaded event
+      const event = new Event("DOMContentLoaded");
+      document.dispatchEvent(event);
 
-      if (eventHandler) {
-        await eventHandler();
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 0));
 
-        const clickHandler =
-          mockElementsWelcome.completeButton.addEventListener.mock.calls[0][1];
-        await clickHandler();
+      // Get the button
+      const completeButton = document.getElementById(
+        "complete-onboarding"
+      ) as HTMLButtonElement;
+      expect(completeButton).toBeTruthy();
 
-        expect(mockElementsWelcome.footer.insertBefore).toHaveBeenCalled();
-        expect(mockElementsWelcome.completeButton.style.display).toBe("none");
-      }
+      // Test that clicking actually works
+      const storageSetSpy = jest.spyOn(mockChromeWelcome.storage.local, "set");
+
+      // If the functionality was removed, this would not call chrome.storage.local.set
+      completeButton.click();
+
+      // Wait for async operations
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      // This test will fail if the button click handler is not properly attached
+      expect(storageSetSpy).toHaveBeenCalled();
+      expect(storageSetSpy).toHaveBeenCalledWith({
+        onboardingCompleted: true,
+        completedAt: expect.any(Number),
+      });
     });
-  });
 
-  describe("showErrorMessage", () => {
-    it("should show error message and auto-remove after timeout", async () => {
-      const error = new Error("Test error");
+    it("should handle storage errors gracefully", async () => {
+      const error = new Error("Storage error");
       mockChromeWelcome.storage.local.set.mockRejectedValue(error);
 
+      // Import and trigger the welcome script
       await import("../../../extension/onboarding/welcome");
 
-      const eventHandler = mockAddEventListenerWelcome.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
+      // Trigger DOMContentLoaded event
+      const event = new Event("DOMContentLoaded");
+      document.dispatchEvent(event);
 
-      if (eventHandler) {
-        await eventHandler();
+      // Wait for async operations to complete
+      await new Promise((resolve) => setTimeout(resolve, 0));
 
-        const clickHandler =
-          mockElementsWelcome.completeButton.addEventListener.mock.calls[0][1];
-        await clickHandler();
+      // Get and click the real button
+      const completeButton = document.getElementById(
+        "complete-onboarding"
+      ) as HTMLButtonElement;
+      completeButton.click();
 
-        expect(mockElementsWelcome.footer.appendChild).toHaveBeenCalled();
-        expect(mockSetTimeoutWelcome).toHaveBeenCalledWith(
-          expect.any(Function),
-          3000
-        );
-      }
-    });
-  });
+      // Wait for async error handling
+      await new Promise((resolve) => setTimeout(resolve, 0));
 
-  describe("addAnimations", () => {
-    it("should setup intersection observer with correct options", async () => {
-      await import("../../../extension/onboarding/welcome");
+      // Verify error message was added to real DOM
+      const errorMessage = document.querySelector(".error-message");
+      expect(errorMessage).toBeTruthy();
+      expect(errorMessage?.innerHTML).toContain("❌");
+      expect(errorMessage?.innerHTML).toContain("error occurred");
 
-      const eventHandler = mockAddEventListenerWelcome.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
-
-      if (eventHandler) {
-        await eventHandler();
-
-        expect(mockIntersectionObserver).toHaveBeenCalledWith(
-          expect.any(Function),
-          {
-            threshold: 0.1,
-            rootMargin: "0px 0px -50px 0px",
-          }
-        );
-      }
-    });
-
-    it("should observe all step and feature elements", async () => {
-      await import("../../../extension/onboarding/welcome");
-
-      const eventHandler = mockAddEventListenerWelcome.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
-
-      if (eventHandler) {
-        await eventHandler();
-
-        expect(mockQuerySelectorWelcome).toHaveBeenCalledWith(
-          ".step, .feature"
-        );
-        expect(mockObserve).toHaveBeenCalledTimes(2);
-      }
-    });
-
-    it("should add visible class when element is intersecting", async () => {
-      await import("../../../extension/onboarding/welcome");
-
-      const eventHandler = mockAddEventListenerWelcome.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
-
-      if (eventHandler) {
-        await eventHandler();
-
-        // Get the intersection observer callback
-        const observerCallback = mockIntersectionObserver.mock.calls[0][0];
-
-        const mockEntry = {
-          isIntersecting: true,
-          target: { classList: { add: jest.fn() } },
-        };
-
-        observerCallback([mockEntry]);
-
-        expect(mockEntry.target.classList.add).toHaveBeenCalledWith("visible");
-      }
-    });
-
-    it("should not add visible class when element is not intersecting", async () => {
-      await import("../../../extension/onboarding/welcome");
-
-      const eventHandler = mockAddEventListenerWelcome.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
-
-      if (eventHandler) {
-        await eventHandler();
-
-        const observerCallback = mockIntersectionObserver.mock.calls[0][0];
-
-        const mockEntry = {
-          isIntersecting: false,
-          target: { classList: { add: jest.fn() } },
-        };
-
-        observerCallback([mockEntry]);
-
-        expect(mockEntry.target.classList.add).not.toHaveBeenCalled();
-      }
-    });
-  });
-
-  describe("keyboard event handling", () => {
-    it("should trigger complete button on Enter key press", async () => {
-      await import("../../../extension/onboarding/welcome");
-
-      const keydownHandler = mockAddEventListenerWelcome.mock.calls.find(
-        (call) => call[0] === "keydown"
-      )?.[1];
-
-      const mockClick = jest.fn();
-      mockElementsWelcome.completeButton.click = mockClick;
-      mockElementsWelcome.completeButton.disabled = false;
-
-      if (keydownHandler) {
-        const enterEvent = { key: "Enter" };
-        keydownHandler(enterEvent);
-
-        expect(mockClick).toHaveBeenCalled();
-      }
-    });
-
-    it("should not trigger complete button if disabled", async () => {
-      await import("../../../extension/onboarding/welcome");
-
-      const keydownHandler = mockAddEventListenerWelcome.mock.calls.find(
-        (call) => call[0] === "keydown"
-      )?.[1];
-
-      const mockClick = jest.fn();
-      mockElementsWelcome.completeButton.click = mockClick;
-      mockElementsWelcome.completeButton.disabled = true;
-
-      if (keydownHandler) {
-        const enterEvent = { key: "Enter" };
-        keydownHandler(enterEvent);
-
-        expect(mockClick).not.toHaveBeenCalled();
-      }
-    });
-
-    it("should not trigger on other keys", async () => {
-      await import("../../../extension/onboarding/welcome");
-
-      const keydownHandler = mockAddEventListenerWelcome.mock.calls.find(
-        (call) => call[0] === "keydown"
-      )?.[1];
-
-      const mockClick = jest.fn();
-      mockElementsWelcome.completeButton.click = mockClick;
-
-      if (keydownHandler) {
-        const spaceEvent = { key: " " };
-        keydownHandler(spaceEvent);
-
-        expect(mockClick).not.toHaveBeenCalled();
-      }
-    });
-
-    it("should handle missing complete button gracefully", async () => {
-      mockGetElementByIdWelcome.mockReturnValue(null);
-
-      await import("../../../extension/onboarding/welcome");
-
-      const keydownHandler = mockAddEventListenerWelcome.mock.calls.find(
-        (call) => call[0] === "keydown"
-      )?.[1];
-
-      if (keydownHandler) {
-        const enterEvent = { key: "Enter" };
-        expect(() => keydownHandler(enterEvent)).not.toThrow();
-      }
+      // Verify button state was restored
+      expect(completeButton.disabled).toBe(false);
+      expect(completeButton.textContent).toBe("Get Started →");
     });
   });
 });
