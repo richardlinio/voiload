@@ -11,9 +11,10 @@
     "dev": "webpack --watch --mode=development",
     "build": "webpack --mode=production",
     "package": "node scripts/package.js",
-    "type-check": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext .ts,.js",
-    "lint:fix": "eslint . --ext .ts,.js --fix"
+    "lint:fix": "eslint . --ext .ts,.js --fix",
+    "quality": "tsc --noEmit && eslint . --ext .ts,.js --quiet"
   },
   "keywords": [],
   "author": "",
