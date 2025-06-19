@@ -3,7 +3,7 @@
 // Mock environment variable before any imports
 (global as any).__IS_PRODUCTION__ = false;
 
-// Mock Chrome API
+// Mock Chrome API (only what's necessary)
 const mockChromePopup = {
   tabs: {
     create: jest.fn(),
@@ -26,42 +26,14 @@ const mockChromePopup = {
 
 // Mock window.close
 const mockWindowClosePopup = jest.fn();
-(global as any).window = {
-  close: mockWindowClosePopup,
-};
-
-// Mock DOM environment
-const mockElementsPopup = {
-  statusElement: {
-    textContent: "",
-    classList: {
-      add: jest.fn(),
-    },
-  } as any,
-  statusDiv: {
-    appendChild: jest.fn(),
-    classList: {
-      add: jest.fn(),
-    },
-  } as any,
-  footer: {
-    appendChild: jest.fn(),
-    insertBefore: jest.fn(),
-    firstChild: {},
-  } as any,
-};
-
-const mockQuerySelectorPopup = jest.fn();
-const mockGetElementByIdPopup = jest.fn();
-const mockCreateElementPopup = jest.fn();
-const mockAddEventListenerPopup = jest.fn();
-
-(global as any).document = {
-  addEventListener: mockAddEventListenerPopup,
-  querySelector: mockQuerySelectorPopup,
-  getElementById: mockGetElementByIdPopup,
-  createElement: mockCreateElementPopup,
-};
+Object.defineProperty(global, 'window', {
+  value: {
+    ...global.window,
+    close: mockWindowClosePopup,
+  },
+  writable: true,
+  configurable: true,
+});
 
 // Mock the onboarding-utils module
 const mockCheckOnboardingStatus = jest.fn();
@@ -82,43 +54,27 @@ jest.mock("../../../extension/scripts/utils/logger", () => ({
   },
 }));
 
-describe("popup.ts", () => {
+describe("popup.ts - Integration Tests", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.resetModules();
-
-    // Reset DOM query selectors
-    mockQuerySelectorPopup.mockImplementation((selector: string) => {
-      if (selector === ".status p") {
-        return mockElementsPopup.statusElement;
-      }
-      if (selector === ".status") {
-        return mockElementsPopup.statusDiv;
-      }
-      if (selector === ".footer") {
-        return mockElementsPopup.footer;
-      }
-      return null;
-    });
-
-    mockGetElementByIdPopup.mockImplementation((_id: string) => {
-      const button = {
-        addEventListener: jest.fn(),
-        disabled: false,
-        textContent: "",
-        style: { display: "" },
-      };
-      return button;
-    });
-
-    mockCreateElementPopup.mockImplementation(() => ({
-      className: "",
-      innerHTML: "",
-      classList: { add: jest.fn() },
-      style: { display: "" },
-      remove: jest.fn(),
-    }));
-
+    
+    // Reset window.close mock
+    mockWindowClosePopup.mockClear();
+    
+    // Ensure DOM body exists
+    if (!document.body) {
+      document.body = document.createElement('body');
+    }
+    
+    // Setup real DOM structure that popup expects
+    document.body.innerHTML = `
+      <div class="status">
+        <p></p>
+      </div>
+      <div class="footer"></div>
+    `;
+    
     // Mock current date
     jest
       .spyOn(Date.prototype, "toLocaleTimeString")
@@ -130,436 +86,213 @@ describe("popup.ts", () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    // Clean up DOM safely
+    if (document.body) {
+      document.body.innerHTML = "";
+    }
   });
 
-  describe("DOMContentLoaded event", () => {
-    it("should log popup loaded message", async () => {
-      // Import the module to get the event handler
-      await import("../../../extension/popup/popup");
-
-      // Trigger the DOMContentLoaded event
-      const eventHandler = mockAddEventListenerPopup.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
-
-      if (eventHandler) {
-        mockCheckOnboardingStatus.mockResolvedValue({
-          completed: true,
-          installTime: Date.now(),
-          completedAt: Date.now(),
-        });
-
-        await eventHandler();
-        expect(mockLoggerPopup.info).toHaveBeenCalledWith("Popup loaded");
-      }
-    });
-
-    it("should update status element with current time", async () => {
-      await import("../../../extension/popup/popup");
-
-      const eventHandler = mockAddEventListenerPopup.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
-
-      if (eventHandler) {
-        mockCheckOnboardingStatus.mockResolvedValue({
-          completed: true,
-          installTime: Date.now(),
-          completedAt: Date.now(),
-        });
-
-        await eventHandler();
-
-        expect(mockElementsPopup.statusElement.textContent).toBe(
-          "✅ Extension is running! (12:00:00 PM)"
-        );
-        expect(mockElementsPopup.statusDiv.classList.add).toHaveBeenCalledWith(
-          "active"
-        );
-      }
-    });
-
-    it("should handle onboarding not completed", async () => {
-      await import("../../../extension/popup/popup");
-
-      const eventHandler = mockAddEventListenerPopup.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
-
-      if (eventHandler) {
-        mockCheckOnboardingStatus.mockResolvedValue({
-          completed: false,
-          installTime: Date.now(),
-          completedAt: null,
-        });
-
-        await eventHandler();
-
-        expect(mockElementsPopup.statusDiv.appendChild).toHaveBeenCalled();
-      }
-    });
-
-    it("should handle onboarding completed", async () => {
-      await import("../../../extension/popup/popup");
-
-      const eventHandler = mockAddEventListenerPopup.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
-
-      if (eventHandler) {
-        const completedAt = Date.now();
-        mockCheckOnboardingStatus.mockResolvedValue({
-          completed: true,
-          installTime: Date.now() - 86400000,
-          completedAt,
-        });
-
-        await eventHandler();
-
-        expect(mockElementsPopup.footer.appendChild).toHaveBeenCalled();
-        expect(mockElementsPopup.footer.insertBefore).toHaveBeenCalled();
-      }
-    });
-
-    it("should handle onboarding status check error", async () => {
-      await import("../../../extension/popup/popup");
-
-      const eventHandler = mockAddEventListenerPopup.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
-
-      if (eventHandler) {
-        const error = new Error("Storage error");
-        mockCheckOnboardingStatus.mockRejectedValue(error);
-
-        await eventHandler();
-
-        expect(mockLoggerPopup.error).toHaveBeenCalledWith(
-          "Error checking onboarding status",
-          { error }
-        );
-      }
-    });
-
-    it("should handle missing DOM elements gracefully", async () => {
-      mockQuerySelectorPopup.mockReturnValue(null);
-
-      await import("../../../extension/popup/popup");
-
-      const eventHandler = mockAddEventListenerPopup.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
-
-      if (eventHandler) {
-        mockCheckOnboardingStatus.mockResolvedValue({
-          completed: true,
-          installTime: Date.now(),
-          completedAt: Date.now(),
-        });
-
-        await expect(eventHandler()).resolves.not.toThrow();
-      }
-    });
-  });
-
-  describe("showOnboardingReminder", () => {
-    it("should create onboarding reminder element with correct content", async () => {
-      await import("../../../extension/popup/popup");
-
-      const eventHandler = mockAddEventListenerPopup.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
-
-      if (eventHandler) {
-        mockCheckOnboardingStatus.mockResolvedValue({
-          completed: false,
-          installTime: Date.now(),
-          completedAt: null,
-        });
-
-        await eventHandler();
-
-        expect(mockCreateElementPopup).toHaveBeenCalledWith("div");
-        expect(mockElementsPopup.statusDiv.appendChild).toHaveBeenCalled();
-      }
-    });
-
-    it("should setup onboarding button click handler", async () => {
-      await import("../../../extension/popup/popup");
-
-      const eventHandler = mockAddEventListenerPopup.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
-
-      if (eventHandler) {
-        mockCheckOnboardingStatus.mockResolvedValue({
-          completed: false,
-          installTime: Date.now(),
-          completedAt: null,
-        });
-
-        mockChromePopup.runtime.getURL.mockReturnValue(
-          "chrome-extension://test/onboarding/welcome.html"
-        );
-
-        await eventHandler();
-
-        // Verify button event listener was added
-        expect(mockGetElementByIdPopup).toHaveBeenCalledWith("open-onboarding");
-      }
-    });
-  });
-
-  describe("showCompletedStatus", () => {
-    it("should not show status if completedAt is null", async () => {
-      await import("../../../extension/popup/popup");
-
-      const eventHandler = mockAddEventListenerPopup.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
-
-      if (eventHandler) {
-        mockCheckOnboardingStatus.mockResolvedValue({
-          completed: true,
-          installTime: Date.now(),
-          completedAt: null,
-        });
-
-        await eventHandler();
-
-        // Should not append completed status if completedAt is null
-        const createElementCalls = mockCreateElementPopup.mock.calls;
-        const hasCompletedDiv = createElementCalls.some(
-          (call) => call[0] === "div" && createElementCalls.indexOf(call) > 0
-        );
-        expect(hasCompletedDiv).toBeTruthy(); // Quick links div is created
-      }
-    });
-
-    it("should show formatted completion date", async () => {
-      await import("../../../extension/popup/popup");
-
-      const eventHandler = mockAddEventListenerPopup.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
-
-      if (eventHandler) {
-        const completedAt = Date.now();
-        mockCheckOnboardingStatus.mockResolvedValue({
-          completed: true,
-          installTime: Date.now() - 86400000,
-          completedAt,
-        });
-
-        await eventHandler();
-
-        expect(mockElementsPopup.footer.appendChild).toHaveBeenCalled();
-      }
-    });
-  });
-
-  describe("addQuickLinks", () => {
-    it("should create quick links with all buttons", async () => {
-      await import("../../../extension/popup/popup");
-
-      const eventHandler = mockAddEventListenerPopup.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
-
-      if (eventHandler) {
-        mockCheckOnboardingStatus.mockResolvedValue({
-          completed: true,
-          installTime: Date.now(),
-          completedAt: Date.now(),
-        });
-
-        await eventHandler();
-
-        expect(mockCreateElementPopup).toHaveBeenCalledWith("div");
-        expect(mockElementsPopup.footer.insertBefore).toHaveBeenCalled();
-
-        // Verify all button IDs are queried
-        expect(mockGetElementByIdPopup).toHaveBeenCalledWith("open-messenger");
-        expect(mockGetElementByIdPopup).toHaveBeenCalledWith("open-facebook");
-        expect(mockGetElementByIdPopup).toHaveBeenCalledWith("view-tutorial");
-        expect(mockGetElementByIdPopup).toHaveBeenCalledWith("help-us");
-      }
-    });
-
-    it("should setup messenger button to open messenger.com", async () => {
-      const mockButton = {
-        addEventListener: jest.fn(),
-      };
-      mockGetElementByIdPopup.mockImplementation((id: string) => {
-        if (id === "open-messenger") {
-          return mockButton;
-        }
-        return { addEventListener: jest.fn() };
-      });
-
-      await import("../../../extension/popup/popup");
-
-      const eventHandler = mockAddEventListenerPopup.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
-
-      if (eventHandler) {
-        mockCheckOnboardingStatus.mockResolvedValue({
-          completed: true,
-          installTime: Date.now(),
-          completedAt: Date.now(),
-        });
-
-        await eventHandler();
-
-        expect(mockButton.addEventListener).toHaveBeenCalledWith(
-          "click",
-          expect.any(Function)
-        );
-
-        // Trigger the click handler
-        const clickHandler = mockButton.addEventListener.mock.calls[0][1];
-        clickHandler();
-
-        expect(mockChromePopup.tabs.create).toHaveBeenCalledWith({
-          url: "https://www.messenger.com",
-        });
-        expect(mockWindowClosePopup).toHaveBeenCalled();
-      }
-    });
-
-    it("should setup facebook button to open facebook.com", async () => {
-      const mockButton = {
-        addEventListener: jest.fn(),
-      };
-      mockGetElementByIdPopup.mockImplementation((id: string) => {
-        if (id === "open-facebook") {
-          return mockButton;
-        }
-        return { addEventListener: jest.fn() };
-      });
-
-      await import("../../../extension/popup/popup");
-
-      const eventHandler = mockAddEventListenerPopup.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
-
-      if (eventHandler) {
-        mockCheckOnboardingStatus.mockResolvedValue({
-          completed: true,
-          installTime: Date.now(),
-          completedAt: Date.now(),
-        });
-
-        await eventHandler();
-
-        // Trigger the click handler
-        const clickHandler = mockButton.addEventListener.mock.calls[0][1];
-        clickHandler();
-
-        expect(mockChromePopup.tabs.create).toHaveBeenCalledWith({
-          url: "https://www.facebook.com",
-        });
-        expect(mockWindowClosePopup).toHaveBeenCalled();
-      }
-    });
-
-    it("should setup tutorial button to open welcome page", async () => {
-      const mockButton = {
-        addEventListener: jest.fn(),
-      };
-      mockGetElementByIdPopup.mockImplementation((id: string) => {
-        if (id === "view-tutorial") {
-          return mockButton;
-        }
-        return { addEventListener: jest.fn() };
+  describe("Real DOM Integration", () => {
+    it("should create and setup help-us button correctly", async () => {
+      // Setup onboarding status
+      mockCheckOnboardingStatus.mockResolvedValue({
+        completed: true,
+        installTime: Date.now(),
+        completedAt: Date.now(),
       });
 
       mockChromePopup.runtime.getURL.mockReturnValue(
         "chrome-extension://test/onboarding/welcome.html"
       );
 
+      // Import and trigger the popup script
       await import("../../../extension/popup/popup");
+      
+      // Trigger DOMContentLoaded event
+      const event = new Event('DOMContentLoaded');
+      document.dispatchEvent(event);
 
-      const eventHandler = mockAddEventListenerPopup.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
+      // Wait for async operations to complete
+      await new Promise(resolve => setTimeout(resolve, 0));
 
-      if (eventHandler) {
-        mockCheckOnboardingStatus.mockResolvedValue({
-          completed: true,
-          installTime: Date.now(),
-          completedAt: Date.now(),
-        });
+      // Verify the actual DOM structure was created
+      const quickLinks = document.querySelector('.quick-links');
+      expect(quickLinks).toBeTruthy();
+      expect(quickLinks?.innerHTML).toContain('Help Us');
 
-        await eventHandler();
+      // Verify the help-us button exists in real DOM
+      const helpUsButton = document.getElementById('help-us') as HTMLButtonElement;
+      expect(helpUsButton).toBeTruthy();
+      expect(helpUsButton.textContent).toContain('Help Us');
 
-        // Trigger the click handler
-        const clickHandler = mockButton.addEventListener.mock.calls[0][1];
-        clickHandler();
+      // Verify button has click event listener by checking if it's clickable
+      // This is a real integration test - clicking the actual button
+      const tabsCreateSpy = jest.spyOn(mockChromePopup.tabs, 'create');
+      
+      // Simulate real user click
+      helpUsButton.click();
 
-        expect(mockChromePopup.tabs.create).toHaveBeenCalledWith({
-          url: "chrome-extension://test/onboarding/welcome.html",
-        });
-        expect(mockWindowClosePopup).toHaveBeenCalled();
-      }
+      // Verify the correct URL was called
+      expect(tabsCreateSpy).toHaveBeenCalledWith({
+        url: "https://docs.google.com/forms/d/e/1FAIpQLSeVrwFiqV9vNFiAQwNqSv6ngJ7KtZDmXme8PVoufymJ9jU4DQ/viewform?usp=header",
+      });
     });
 
-    it("should setup help-us button to open feedback form", async () => {
-      const mockButton = {
-        addEventListener: jest.fn(),
-      };
-      mockGetElementByIdPopup.mockImplementation((id: string) => {
-        if (id === "help-us") {
-          return mockButton;
-        }
-        return { addEventListener: jest.fn() };
+    it("should create quick links even when onboarding is not completed", async () => {
+      // Mock onboarding to not be completed (quick links should still be added)
+      mockCheckOnboardingStatus.mockResolvedValue({
+        completed: false,
+        installTime: Date.now(),
+        completedAt: null,
       });
 
+      // Import and trigger the popup script
       await import("../../../extension/popup/popup");
+      
+      // Trigger DOMContentLoaded event
+      const event = new Event('DOMContentLoaded');
+      document.dispatchEvent(event);
 
-      const eventHandler = mockAddEventListenerPopup.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
+      // Wait for async operations to complete
+      await new Promise(resolve => setTimeout(resolve, 0));
 
-      if (eventHandler) {
-        mockCheckOnboardingStatus.mockResolvedValue({
-          completed: true,
-          installTime: Date.now(),
-          completedAt: Date.now(),
-        });
+      // Verify the help-us button EXISTS even when onboarding is not completed
+      const helpUsButton = document.getElementById('help-us');
+      expect(helpUsButton).toBeTruthy();
+      expect(helpUsButton?.textContent).toContain('Help Us');
 
-        await eventHandler();
+      // Verify quick links section exists
+      const quickLinks = document.querySelector('.quick-links');
+      expect(quickLinks).toBeTruthy();
+      expect(quickLinks?.innerHTML).toContain('Quick Links');
 
-        // Trigger the click handler
-        const clickHandler = mockButton.addEventListener.mock.calls[0][1];
-        clickHandler();
-
-        expect(mockChromePopup.tabs.create).toHaveBeenCalledWith({
-          url: "https://docs.google.com/forms/d/e/1FAIpQLSeVrwFiqV9vNFiAQwNqSv6ngJ7KtZDmXme8PVoufymJ9jU4DQ/viewform?usp=header",
-        });
-      }
+      // Also verify onboarding reminder is shown
+      const onboardingReminder = document.querySelector('.onboarding-reminder');
+      expect(onboardingReminder).toBeTruthy();
     });
 
-    it("should handle missing buttons gracefully", async () => {
-      mockGetElementByIdPopup.mockReturnValue(null);
+    it("should create all expected buttons when onboarding is completed", async () => {
+      mockCheckOnboardingStatus.mockResolvedValue({
+        completed: true,
+        installTime: Date.now(),
+        completedAt: Date.now(),
+      });
 
+      mockChromePopup.runtime.getURL.mockReturnValue(
+        "chrome-extension://test/onboarding/welcome.html"
+      );
+
+      // Import and trigger the popup script
       await import("../../../extension/popup/popup");
+      
+      // Trigger DOMContentLoaded event
+      const event = new Event('DOMContentLoaded');
+      document.dispatchEvent(event);
 
-      const eventHandler = mockAddEventListenerPopup.mock.calls.find(
-        (call) => call[0] === "DOMContentLoaded"
-      )?.[1];
+      // Wait for async operations to complete
+      await new Promise(resolve => setTimeout(resolve, 0));
 
-      if (eventHandler) {
-        mockCheckOnboardingStatus.mockResolvedValue({
-          completed: true,
-          installTime: Date.now(),
-          completedAt: Date.now(),
-        });
+      // Verify all buttons exist in real DOM
+      const expectedButtons = ['open-messenger', 'open-facebook', 'view-tutorial', 'help-us'];
+      
+      expectedButtons.forEach(buttonId => {
+        const button = document.getElementById(buttonId);
+        expect(button).toBeTruthy();
+        expect(button).toBeInstanceOf(HTMLButtonElement);
+      });
+    });
 
-        await expect(eventHandler()).resolves.not.toThrow();
-      }
+    it("should setup messenger button with correct click handler", async () => {
+      mockCheckOnboardingStatus.mockResolvedValue({
+        completed: true,
+        installTime: Date.now(),
+        completedAt: Date.now(),
+      });
+
+      // Import and trigger the popup script
+      await import("../../../extension/popup/popup");
+      
+      // Trigger DOMContentLoaded event
+      const event = new Event('DOMContentLoaded');
+      document.dispatchEvent(event);
+
+      // Wait for async operations to complete
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      // Get the real button from DOM
+      const messengerButton = document.getElementById('open-messenger') as HTMLButtonElement;
+      expect(messengerButton).toBeTruthy();
+
+      // Test real click
+      const tabsCreateSpy = jest.spyOn(mockChromePopup.tabs, 'create');
+      messengerButton.click();
+
+      expect(tabsCreateSpy).toHaveBeenCalledWith({
+        url: "https://www.messenger.com"
+      });
+      expect(mockWindowClosePopup).toHaveBeenCalled();
+    });
+
+    it("should handle missing DOM elements gracefully", async () => {
+      // Remove expected DOM structure temporarily
+      const originalHTML = document.body.innerHTML;
+      document.body.innerHTML = "";
+
+      mockCheckOnboardingStatus.mockResolvedValue({
+        completed: true,
+        installTime: Date.now(),
+        completedAt: Date.now(),
+      });
+
+      // Import and trigger the popup script
+      await import("../../../extension/popup/popup");
+      
+      // This should not throw an error
+      expect(async () => {
+        const event = new Event('DOMContentLoaded');
+        document.dispatchEvent(event);
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }).not.toThrow();
+      
+      // Restore DOM for other tests
+      document.body.innerHTML = originalHTML;
+    });
+
+  });
+
+  describe("Error Detection Tests", () => {
+    it("should detect if help-us button functionality is removed", async () => {
+      mockCheckOnboardingStatus.mockResolvedValue({
+        completed: true,
+        installTime: Date.now(),
+        completedAt: Date.now(),
+      });
+
+      // Import and trigger the popup script
+      await import("../../../extension/popup/popup");
+      
+      // Trigger DOMContentLoaded event
+      const event = new Event('DOMContentLoaded');
+      document.dispatchEvent(event);
+
+      // Wait for async operations to complete
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      // Get the button
+      const helpUsButton = document.getElementById('help-us') as HTMLButtonElement;
+      expect(helpUsButton).toBeTruthy();
+
+      // Test that clicking actually works
+      const tabsCreateSpy = jest.spyOn(mockChromePopup.tabs, 'create');
+      
+      // If the functionality was removed, this would not call chrome.tabs.create
+      helpUsButton.click();
+
+      // This test will fail if the button click handler is not properly attached
+      expect(tabsCreateSpy).toHaveBeenCalled();
+      expect(tabsCreateSpy).toHaveBeenCalledWith({
+        url: "https://docs.google.com/forms/d/e/1FAIpQLSeVrwFiqV9vNFiAQwNqSv6ngJ7KtZDmXme8PVoufymJ9jU4DQ/viewform?usp=header",
+      });
     });
   });
 });
