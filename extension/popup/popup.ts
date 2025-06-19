@@ -22,8 +22,7 @@ document.addEventListener("DOMContentLoaded", async function (): Promise<void> {
   const statusDiv = document.querySelector(".status") as HTMLDivElement;
 
   if (statusElement && statusDiv) {
-    const now = new Date();
-    statusElement.textContent = `✅ Extension is running! (${now.toLocaleTimeString()})`;
+    statusElement.textContent = `✅ Extension is running!`;
     statusDiv.classList.add("active");
   }
 
