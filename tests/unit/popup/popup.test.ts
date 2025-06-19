@@ -382,7 +382,7 @@ describe("popup.ts", () => {
         expect(mockGetElementByIdPopup).toHaveBeenCalledWith("open-messenger");
         expect(mockGetElementByIdPopup).toHaveBeenCalledWith("open-facebook");
         expect(mockGetElementByIdPopup).toHaveBeenCalledWith("view-tutorial");
-        expect(mockGetElementByIdPopup).toHaveBeenCalledWith("report-issue");
+        expect(mockGetElementByIdPopup).toHaveBeenCalledWith("help-us");
       }
     });
 
@@ -506,12 +506,12 @@ describe("popup.ts", () => {
       }
     });
 
-    it("should setup report button to open mailto link", async () => {
+    it("should setup help-us button to open feedback form", async () => {
       const mockButton = {
         addEventListener: jest.fn(),
       };
       mockGetElementByIdPopup.mockImplementation((id: string) => {
-        if (id === "report-issue") {
+        if (id === "help-us") {
           return mockButton;
         }
         return { addEventListener: jest.fn() };
@@ -537,7 +537,7 @@ describe("popup.ts", () => {
         clickHandler();
 
         expect(mockChromePopup.tabs.create).toHaveBeenCalledWith({
-          url: "mailto:linpoju.richard@gmail.com?subject=VoiLoad%20Issue%20Report",
+          url: "https://docs.google.com/forms/d/e/1FAIpQLSeVrwFiqV9vNFiAQwNqSv6ngJ7KtZDmXme8PVoufymJ9jU4DQ/viewform?usp=header",
         });
       }
     });

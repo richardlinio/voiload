@@ -126,9 +126,9 @@ function addQuickLinks(): void {
         <span class="icon">📖</span>
         <span>View Tutorial</span>
       </button>
-      <button id="report-issue" class="link-button">
-        <span class="icon">🐛</span>
-        <span>Report Issue</span>
+      <button id="help-us" class="link-button">
+        <span class="icon">📝</span>
+        <span>Help Us</span>
       </button>
     </div>
   `;
@@ -171,14 +171,13 @@ function addQuickLinks(): void {
     });
   }
 
-  const reportButton = document.getElementById(
-    "report-issue"
+  const feedbackButton = document.getElementById(
+    "help-us"
   ) as HTMLButtonElement;
-  if (reportButton) {
-    reportButton.addEventListener("click", () => {
-      // You can link to GitHub issues or other report pages here
+  if (feedbackButton) {
+    feedbackButton.addEventListener("click", () => {
       chrome.tabs.create({
-        url: "mailto:linpoju.richard@gmail.com?subject=VoiLoad%20Issue%20Report",
+        url: "https://docs.google.com/forms/d/e/1FAIpQLSeVrwFiqV9vNFiAQwNqSv6ngJ7KtZDmXme8PVoufymJ9jU4DQ/viewform?usp=header",
       });
     });
   }
