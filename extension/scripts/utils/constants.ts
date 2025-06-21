@@ -143,6 +143,9 @@ export const DOM_CONSTANTS = {
     "Curseur audio", // French
     "Scrubber Audio", // Javanese
     "오디오 스크러버", // Korean
+    "Suwak audio", // Polish
+    "Ses Göstergesi", // Turkish
+    "Thanh kéo âm thanh", // Vietnamese
   ] as const,
 
   // Mapping from language code to aria-label
