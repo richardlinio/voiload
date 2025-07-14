@@ -8,6 +8,8 @@ import { Logger } from "../utils/logger";
 import { DOWNLOAD_CONSTANTS } from "../utils/constants";
 import type { RightClickInfo } from "../types/download";
 
+import type { VoiceMessageStore } from "./data-store";
+
 // Create a module-specific logger
 const logger = Logger.createModuleLogger("download-manager");
 
@@ -108,4 +110,51 @@ export function downloadVoiceMessage(url: string, lastModified?: string): void {
     url: url.substring(0, 50) + "...",
     filename,
   });
+}
+
+/**
+ * Download all voice messages from the data store
+ *
+ * @param voiceMessagesStore - Voice message data store
+ * @returns Number of downloads started
+ */
+export function downloadAllVoiceMessages(voiceMessagesStore: VoiceMessageStore): number {
+  logger.debug("downloadAllVoiceMessages function called");
+
+  if (!voiceMessagesStore || !voiceMessagesStore.items) {
+    logger.error("Invalid voice messages store");
+    return 0;
+  }
+
+  let downloadCount = 0;
+
+  logger.debug("Iterating through voice message store", {
+    totalItems: voiceMessagesStore.items.size,
+  });
+
+  for (const [id, item] of voiceMessagesStore.items.entries()) {
+    if (item.downloadUrl && item.downloadUrl.trim() !== "") {
+      logger.debug("Downloading voice message", {
+        id,
+        durationMs: item.durationMs,
+        url: item.downloadUrl.substring(0, 50) + "...",
+      });
+
+      downloadVoiceMessage(item.downloadUrl, item.lastModified || undefined);
+      downloadCount++;
+    } else {
+      logger.debug("Skipping item without valid download URL", {
+        id,
+        hasUrl: !!item.downloadUrl,
+        urlLength: item.downloadUrl?.length || 0,
+      });
+    }
+  }
+
+  logger.info("Batch download completed", {
+    downloadCount,
+    totalItems: voiceMessagesStore.items.size,
+  });
+
+  return downloadCount;
 }

@@ -13,6 +13,9 @@ jest.mock("../../../../extension/scripts/utils/constants", () => ({
   MODULE_NAMES: {
     RIGHT_CLICK_HANDLER: "right-click-handler",
   },
+  MESSAGE_ACTIONS: {
+    DOWNLOAD_ALL_VOICE_MESSAGES: "downloadAllVoiceMessages",
+  },
 }));
 
 jest.mock("../../../../extension/scripts/utils/logger", () => ({
@@ -203,7 +206,7 @@ describe("right-click-handler.ts", () => {
         });
       });
 
-      it("should record right-click info even without valid download URL", () => {
+      it("should record right-click info and suggest download all when no valid download URL", () => {
         const message = {
           elementId: "element-123",
           downloadUrl: null,
@@ -231,7 +234,8 @@ describe("right-click-handler.ts", () => {
         });
         expect(mockSendResponse).toHaveBeenCalledWith({
           success: true,
-          message: "Right-click info recorded, but download URL not found",
+          action: "downloadAllVoiceMessages",
+          message: "No matching voice message found, ready to download all available voice messages",
         });
       });
     });
@@ -309,7 +313,8 @@ describe("right-click-handler.ts", () => {
         });
         expect(mockSendResponse).toHaveBeenCalledWith({
           success: true,
-          message: "Right-click info recorded, but download URL not found",
+          action: "downloadAllVoiceMessages",
+          message: "No matching voice message found, ready to download all available voice messages",
         });
       });
 
@@ -342,7 +347,8 @@ describe("right-click-handler.ts", () => {
         expect(result).toBe(true);
         expect(mockSendResponse).toHaveBeenCalledWith({
           success: true,
-          message: "Right-click info recorded, but download URL not found",
+          action: "downloadAllVoiceMessages",
+          message: "No matching voice message found, ready to download all available voice messages",
         });
       });
 
@@ -375,7 +381,8 @@ describe("right-click-handler.ts", () => {
         expect(result).toBe(true);
         expect(mockSendResponse).toHaveBeenCalledWith({
           success: true,
-          message: "Right-click info recorded, but download URL not found",
+          action: "downloadAllVoiceMessages",
+          message: "No matching voice message found, ready to download all available voice messages",
         });
       });
 
@@ -553,7 +560,8 @@ describe("right-click-handler.ts", () => {
         });
         expect(mockSendResponse).toHaveBeenCalledWith({
           success: true,
-          message: "Right-click info recorded, but download URL not found",
+          action: "downloadAllVoiceMessages",
+          message: "No matching voice message found, ready to download all available voice messages",
         });
       });
 
@@ -605,7 +613,8 @@ describe("right-click-handler.ts", () => {
         expect(result).toBe(true);
         expect(mockSendResponse).toHaveBeenLastCalledWith({
           success: true,
-          message: "Right-click info recorded, but download URL not found",
+          action: "downloadAllVoiceMessages",
+          message: "No matching voice message found, ready to download all available voice messages",
         });
 
         // Step 2: Add matching item to store
@@ -687,6 +696,71 @@ describe("right-click-handler.ts", () => {
         expect(
           mockVoiceMessagesStore.findItemByDuration
         ).not.toHaveBeenCalled();
+      });
+
+      it("should suggest download all when no download URL found", () => {
+        // Mock store with some items but no matching duration
+        mockVoiceMessagesStore.items.set("item1", {
+          id: "item1",
+          durationMs: 3000,
+          downloadUrl: "https://example.com/audio1.mp3",
+          lastModified: null,
+        });
+        
+        mockVoiceMessagesStore.items.set("item2", {
+          id: "item2",
+          durationMs: 7000,
+          downloadUrl: "https://example.com/audio2.mp3",
+          lastModified: null,
+        });
+
+        mockVoiceMessagesStore.findItemByDuration.mockReturnValue(null);
+
+        const message = {
+          elementId: "element-123",
+          downloadUrl: null,
+          lastModified: null,
+          durationMs: 5000,
+        };
+
+        const result = rightClickHandler.handleRightClick(
+          mockVoiceMessagesStore,
+          message,
+          mockSender,
+          mockSendResponse
+        );
+
+        expect(result).toBe(true);
+        expect(mockSendResponse).toHaveBeenCalledWith({
+          success: true,
+          action: "downloadAllVoiceMessages",
+          message: "No matching voice message found, ready to download all available voice messages",
+        });
+      });
+
+      it("should suggest download all even when no items in store", () => {
+        mockVoiceMessagesStore.findItemByDuration.mockReturnValue(null);
+
+        const message = {
+          elementId: "element-123",
+          downloadUrl: null,
+          lastModified: null,
+          durationMs: 5000,
+        };
+
+        const result = rightClickHandler.handleRightClick(
+          mockVoiceMessagesStore,
+          message,
+          mockSender,
+          mockSendResponse
+        );
+
+        expect(result).toBe(true);
+        expect(mockSendResponse).toHaveBeenCalledWith({
+          success: true,
+          action: "downloadAllVoiceMessages",
+          message: "No matching voice message found, ready to download all available voice messages",
+        });
       });
     });
   });

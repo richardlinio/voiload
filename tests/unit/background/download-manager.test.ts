@@ -4,10 +4,12 @@ import {
   initDownloadManager,
   setLastRightClickedInfo,
   downloadVoiceMessage,
+  downloadAllVoiceMessages,
 } from "../../../extension/scripts/background/download-manager";
 import type {
   RightClickInfo,
 } from "../../../extension/scripts/types/download";
+import type { VoiceMessageStore } from "../../../extension/scripts/background/data-store";
 
 // Mock dependencies
 jest.mock("../../../extension/scripts/utils/time-utils", () => ({
@@ -68,6 +70,18 @@ function createMockRightClickInfo(
     lastModified: lastModified || null,
     tabId: tabId,
     durationMs: durationMs,
+  };
+}
+
+// Helper function to create mock voice message store
+function createMockVoiceMessageStore(): VoiceMessageStore {
+  return {
+    items: new Map(),
+    isDurationMatch: jest.fn(),
+    registerDownloadUrl: jest.fn(),
+    findPendingItemByDuration: jest.fn(),
+    findItemByDuration: jest.fn(),
+    getDownloadUrlForElement: jest.fn(),
   };
 }
 
@@ -315,6 +329,131 @@ describe("download-manager.ts", () => {
       downloadVoiceMessage("https://example.com/audio.mp4");
 
       expect(mockChrome.downloads.download).toHaveBeenCalled();
+    });
+  });
+
+  describe("downloadAllVoiceMessages", () => {
+    it("should return 0 when datastore is empty", () => {
+      const mockStore = createMockVoiceMessageStore();
+      
+      const result = downloadAllVoiceMessages(mockStore);
+      
+      expect(result).toBe(0);
+      expect(mockChrome.downloads.download).not.toHaveBeenCalled();
+    });
+
+    it("should download all voice messages with valid URLs", () => {
+      const mockStore = createMockVoiceMessageStore();
+      
+      // Add test items to the store
+      mockStore.items.set("item1", {
+        id: "item1",
+        element: null,
+        durationMs: 5000,
+        downloadUrl: "https://example.com/audio1.mp4",
+        lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
+        blobType: null,
+        blobSize: null,
+        timestamp: Date.now(),
+        isPending: false,
+      });
+      
+      mockStore.items.set("item2", {
+        id: "item2",
+        element: null,
+        durationMs: 3000,
+        downloadUrl: "https://example.com/audio2.mp4",
+        lastModified: null,
+        blobType: null,
+        blobSize: null,
+        timestamp: Date.now(),
+        isPending: false,
+      });
+
+      mockChrome.downloads.download.mockImplementation((options, callback) => {
+        callback(123);
+      });
+
+      const result = downloadAllVoiceMessages(mockStore);
+
+      expect(result).toBe(2);
+      expect(mockChrome.downloads.download).toHaveBeenCalledTimes(2);
+      expect(mockChrome.downloads.download).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: "https://example.com/audio1.mp4",
+        }),
+        expect.any(Function)
+      );
+      expect(mockChrome.downloads.download).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: "https://example.com/audio2.mp4",
+        }),
+        expect.any(Function)
+      );
+    });
+
+    it("should skip items without download URLs", () => {
+      const mockStore = createMockVoiceMessageStore();
+      
+      mockStore.items.set("item1", {
+        id: "item1",
+        element: null,
+        durationMs: 5000,
+        downloadUrl: "https://example.com/audio1.mp4",
+        lastModified: null,
+        blobType: null,
+        blobSize: null,
+        timestamp: Date.now(),
+        isPending: false,
+      });
+      
+      mockStore.items.set("item2", {
+        id: "item2",
+        element: null,
+        durationMs: 3000,
+        downloadUrl: null,
+        lastModified: null,
+        blobType: null,
+        blobSize: null,
+        timestamp: Date.now(),
+        isPending: false,
+      });
+
+      mockChrome.downloads.download.mockImplementation((options, callback) => {
+        callback(123);
+      });
+
+      const result = downloadAllVoiceMessages(mockStore);
+
+      expect(result).toBe(1);
+      expect(mockChrome.downloads.download).toHaveBeenCalledTimes(1);
+      expect(mockChrome.downloads.download).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: "https://example.com/audio1.mp4",
+        }),
+        expect.any(Function)
+      );
+    });
+
+    it("should skip items with empty download URLs", () => {
+      const mockStore = createMockVoiceMessageStore();
+      
+      mockStore.items.set("item1", {
+        id: "item1",
+        element: null,
+        durationMs: 5000,
+        downloadUrl: "",
+        lastModified: null,
+        blobType: null,
+        blobSize: null,
+        timestamp: Date.now(),
+        isPending: false,
+      });
+
+      const result = downloadAllVoiceMessages(mockStore);
+
+      expect(result).toBe(0);
+      expect(mockChrome.downloads.download).not.toHaveBeenCalled();
     });
   });
 });

@@ -20,6 +20,7 @@ jest.mock("../../../extension/scripts/utils/constants", () => ({
     REGISTER_AUDIO_URL: "REGISTER_AUDIO_URL",
     REGISTER_BLOB_URL: "REGISTER_BLOB_URL",
     BLOB_DETECTED: "BLOB_DETECTED",
+    DOWNLOAD_ALL_VOICE_MESSAGES: "DOWNLOAD_ALL_VOICE_MESSAGES",
   },
   MODULE_NAMES: {
     MESSAGE_HANDLER: "message-handler",
@@ -64,6 +65,13 @@ jest.mock(
     handleBlobUrl: jest.fn(),
     handleBlobContent: jest.fn(),
     handleBlobDetection: jest.fn(),
+  })
+);
+
+jest.mock(
+  "../../../extension/scripts/background/handlers/download-all-handler",
+  () => ({
+    handleDownloadAll: jest.fn(),
   })
 );
 
@@ -117,6 +125,7 @@ describe("MessageHandler", () => {
       handleBlobUrl: jest.fn(),
       handleBlobContent: jest.fn(),
       handleBlobDetection: jest.fn(),
+      handleDownloadAll: jest.fn(),
     };
 
     // Set up mocks
@@ -150,6 +159,11 @@ describe("MessageHandler", () => {
     );
     blobHandler.handleBlobDetection.mockImplementation(
       mockHandlers.handleBlobDetection
+    );
+
+    const downloadAllHandler = require("../../../extension/scripts/background/handlers/download-all-handler");
+    downloadAllHandler.handleDownloadAll.mockImplementation(
+      mockHandlers.handleDownloadAll
     );
 
     // Import after mocks are set up

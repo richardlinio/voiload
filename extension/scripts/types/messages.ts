@@ -109,6 +109,17 @@ export interface AudioDurationMessage extends BaseMessage {
   metadata?: RequestMetadata;
 }
 
+// ================================================
+// Download Related Messages
+// ================================================
+
+/**
+ * Download all voice messages request message interface
+ */
+export interface DownloadAllMessage extends BaseMessage {
+  // No additional parameters needed for download all request
+}
+
 // Chrome Extension event messages have been moved to chrome-extension.ts
 
 // ================================================
