@@ -49,6 +49,9 @@ jest.mock("../../../extension/scripts/utils/constants", () => ({
     DATA_STORE: "data-store",
   },
   MATCHING_TOLERANCE: 5,
+  TIME_CONSTANTS: {
+    DATA_RETENTION_PERIOD: 7 * 24 * 60 * 60 * 1000, // 7 days
+  },
 }));
 
 // Helper function to create a mock element
@@ -739,15 +742,16 @@ describe("data-store.ts", () => {
     });
 
     describe("Normal Cases", () => {
-      it("should remove items older than default max age (1 hour)", () => {
+      it("should remove items older than default max age (7 days)", () => {
         expect(mockStore.items.size).toBe(3);
 
         cleanupOldItems(mockStore);
 
-        expect(mockStore.items.size).toBe(1);
+        // With 7-day retention, all test items should remain (most recent item is only 24 hours old)
+        expect(mockStore.items.size).toBe(3);
         expect(mockStore.items.has("recent")).toBe(true);
-        expect(mockStore.items.has("old")).toBe(false);
-        expect(mockStore.items.has("very-old")).toBe(false);
+        expect(mockStore.items.has("old")).toBe(true);
+        expect(mockStore.items.has("very-old")).toBe(true);
       });
 
       it("should respect custom max age", () => {
@@ -767,6 +771,31 @@ describe("data-store.ts", () => {
         cleanupOldItems(mockStore, 7 * 24 * 60 * 60 * 1000);
 
         expect(mockStore.items.size).toBe(3);
+      });
+
+      it("should remove items older than 7 days with default retention period", () => {
+        const currentNow = Date.now();
+        // Add an item older than 7 days
+        const veryOldItem: VoiceMessageItem = {
+          id: "very-very-old",
+          element: null,
+          durationMs: 4000,
+          downloadUrl: "url4",
+          timestamp: currentNow - 8 * 24 * 60 * 60 * 1000, // 8 days ago
+          isPending: false,
+        };
+        mockStore.items.set("very-very-old", veryOldItem);
+
+        expect(mockStore.items.size).toBe(4);
+
+        cleanupOldItems(mockStore);
+
+        // Should remove only the 8-day-old item
+        expect(mockStore.items.size).toBe(3);
+        expect(mockStore.items.has("recent")).toBe(true);
+        expect(mockStore.items.has("old")).toBe(true);
+        expect(mockStore.items.has("very-old")).toBe(true);
+        expect(mockStore.items.has("very-very-old")).toBe(false);
       });
     });
 

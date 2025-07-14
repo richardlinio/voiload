@@ -7,7 +7,7 @@
 import { generateVoiceMessageId } from "../utils/id-generator";
 import { secondsToMilliseconds } from "../utils/time-utils";
 import { Logger } from "../utils/logger";
-import { MODULE_NAMES, MATCHING_TOLERANCE } from "../utils/constants";
+import { MODULE_NAMES, MATCHING_TOLERANCE, TIME_CONSTANTS } from "../utils/constants";
 import type {
   VoiceMessageItem,
   VoiceMessageStore,
@@ -363,11 +363,11 @@ export function findItemByDuration(
  * Clean up expired voice message items
  *
  * @param voiceMessages - Voice message data store
- * @param maxAgeMs - Maximum lifetime (milliseconds), default is 1 hour
+ * @param maxAgeMs - Maximum lifetime (milliseconds), default is 7 days
  */
 export function cleanupOldItems(
   voiceMessages: VoiceMessageStore,
-  maxAgeMs: number = 3600000
+  maxAgeMs: number = TIME_CONSTANTS.DATA_RETENTION_PERIOD
 ): void {
   const now = Date.now();
 

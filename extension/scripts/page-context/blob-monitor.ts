@@ -9,9 +9,7 @@ import {
   MODULE_NAMES,
   BLOB_MONITOR_CONSTANTS,
 } from "../utils/constants";
-import type {
-  BlobQueueItem,
-} from "../types/messages";
+import type { BlobQueueItem } from "../types/messages";
 
 import { isLikelyVoiceMessageBlob } from "./blob-analyzer";
 import { getAudioDuration } from "./audio-analyzer";
@@ -163,7 +161,6 @@ function setupPeriodicCleanup(): void {
     // Currently processedBlobs is a WeakMap, no need for manual cleanup
   }, BLOB_MONITOR_CONSTANTS.PERIODIC_CLEANUP_INTERVAL);
 }
-
 
 /**
  * Initialize Blob monitor module

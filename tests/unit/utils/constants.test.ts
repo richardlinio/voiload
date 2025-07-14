@@ -233,7 +233,7 @@ describe("Constants", () => {
   describe("TIME_CONSTANTS", () => {
     it("should have reasonable cleanup interval", () => {
       expect(TIME_CONSTANTS.CLEANUP_INTERVAL).toBeGreaterThan(60000); // At least 1 minute
-      expect(TIME_CONSTANTS.CLEANUP_INTERVAL).toBeLessThan(3600000); // Less than 1 hour
+      expect(TIME_CONSTANTS.CLEANUP_INTERVAL).toBeLessThanOrEqual(24 * 60 * 60 * 1000); // Less than or equal to 24 hours
     });
 
     it("should have reasonable audio load timeout", () => {

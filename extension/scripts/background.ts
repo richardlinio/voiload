@@ -69,7 +69,7 @@ function initialize(): VoiceMessageStore {
     // Set up periodic cleanup of old items
     setInterval(() => {
       cleanupOldItems(voiceMessages);
-    }, TIME_CONSTANTS.CLEANUP_INTERVAL); // Clean up every 30 minutes
+    }, TIME_CONSTANTS.CLEANUP_INTERVAL);
 
     logger.info("Background script initialization complete");
     return voiceMessages; // Return voice message data store for use by other functions
