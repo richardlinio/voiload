@@ -9,13 +9,15 @@
   },
   "scripts": {
     "test": "jest --silent",
+    "fix": "eslint . --ext .ts,.js --fix",
+    "quality": "tsc --noEmit --pretty false && eslint . --ext .ts,.js --quiet",
+    "check": "npm run test && npm run quality",
+    "quality-strict": "tsc --noEmit && eslint . --ext .ts,.js",
     "dev": "webpack --watch --mode=development",
     "build": "webpack --mode=production",
     "package": "node scripts/package.js",
     "typecheck": "tsc --noEmit --pretty false",
-    "lint": "eslint . --ext .ts,.js --quiet",
-    "lint:fix": "eslint . --ext .ts,.js --fix --quiet",
-    "quality": "tsc --noEmit --pretty false && eslint . --ext .ts,.js --quiet"
+    "lint": "eslint . --ext .ts,.js --quiet"
   },
   "keywords": [],
   "author": "",

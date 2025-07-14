@@ -14,12 +14,17 @@ This is a Chrome browser extension called "VoiLoad" that enables downloading voi
 - `pnpm build` - Create production build
 - `pnpm package` - Package the extension for distribution
 
-### Type Checking & Testing
+### Quality Assurance & Testing
 
-- `pnpm type-check` - Run TypeScript type checking
-- `pnpm test` - Run Jest tests
-- Tests are located in `tests/` directory with setup in `tests/setup.js`
-- Test environment is configured for jsdom
+- `pnpm test` - Run Jest tests in silent mode (shows only failures)
+- `pnpm fix` - Run ESLint auto-fix with visible output
+- `pnpm quality` - Run TypeScript check + ESLint in silent mode
+- `pnpm check` - Run both test and quality checks (ideal for CI)
+- `pnpm quality-strict` - Run quality checks with full output (shows all warnings)
+- `pnpm typecheck` - Run standalone TypeScript type checking
+- `pnpm lint` - Run standalone ESLint in quiet mode
+
+**IMPORTANT**: After making any code changes, always run `pnpm test` and `pnpm quality` to ensure code quality and prevent regressions. These commands are optimized for silent output to save LLM token usage while maintaining comprehensive error reporting.
 
 ## Architecture Overview
 
@@ -143,7 +148,7 @@ The extension uses a multi-layer architecture:
 ### Testing Approach
 
 - Jest with jsdom environment for DOM testing
-- Setup file configures test environment at `tests/setup.js`
+- Setup file configures test environment at `tests/setup.ts`
 - Test files follow `*.test.{js,ts}` pattern in `tests/unit/` directory
 - **Test Structure**: Organized to mirror the `/extension` directory structure
   - `tests/unit/background/` - Background script tests
