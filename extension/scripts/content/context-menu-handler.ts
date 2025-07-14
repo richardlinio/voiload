@@ -68,10 +68,13 @@ function handleContextMenu(event: MouseEvent): void {
   });
 
   if (!result) {
-    // If no voice message element is found, do nothing
-    Logger.debug("No voice message element found", {
+    // If no voice message element is found, still send right-click message for fallback
+    Logger.debug("No voice message element found, sending right-click message for fallback", {
       module: MODULE_NAMES.CONTEXT_MENU,
     });
+    
+    // Send right-click message with null values - download all will be triggered when user clicks context menu
+    sendRightClickMessage(null, null, null, undefined);
     return;
   }
 

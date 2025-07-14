@@ -5,7 +5,7 @@
 
 import { setLastRightClickedInfo } from "../download-manager";
 import { Logger } from "../../utils/logger";
-import { MODULE_NAMES } from "../../utils/constants";
+import { MODULE_NAMES, MESSAGE_ACTIONS } from "../../utils/constants";
 import { type VoiceMessageStore, type VoiceMessageItem } from "../data-store";
 import type { RightClickMessage } from "../../types/messages";
 
@@ -102,9 +102,12 @@ export function handleRightClick(
       durationMs: durationMs || undefined,
     });
 
+    // Suggest downloading all available voice messages as fallback
+    logger.info("No matching voice message found, suggesting download all as fallback");
     sendResponse({
       success: true,
-      message: "Right-click info recorded, but download URL not found",
+      action: MESSAGE_ACTIONS.DOWNLOAD_ALL_VOICE_MESSAGES,
+      message: "No matching voice message found, ready to download all available voice messages",
     });
     return true;
   }

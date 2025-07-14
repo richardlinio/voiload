@@ -54,7 +54,7 @@ function initialize(): VoiceMessageStore {
     logger.debug("Context menu manager initialized");
 
     // Initialize download manager
-    initDownloadManager();
+    initDownloadManager(voiceMessages);
     logger.debug("Download manager initialized");
 
     // Initialize message handler

@@ -97,6 +97,7 @@ export const MESSAGE_ACTIONS = {
   BLOB_DETECTED: "blobUrlDetected",
   UPDATE_ELEMENT: "updateVoiceMessageElement",
   GET_AUDIO_DURATION: "getAudioDuration",
+  DOWNLOAD_ALL_VOICE_MESSAGES: "downloadAllVoiceMessages",
 } as const;
 
 // ===========================================

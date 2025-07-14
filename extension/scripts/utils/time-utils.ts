@@ -30,7 +30,7 @@ export function parseLastModifiedHeader(
 
 /**
  * Formats a date into a filename-friendly format
- * Format: YYYY-MM-DD-HH-mm-ss
+ * Format: YYYY-MM-DD-HH-mm-ss-SSS
  */
 export function formatDateForFilename(date: Date): string {
   if (!(date instanceof Date) || isNaN(date.getTime())) {
@@ -38,6 +38,7 @@ export function formatDateForFilename(date: Date): string {
   }
 
   const pad = (num: number): string => String(num).padStart(2, "0");
+  const padMs = (num: number): string => String(num).padStart(3, "0");
 
   const year = date.getFullYear();
   const month = pad(date.getMonth() + 1); // Month is 0-based
@@ -45,8 +46,9 @@ export function formatDateForFilename(date: Date): string {
   const hours = pad(date.getHours());
   const minutes = pad(date.getMinutes());
   const seconds = pad(date.getSeconds());
+  const milliseconds = padMs(date.getMilliseconds());
 
-  return `${year}-${month}-${day}-${hours}-${minutes}-${seconds}`;
+  return `${year}-${month}-${day}-${hours}-${minutes}-${seconds}-${milliseconds}`;
 }
 
 /**

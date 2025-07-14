@@ -13,6 +13,7 @@ import {
   handleBlobUrl,
   handleBlobDetection,
 } from "./handlers/blob-handler";
+import { handleDownloadAll } from "./handlers/download-all-handler";
 import { createDataStore, type VoiceMessageStore } from "./data-store";
 
 // Create a module-specific logger
@@ -122,6 +123,22 @@ export function initMessageHandler(voiceMessages?: VoiceMessageStore): void {
         case MESSAGE_ACTIONS.BLOB_DETECTED:
           logger.debug("Handling Blob URL detected message");
           return handleBlobDetection(message, sender, sendResponse);
+
+        case MESSAGE_ACTIONS.DOWNLOAD_ALL_VOICE_MESSAGES:
+          logger.debug("Handling download all voice messages message");
+          if (!voiceMessagesStore) {
+            sendResponse({
+              success: false,
+              error: "Voice message store not initialized",
+            });
+            return false;
+          }
+          return handleDownloadAll(
+            voiceMessagesStore,
+            message,
+            sender,
+            sendResponse
+          );
 
         default:
           logger.warn("Unhandled message type", {
