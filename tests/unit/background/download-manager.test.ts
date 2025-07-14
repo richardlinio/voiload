@@ -372,6 +372,50 @@ describe("download-manager.ts", () => {
         expect.any(Function)
       );
     });
+
+    it("should download voice message with saveAs: false", () => {
+      mockChrome.downloads.download.mockImplementation((options, callback) => {
+        callback(777);
+      });
+
+      downloadVoiceMessage(
+        "https://example.com/audio.mp4",
+        "Wed, 19 Mar 2025 14:04:40 GMT",
+        "test-id",
+        false
+      );
+
+      expect(mockChrome.downloads.download).toHaveBeenCalledWith(
+        {
+          url: "https://example.com/audio.mp4",
+          filename: "voice-message-2025-03-19-14-04-40-test-id.mp4",
+          saveAs: false,
+        },
+        expect.any(Function)
+      );
+    });
+
+    it("should download voice message with saveAs: true explicitly", () => {
+      mockChrome.downloads.download.mockImplementation((options, callback) => {
+        callback(666);
+      });
+
+      downloadVoiceMessage(
+        "https://example.com/audio.mp4",
+        "Wed, 19 Mar 2025 14:04:40 GMT",
+        "test-id",
+        true
+      );
+
+      expect(mockChrome.downloads.download).toHaveBeenCalledWith(
+        {
+          url: "https://example.com/audio.mp4",
+          filename: "voice-message-2025-03-19-14-04-40-test-id.mp4",
+          saveAs: true,
+        },
+        expect.any(Function)
+      );
+    });
   });
 
   describe("downloadAllVoiceMessages", () => {
@@ -423,12 +467,14 @@ describe("download-manager.ts", () => {
       expect(mockChrome.downloads.download).toHaveBeenCalledWith(
         expect.objectContaining({
           url: "https://example.com/audio1.mp4",
+          saveAs: false,
         }),
         expect.any(Function)
       );
       expect(mockChrome.downloads.download).toHaveBeenCalledWith(
         expect.objectContaining({
           url: "https://example.com/audio2.mp4",
+          saveAs: false,
         }),
         expect.any(Function)
       );
@@ -472,6 +518,7 @@ describe("download-manager.ts", () => {
       expect(mockChrome.downloads.download).toHaveBeenCalledWith(
         expect.objectContaining({
           url: "https://example.com/audio1.mp4",
+          saveAs: false,
         }),
         expect.any(Function)
       );
@@ -535,11 +582,12 @@ describe("download-manager.ts", () => {
       expect(result).toBe(2);
       expect(mockChrome.downloads.download).toHaveBeenCalledTimes(2);
       
-      // Verify that filenames include unique identifiers
+      // Verify that filenames include unique identifiers and saveAs is false for batch downloads
       expect(mockChrome.downloads.download).toHaveBeenCalledWith(
         expect.objectContaining({
           url: "https://example.com/audio1.mp4",
           filename: "voice-message-2025-03-19-14-04-40-voice-msg-001.mp4",
+          saveAs: false,
         }),
         expect.any(Function)
       );
@@ -548,6 +596,7 @@ describe("download-manager.ts", () => {
         expect.objectContaining({
           url: "https://example.com/audio2.mp4",
           filename: "voice-message-2025-03-19-12-00-00-voice-msg-002.mp4",
+          saveAs: false,
         }),
         expect.any(Function)
       );

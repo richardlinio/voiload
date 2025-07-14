@@ -68,10 +68,33 @@ function handleContextMenu(event: MouseEvent): void {
   });
 
   if (!result) {
-    // If no voice message element is found, do nothing
-    Logger.debug("No voice message element found", {
+    // If no voice message element is found, trigger batch download as fallback
+    Logger.debug("No voice message element found, triggering batch download as fallback", {
       module: MODULE_NAMES.CONTEXT_MENU,
     });
+    
+    // Send download all message directly
+    const downloadAllMessage = {
+      action: MESSAGE_ACTIONS.DOWNLOAD_ALL_VOICE_MESSAGES,
+    };
+    
+    try {
+      chrome.runtime.sendMessage(downloadAllMessage, (response) => {
+        Logger.debug("Download all message response", {
+          module: MODULE_NAMES.CONTEXT_MENU,
+          data: response,
+        });
+      });
+      Logger.info("Triggered batch download due to no voice message element found", {
+        module: MODULE_NAMES.CONTEXT_MENU,
+      });
+    } catch (error) {
+      Logger.error("Error sending download all message", {
+        module: MODULE_NAMES.CONTEXT_MENU,
+        data: error,
+      });
+    }
+    
     return;
   }
 

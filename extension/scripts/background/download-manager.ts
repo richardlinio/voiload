@@ -77,8 +77,9 @@ export function setLastRightClickedInfo(info: RightClickInfo): void {
  * @param url - Download URL
  * @param lastModified - Last-Modified header value
  * @param uniqueIdentifier - Unique identifier to avoid filename conflicts (e.g., voice message ID or duration)
+ * @param saveAs - Whether to show save dialog (defaults to DOWNLOAD_CONSTANTS.SAVE_AS)
  */
-export function downloadVoiceMessage(url: string, lastModified?: string, uniqueIdentifier?: string): void {
+export function downloadVoiceMessage(url: string, lastModified?: string, uniqueIdentifier?: string, saveAs?: boolean): void {
   logger.debug("downloadVoiceMessage function called");
 
   if (!url) {
@@ -95,12 +96,13 @@ export function downloadVoiceMessage(url: string, lastModified?: string, uniqueI
   logger.debug("Generated filename", { filename, uniqueIdentifier });
 
   // Use Chrome downloads API to download the file
-  logger.debug("Preparing to call chrome.downloads.download API");
+  const useSaveAs = saveAs !== undefined ? saveAs : DOWNLOAD_CONSTANTS.SAVE_AS;
+  logger.debug("Preparing to call chrome.downloads.download API", { saveAs: useSaveAs });
   chrome.downloads.download(
     {
       url: url,
       filename: filename,
-      saveAs: DOWNLOAD_CONSTANTS.SAVE_AS,
+      saveAs: useSaveAs,
     },
     (downloadId) => {
       if (chrome.runtime.lastError) {
@@ -146,7 +148,8 @@ export function downloadAllVoiceMessages(voiceMessagesStore: VoiceMessageStore):
       });
 
       // Use voice message ID as unique identifier to prevent filename conflicts
-      downloadVoiceMessage(item.downloadUrl, item.lastModified || undefined, id);
+      // Use saveAs: false for batch downloads to avoid multiple save dialogs
+      downloadVoiceMessage(item.downloadUrl, item.lastModified || undefined, id, false);
       downloadCount++;
     } else {
       logger.debug("Skipping item without valid download URL", {
