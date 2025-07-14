@@ -188,11 +188,11 @@ describe("download-manager.ts", () => {
 
       addedListener(mockInfo, undefined);
 
-      // Should call chrome.downloads.download for batch download with saveAs: false
+      // Should call chrome.downloads.download for batch download with first file saveAs: true
       expect(mockChrome.downloads.download).toHaveBeenCalledWith(
         expect.objectContaining({
           url: "https://example.com/audio1.mp4",
-          saveAs: false,
+          saveAs: true, // First file should show dialog when triggered from context menu
         }),
         expect.any(Function)
       );
@@ -620,6 +620,89 @@ describe("download-manager.ts", () => {
           url: "https://example.com/audio2.mp4",
           filename: "voice-message-2025-03-19-12-00-00-voice-msg-002.mp4",
           saveAs: false,
+        }),
+        expect.any(Function)
+      );
+    });
+
+    it("should download with first dialog when showFirstDialog is true", () => {
+      const mockStore = createMockVoiceMessageStore();
+      mockStore.items.set("voice-msg-001", {
+        id: "voice-msg-001",
+        durationMs: 3000,
+        downloadUrl: "https://example.com/audio1.mp4",
+        lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
+        element: null,
+        timestamp: Date.now(),
+        isPending: false,
+      });
+      mockStore.items.set("voice-msg-002", {
+        id: "voice-msg-002",
+        durationMs: 5000,
+        downloadUrl: "https://example.com/audio2.mp4",
+        lastModified: null,
+        element: null,
+        timestamp: Date.now(),
+        isPending: false,
+      });
+
+      mockChrome.downloads.download.mockImplementation((options, callback) => {
+        callback(123);
+      });
+
+      const result = downloadAllVoiceMessages(mockStore, true);
+
+      expect(result).toBe(2);
+      expect(mockChrome.downloads.download).toHaveBeenCalledTimes(2);
+      
+      // First file should have saveAs: true
+      expect(mockChrome.downloads.download).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: "https://example.com/audio1.mp4",
+          filename: "voice-message-2025-03-19-14-04-40-voice-msg-001.mp4",
+          saveAs: true,
+        }),
+        expect.any(Function)
+      );
+      
+      // Second file should have saveAs: false
+      expect(mockChrome.downloads.download).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: "https://example.com/audio2.mp4",
+          filename: "voice-message-2025-03-19-12-00-00-voice-msg-002.mp4",
+          saveAs: false,
+        }),
+        expect.any(Function)
+      );
+    });
+
+    it("should download single file with dialog when showFirstDialog is true", () => {
+      const mockStore = createMockVoiceMessageStore();
+      mockStore.items.set("voice-msg-001", {
+        id: "voice-msg-001",
+        durationMs: 3000,
+        downloadUrl: "https://example.com/audio1.mp4",
+        lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
+        element: null,
+        timestamp: Date.now(),
+        isPending: false,
+      });
+
+      mockChrome.downloads.download.mockImplementation((options, callback) => {
+        callback(123);
+      });
+
+      const result = downloadAllVoiceMessages(mockStore, true);
+
+      expect(result).toBe(1);
+      expect(mockChrome.downloads.download).toHaveBeenCalledTimes(1);
+      
+      // Single file should have saveAs: true when showFirstDialog is true
+      expect(mockChrome.downloads.download).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: "https://example.com/audio1.mp4",
+          filename: "voice-message-2025-03-19-14-04-40-voice-msg-001.mp4",
+          saveAs: true,
         }),
         expect.any(Function)
       );
