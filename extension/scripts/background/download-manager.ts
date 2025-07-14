@@ -19,7 +19,7 @@ let lastRightClickedInfo: RightClickInfo | null = null;
 /**
  * Initialize the download manager
  */
-export function initDownloadManager(): void {
+export function initDownloadManager(voiceMessagesStore?: VoiceMessageStore): void {
   logger.info("Initializing download manager");
 
   // Listen for context menu click events
@@ -35,16 +35,26 @@ export function initDownloadManager(): void {
 
       if (info.menuItemId === "downloadVoiceMessage") {
         if (lastRightClickedInfo) {
-          logger.info("Starting voice message download", {
-            url: lastRightClickedInfo.downloadUrl
-              ? lastRightClickedInfo.downloadUrl.substring(0, 50) + "..."
-              : null,
-            lastModified: lastRightClickedInfo.lastModified,
-          });
-          downloadVoiceMessage(
-            lastRightClickedInfo.downloadUrl!,
-            lastRightClickedInfo.lastModified || undefined
-          );
+          // Check if downloadUrl is valid
+          if (lastRightClickedInfo.downloadUrl) {
+            logger.info("Starting individual voice message download", {
+              url: lastRightClickedInfo.downloadUrl.substring(0, 50) + "...",
+              lastModified: lastRightClickedInfo.lastModified,
+            });
+            downloadVoiceMessage(
+              lastRightClickedInfo.downloadUrl,
+              lastRightClickedInfo.lastModified || undefined
+            );
+          } else {
+            logger.info("No specific voice message URL found, triggering batch download with saveAs: false");
+            // Directly call downloadAllVoiceMessages if voiceMessagesStore is available
+            if (voiceMessagesStore) {
+              const downloadCount = downloadAllVoiceMessages(voiceMessagesStore);
+              logger.info("Batch download triggered", { downloadCount });
+            } else {
+              logger.error("Cannot trigger batch download: voiceMessagesStore not available");
+            }
+          }
         } else {
           logger.error("Cannot download, no right-click info available");
         }

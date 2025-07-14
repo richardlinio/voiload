@@ -1,15 +1,17 @@
 /// <reference types="jest" />
 
-import {
-  initDownloadManager,
-  setLastRightClickedInfo,
-  downloadVoiceMessage,
-  downloadAllVoiceMessages,
-} from "../../../extension/scripts/background/download-manager";
+import * as downloadManager from "../../../extension/scripts/background/download-manager";
 import type {
   RightClickInfo,
 } from "../../../extension/scripts/types/download";
 import type { VoiceMessageStore } from "../../../extension/scripts/background/data-store";
+
+const {
+  initDownloadManager,
+  setLastRightClickedInfo,
+  downloadVoiceMessage,
+  downloadAllVoiceMessages,
+} = downloadManager;
 
 // Mock dependencies
 jest.mock("../../../extension/scripts/utils/time-utils", () => ({
@@ -156,8 +158,23 @@ describe("download-manager.ts", () => {
       );
     });
 
-    it("should handle context menu click with null download URL", () => {
-      initDownloadManager();
+    it("should trigger batch download when download URL is null", () => {
+      const mockStore = createMockVoiceMessageStore();
+      mockStore.items.set("voice-msg-001", {
+        id: "voice-msg-001",
+        durationMs: 3000,
+        downloadUrl: "https://example.com/audio1.mp4",
+        lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
+        element: null,
+        timestamp: Date.now(),
+        isPending: false,
+      });
+
+      mockChrome.downloads.download.mockImplementation((options, callback) => {
+        callback(999);
+      });
+
+      initDownloadManager(mockStore);
       const addedListener =
         mockChrome.contextMenus.onClicked.addListener.mock.calls[0][0];
 
@@ -171,8 +188,14 @@ describe("download-manager.ts", () => {
 
       addedListener(mockInfo, undefined);
 
-      // downloadVoiceMessage should be called but should not call chrome.downloads.download due to empty URL
-      expect(mockChrome.downloads.download).not.toHaveBeenCalled();
+      // Should call chrome.downloads.download for batch download with saveAs: false
+      expect(mockChrome.downloads.download).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: "https://example.com/audio1.mp4",
+          saveAs: false,
+        }),
+        expect.any(Function)
+      );
     });
 
     it("should ignore non-download menu items", () => {
