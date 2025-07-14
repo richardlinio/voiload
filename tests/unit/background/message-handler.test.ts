@@ -18,7 +18,6 @@ jest.mock("../../../extension/scripts/utils/constants", () => ({
     RIGHT_CLICK: "RIGHT_CLICK",
     REGISTER_ELEMENT: "REGISTER_ELEMENT",
     REGISTER_AUDIO_URL: "REGISTER_AUDIO_URL",
-    DOWNLOAD_BLOB: "DOWNLOAD_BLOB",
     REGISTER_BLOB_URL: "REGISTER_BLOB_URL",
     BLOB_DETECTED: "BLOB_DETECTED",
   },
@@ -277,22 +276,6 @@ describe("MessageHandler", () => {
       expect(result).toBe(true);
     });
 
-    it("should handle DOWNLOAD_BLOB message", () => {
-      const message = { action: "DOWNLOAD_BLOB", data: "test" };
-      mockHandlers.handleBlobContent.mockReturnValue(true);
-
-      const result = messageListener(message, mockSender, mockSendResponse);
-
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        "Handling Blob content download message"
-      );
-      expect(mockHandlers.handleBlobContent).toHaveBeenCalledWith(
-        message,
-        mockSender,
-        mockSendResponse
-      );
-      expect(result).toBe(true);
-    });
 
     it("should handle REGISTER_BLOB_URL message", () => {
       const message = { action: "REGISTER_BLOB_URL", data: "test" };
@@ -442,12 +425,6 @@ describe("MessageHandler", () => {
 
         // Handle non-store dependent actions
         switch (message.action) {
-          case "DOWNLOAD_BLOB":
-            return freshMockHandlers.handleBlobContent(
-              message,
-              sender,
-              sendResponse
-            );
           case "BLOB_DETECTED":
             return freshMockHandlers.handleBlobDetection(
               message,
@@ -487,19 +464,6 @@ describe("MessageHandler", () => {
       });
     });
 
-    it("should still handle DOWNLOAD_BLOB message when store is not initialized", () => {
-      const message = { action: "DOWNLOAD_BLOB", data: "test" };
-      mockHandlers.handleBlobContent.mockReturnValue(true);
-
-      const result = messageListener(message, mockSender, mockSendResponse);
-
-      expect(mockHandlers.handleBlobContent).toHaveBeenCalledWith(
-        message,
-        mockSender,
-        mockSendResponse
-      );
-      expect(result).toBe(true);
-    });
 
     it("should still handle BLOB_DETECTED message when store is not initialized", () => {
       const message = { action: "BLOB_DETECTED", data: "test" };

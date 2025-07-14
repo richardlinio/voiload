@@ -11,7 +11,6 @@ import { handleElementRegistration } from "./handlers/element-registration-handl
 import { handleAudioUrlRegistration } from "./handlers/audio-url-registration-handler";
 import {
   handleBlobUrl,
-  handleBlobContent,
   handleBlobDetection,
 } from "./handlers/blob-handler";
 import { createDataStore, type VoiceMessageStore } from "./data-store";
@@ -103,9 +102,6 @@ export function initMessageHandler(voiceMessages?: VoiceMessageStore): void {
             sendResponse
           );
 
-        case MESSAGE_ACTIONS.DOWNLOAD_BLOB:
-          logger.debug("Handling Blob content download message");
-          return handleBlobContent(message, sender, sendResponse);
 
         case MESSAGE_ACTIONS.REGISTER_BLOB_URL:
           logger.debug("Handling Blob URL registration message");

@@ -10,7 +10,6 @@ import {
   MODULE_NAMES,
 } from "../utils/constants";
 import { handleGetAudioDurationRequest } from "../page-context/audio-analyzer";
-import { handleExtractBlobRequest } from "../page-context/blob-monitor";
 
 // Create a module-specific logger
 const logger = Logger.createModuleLogger(MODULE_NAMES.CONTENT_MESSAGE_HANDLER);
@@ -57,15 +56,6 @@ interface GetAudioDurationMessage {
   url: string;
 }
 
-/**
- * Download Blob request message interface
- */
-interface DownloadBlobMessage {
-  action: string;
-  blobUrl: string;
-  blobType?: string;
-  requestId?: string;
-}
 
 // ================================================
 // Message Handling Functions
@@ -173,13 +163,6 @@ async function handleMessage(message: any): Promise<void> {
       }
       break;
 
-    case MESSAGE_ACTIONS.DOWNLOAD_BLOB:
-      logger.debug("Handling extract Blob content request");
-      const blobMessage = message as DownloadBlobMessage;
-      await handleExtractBlobRequest(blobMessage, (response) => {
-        logger.debug("Extract Blob content response", { response });
-      });
-      break;
 
     // Add more message type handlers as needed...
 

@@ -38,21 +38,16 @@ jest.mock("../../../extension/scripts/utils/constants", () => ({
     REGISTER_BLOB_URL: "REGISTER_BLOB_URL",
     BLOB_DETECTED: "BLOB_DETECTED",
     GET_AUDIO_DURATION: "GET_AUDIO_DURATION",
-    DOWNLOAD_BLOB: "DOWNLOAD_BLOB",
     REGISTER_AUDIO_URL: "REGISTER_AUDIO_URL",
   },
 }));
 
 const mockHandleGetAudioDurationRequest = jest.fn();
-const mockHandleExtractBlobRequest = jest.fn();
 
 jest.mock("../../../extension/scripts/page-context/audio-analyzer", () => ({
   handleGetAudioDurationRequest: mockHandleGetAudioDurationRequest,
 }));
 
-jest.mock("../../../extension/scripts/page-context/blob-monitor", () => ({
-  handleExtractBlobRequest: mockHandleExtractBlobRequest,
-}));
 
 describe("message-handler", () => {
   let messageHandler: any;
@@ -284,34 +279,6 @@ describe("message-handler", () => {
       );
     });
 
-    it("should handle DOWNLOAD_BLOB from background", async () => {
-      const eventHandler = (
-        (global as any).window.addEventListener as jest.Mock
-      ).mock.calls[0][1];
-
-      const mockEvent = {
-        source: global.window,
-        data: {
-          type: "BACKGROUND_SCRIPT",
-          message: {
-            action: "DOWNLOAD_BLOB",
-            blobUrl: "blob:test-url",
-          },
-        },
-      };
-
-      mockHandleExtractBlobRequest.mockImplementation((message, callback) => {
-        callback({ success: true });
-        return Promise.resolve();
-      });
-
-      await eventHandler(mockEvent);
-
-      expect(mockHandleExtractBlobRequest).toHaveBeenCalledWith(
-        mockEvent.data.message,
-        expect.any(Function)
-      );
-    });
 
     it("should handle unknown background message types", async () => {
       const eventHandler = (
@@ -532,39 +499,4 @@ describe("message-handler", () => {
     });
   });
 
-  describe("blob extraction logging", () => {
-    beforeEach(() => {
-      messageHandler.initMessageHandler();
-    });
-
-    it("should log blob extraction responses", async () => {
-      const eventHandler = (
-        (global as any).window.addEventListener as jest.Mock
-      ).mock.calls[0][1];
-
-      const mockEvent = {
-        source: global.window,
-        data: {
-          type: "BACKGROUND_SCRIPT",
-          message: {
-            action: "DOWNLOAD_BLOB",
-            blobUrl: "blob:test-url",
-          },
-        },
-      };
-
-      const mockResponse = { success: true, data: "test-data" };
-      mockHandleExtractBlobRequest.mockImplementation((message, callback) => {
-        callback(mockResponse);
-        return Promise.resolve();
-      });
-
-      await eventHandler(mockEvent);
-
-      expect(mockMessageHandlerLogger.debug).toHaveBeenCalledWith(
-        "Extract Blob content response",
-        { response: mockResponse }
-      );
-    });
-  });
 });

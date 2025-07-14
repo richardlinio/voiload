@@ -11,10 +11,9 @@ import {
 } from "../utils/constants";
 import type {
   BlobQueueItem,
-  ExtractBlobRequestMessage,
 } from "../types/messages";
 
-import { isLikelyVoiceMessageBlob, extractBlobContent } from "./blob-analyzer";
+import { isLikelyVoiceMessageBlob } from "./blob-analyzer";
 import { getAudioDuration } from "./audio-analyzer";
 
 // Create a module-specific logger
@@ -165,64 +164,6 @@ function setupPeriodicCleanup(): void {
   }, BLOB_MONITOR_CONSTANTS.PERIODIC_CLEANUP_INTERVAL);
 }
 
-/**
- * Handle request to extract blob content
- *
- * @param message - Message object containing blobUrl
- * @param sendResponse - Response callback
- * @returns Whether to keep the connection open
- */
-export async function handleExtractBlobRequest(
-  message: ExtractBlobRequestMessage,
-  sendResponse: (response: {
-    success: boolean;
-    message?: string;
-    error?: string;
-  }) => void
-): Promise<boolean> {
-  logger.debug("Received request to extract blob content", {
-    blobUrl: message.blobUrl,
-    blobType: message.blobType,
-    requestId: message.requestId,
-  });
-
-  try {
-    // Extract blob content
-    const result = await extractBlobContent(message.blobUrl);
-    logger.debug(
-      "Successfully extracted blob content, sending to background script"
-    );
-
-    // Build result and send to background script
-    chrome.runtime.sendMessage(
-      {
-        action: MESSAGE_ACTIONS.DOWNLOAD_BLOB,
-        blobType: result.blobType,
-        base64data: result.base64data,
-        requestId: message.requestId,
-        timestamp: new Date().toISOString(),
-      },
-      (response) => {
-        logger.debug("Background script responded to download request", {
-          response,
-        });
-      }
-    );
-
-    sendResponse({
-      success: true,
-      message: "Sent blob content to background script for download",
-    });
-  } catch (error) {
-    logger.error("Failed to extract blob content", { error });
-    sendResponse({
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
-
-  return true; // Keep the connection open for async response
-}
 
 /**
  * Initialize Blob monitor module
