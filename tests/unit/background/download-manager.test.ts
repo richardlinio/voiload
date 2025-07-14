@@ -330,6 +330,48 @@ describe("download-manager.ts", () => {
 
       expect(mockChrome.downloads.download).toHaveBeenCalled();
     });
+
+    it("should download voice message with unique identifier", () => {
+      mockChrome.downloads.download.mockImplementation((options, callback) => {
+        callback(999);
+      });
+
+      downloadVoiceMessage(
+        "https://example.com/audio.mp4",
+        "Wed, 19 Mar 2025 14:04:40 GMT",
+        "unique-id-123"
+      );
+
+      expect(mockChrome.downloads.download).toHaveBeenCalledWith(
+        {
+          url: "https://example.com/audio.mp4",
+          filename: "voice-message-2025-03-19-14-04-40-unique-id-123.mp4",
+          saveAs: true,
+        },
+        expect.any(Function)
+      );
+    });
+
+    it("should download voice message with unique identifier but without lastModified", () => {
+      mockChrome.downloads.download.mockImplementation((options, callback) => {
+        callback(888);
+      });
+
+      downloadVoiceMessage(
+        "https://example.com/audio.mp4",
+        undefined,
+        "another-unique-id"
+      );
+
+      expect(mockChrome.downloads.download).toHaveBeenCalledWith(
+        {
+          url: "https://example.com/audio.mp4",
+          filename: "voice-message-2025-03-19-12-00-00-another-unique-id.mp4",
+          saveAs: true,
+        },
+        expect.any(Function)
+      );
+    });
   });
 
   describe("downloadAllVoiceMessages", () => {
@@ -454,6 +496,61 @@ describe("download-manager.ts", () => {
 
       expect(result).toBe(0);
       expect(mockChrome.downloads.download).not.toHaveBeenCalled();
+    });
+
+    it("should include unique identifiers in filenames for batch download", () => {
+      const mockStore = createMockVoiceMessageStore();
+      
+      // Add test items with different IDs
+      mockStore.items.set("voice-msg-001", {
+        id: "voice-msg-001",
+        element: null,
+        durationMs: 5000,
+        downloadUrl: "https://example.com/audio1.mp4",
+        lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
+        blobType: null,
+        blobSize: null,
+        timestamp: Date.now(),
+        isPending: false,
+      });
+      
+      mockStore.items.set("voice-msg-002", {
+        id: "voice-msg-002",
+        element: null,
+        durationMs: 3000,
+        downloadUrl: "https://example.com/audio2.mp4",
+        lastModified: null,
+        blobType: null,
+        blobSize: null,
+        timestamp: Date.now(),
+        isPending: false,
+      });
+
+      mockChrome.downloads.download.mockImplementation((options, callback) => {
+        callback(123);
+      });
+
+      const result = downloadAllVoiceMessages(mockStore);
+
+      expect(result).toBe(2);
+      expect(mockChrome.downloads.download).toHaveBeenCalledTimes(2);
+      
+      // Verify that filenames include unique identifiers
+      expect(mockChrome.downloads.download).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: "https://example.com/audio1.mp4",
+          filename: "voice-message-2025-03-19-14-04-40-voice-msg-001.mp4",
+        }),
+        expect.any(Function)
+      );
+      
+      expect(mockChrome.downloads.download).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: "https://example.com/audio2.mp4",
+          filename: "voice-message-2025-03-19-12-00-00-voice-msg-002.mp4",
+        }),
+        expect.any(Function)
+      );
     });
   });
 });

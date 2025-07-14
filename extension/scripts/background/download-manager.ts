@@ -76,8 +76,9 @@ export function setLastRightClickedInfo(info: RightClickInfo): void {
  *
  * @param url - Download URL
  * @param lastModified - Last-Modified header value
+ * @param uniqueIdentifier - Unique identifier to avoid filename conflicts (e.g., voice message ID or duration)
  */
-export function downloadVoiceMessage(url: string, lastModified?: string): void {
+export function downloadVoiceMessage(url: string, lastModified?: string, uniqueIdentifier?: string): void {
   logger.debug("downloadVoiceMessage function called");
 
   if (!url) {
@@ -85,9 +86,13 @@ export function downloadVoiceMessage(url: string, lastModified?: string): void {
     return;
   }
 
-  // Generate filename
-  const filename = `${generateVoiceMessageFilename(lastModified)}.mp4`;
-  logger.debug("Generated filename", { filename });
+  // Generate filename with unique identifier
+  const baseFilename = generateVoiceMessageFilename(lastModified);
+  const filename = uniqueIdentifier 
+    ? `${baseFilename}-${uniqueIdentifier}.mp4`
+    : `${baseFilename}.mp4`;
+  
+  logger.debug("Generated filename", { filename, uniqueIdentifier });
 
   // Use Chrome downloads API to download the file
   logger.debug("Preparing to call chrome.downloads.download API");
@@ -140,7 +145,8 @@ export function downloadAllVoiceMessages(voiceMessagesStore: VoiceMessageStore):
         url: item.downloadUrl.substring(0, 50) + "...",
       });
 
-      downloadVoiceMessage(item.downloadUrl, item.lastModified || undefined);
+      // Use voice message ID as unique identifier to prevent filename conflicts
+      downloadVoiceMessage(item.downloadUrl, item.lastModified || undefined, id);
       downloadCount++;
     } else {
       logger.debug("Skipping item without valid download URL", {

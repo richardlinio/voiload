@@ -73,19 +73,19 @@ describe("formatDateForFilename", () => {
     it("should correctly format date for filename", () => {
       const date = new Date("2025-03-19T14:04:40.000");
       const result = formatDateForFilename(date);
-      expect(result).toBe("2025-03-19-14-04-40");
+      expect(result).toBe("2025-03-19-14-04-40-000");
     });
 
     it("should correctly handle zero padding", () => {
       const date = new Date("2025-01-01T01:01:01.000");
       const result = formatDateForFilename(date);
-      expect(result).toBe("2025-01-01-01-01-01");
+      expect(result).toBe("2025-01-01-01-01-01-000");
     });
 
     it("should handle end of year date", () => {
       const date = new Date("2025-12-31T23:59:59.000");
       const result = formatDateForFilename(date);
-      expect(result).toBe("2025-12-31-23-59-59");
+      expect(result).toBe("2025-12-31-23-59-59-000");
     });
   });
 
@@ -94,22 +94,22 @@ describe("formatDateForFilename", () => {
       const invalidDate = new Date("invalid");
       const result = formatDateForFilename(invalidDate);
       // Should return current time format (we can't predict exact time, so check format)
-      expect(result).toMatch(/^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}$/);
+      expect(result).toMatch(/^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}-\d{3}$/);
     });
 
     it("should handle null input", () => {
       const result = formatDateForFilename(null as any);
-      expect(result).toMatch(/^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}$/);
+      expect(result).toMatch(/^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}-\d{3}$/);
     });
 
     it("should handle undefined input", () => {
       const result = formatDateForFilename(undefined as any);
-      expect(result).toMatch(/^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}$/);
+      expect(result).toMatch(/^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}-\d{3}$/);
     });
 
     it("should handle non-date object input", () => {
       const result = formatDateForFilename("not-a-date" as any);
-      expect(result).toMatch(/^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}$/);
+      expect(result).toMatch(/^\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}-\d{3}$/);
     });
   });
 });
@@ -120,20 +120,20 @@ describe("generateVoiceMessageFilename", () => {
       const result = generateVoiceMessageFilename(
         "Wed, 19 Mar 2025 14:04:40 GMT"
       );
-      expect(result).toMatch(/^voice-message-2025-03-19-\d{2}-04-40$/);
+      expect(result).toMatch(/^voice-message-2025-03-19-\d{2}-04-40-\d{3}$/);
     });
 
     it("should use current time when lastModified is not provided", () => {
       const result = generateVoiceMessageFilename();
       expect(result).toMatch(
-        /^voice-message-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}$/
+        /^voice-message-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}-\d{3}$/
       );
     });
 
     it("should use current time when lastModified is an empty string", () => {
       const result = generateVoiceMessageFilename("");
       expect(result).toMatch(
-        /^voice-message-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}$/
+        /^voice-message-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}-\d{3}$/
       );
     });
   });
@@ -142,14 +142,14 @@ describe("generateVoiceMessageFilename", () => {
     it("should handle invalid lastModified format", () => {
       const result = generateVoiceMessageFilename("invalid-date");
       expect(result).toMatch(
-        /^voice-message-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}$/
+        /^voice-message-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}-\d{3}$/
       );
     });
 
     it("should handle null lastModified", () => {
       const result = generateVoiceMessageFilename(null as any);
       expect(result).toMatch(
-        /^voice-message-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}$/
+        /^voice-message-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}-\d{3}$/
       );
     });
   });
