@@ -26,8 +26,5 @@ module.exports = {
   },
   
   // 模組檔案擴展名
-  moduleFileExtensions: ['js', 'ts', 'json'],
-  
-  // 顯示每個測試的詳細信息
-  verbose: true
+  moduleFileExtensions: ['js', 'ts', 'json']
 };
