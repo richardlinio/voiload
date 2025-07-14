@@ -42,7 +42,6 @@ jest.mock("../../../extension/scripts/utils/constants", () => ({
     REGISTER_BLOB_URL: "REGISTER_BLOB_URL",
     BLOB_DETECTED: "BLOB_DETECTED",
     GET_AUDIO_DURATION: "GET_AUDIO_DURATION",
-    DOWNLOAD_BLOB: "DOWNLOAD_BLOB",
     REGISTER_AUDIO_URL: "REGISTER_AUDIO_URL",
   },
   SUPPORTED_SITES: {

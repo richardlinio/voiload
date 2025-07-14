@@ -46,7 +46,6 @@ jest.mock("../../../extension/scripts/utils/logger", () => ({
 jest.mock("../../../extension/scripts/utils/constants", () => ({
   MESSAGE_ACTIONS: {
     REGISTER_BLOB_URL: "REGISTER_BLOB_URL",
-    DOWNLOAD_BLOB: "DOWNLOAD_BLOB",
   },
   MODULE_NAMES: {
     BLOB_MONITOR: "blob-monitor",
@@ -107,9 +106,6 @@ describe("blob-monitor", () => {
       expect(typeof blobMonitor.setupBlobUrlMonitor).toBe("function");
     });
 
-    it("should export handleExtractBlobRequest function", () => {
-      expect(typeof blobMonitor.handleExtractBlobRequest).toBe("function");
-    });
 
     it("should export initBlobMonitor function", () => {
       expect(typeof blobMonitor.initBlobMonitor).toBe("function");
@@ -265,165 +261,6 @@ describe("blob-monitor", () => {
     });
   });
 
-  describe("handleExtractBlobRequest", () => {
-    it("should extract blob content successfully", async () => {
-      const mockMessage = {
-        action: "DOWNLOAD_BLOB",
-        blobUrl: "blob:test-url",
-        blobType: "audio/mpeg",
-        requestId: "req-123",
-      };
-
-      const mockResult = {
-        base64data: "dGVzdCBhdWRpbw==",
-        blobType: "audio/mpeg",
-        blobSize: 5000,
-      };
-
-      mockExtractBlobContent.mockResolvedValue(mockResult);
-
-      const mockSendResponse = jest.fn();
-
-      const result = await blobMonitor.handleExtractBlobRequest(
-        mockMessage,
-        mockSendResponse
-      );
-
-      expect(result).toBe(true);
-      expect(mockExtractBlobContent).toHaveBeenCalledWith("blob:test-url");
-      expect(mockBlobMonitorChrome.runtime.sendMessage).toHaveBeenCalledWith(
-        {
-          action: "DOWNLOAD_BLOB",
-          blobType: "audio/mpeg",
-          base64data: "dGVzdCBhdWRpbw==",
-          requestId: "req-123",
-          timestamp: expect.any(String),
-        },
-        expect.any(Function)
-      );
-      expect(mockSendResponse).toHaveBeenCalledWith({
-        success: true,
-        message: "Sent blob content to background script for download",
-      });
-    });
-
-    it("should handle extraction errors", async () => {
-      const mockMessage = {
-        action: "DOWNLOAD_BLOB",
-        blobUrl: "blob:test-url",
-        blobType: "audio/mpeg",
-        requestId: "req-123",
-      };
-
-      const extractError = new Error("Extraction failed");
-      mockExtractBlobContent.mockRejectedValue(extractError);
-
-      const mockSendResponse = jest.fn();
-
-      const result = await blobMonitor.handleExtractBlobRequest(
-        mockMessage,
-        mockSendResponse
-      );
-
-      expect(result).toBe(true);
-      expect(mockBlobMonitorLogger.error).toHaveBeenCalledWith(
-        "Failed to extract blob content",
-        { error: extractError }
-      );
-      expect(mockSendResponse).toHaveBeenCalledWith({
-        success: false,
-        error: "Extraction failed",
-      });
-    });
-
-    it("should handle non-Error exceptions", async () => {
-      const mockMessage = {
-        action: "DOWNLOAD_BLOB",
-        blobUrl: "blob:test-url",
-        blobType: "audio/mpeg",
-        requestId: "req-123",
-      };
-
-      mockExtractBlobContent.mockRejectedValue("String error");
-
-      const mockSendResponse = jest.fn();
-
-      await blobMonitor.handleExtractBlobRequest(mockMessage, mockSendResponse);
-
-      expect(mockSendResponse).toHaveBeenCalledWith({
-        success: false,
-        error: "String error",
-      });
-    });
-
-    it("should log debug information", async () => {
-      const mockMessage = {
-        action: "DOWNLOAD_BLOB",
-        blobUrl: "blob:test-url",
-        blobType: "audio/mpeg",
-        requestId: "req-123",
-      };
-
-      const mockResult = {
-        base64data: "dGVzdA==",
-        blobType: "audio/mpeg",
-        blobSize: 1000,
-      };
-
-      mockExtractBlobContent.mockResolvedValue(mockResult);
-
-      const mockSendResponse = jest.fn();
-
-      await blobMonitor.handleExtractBlobRequest(mockMessage, mockSendResponse);
-
-      expect(mockBlobMonitorLogger.debug).toHaveBeenCalledWith(
-        "Received request to extract blob content",
-        {
-          blobUrl: "blob:test-url",
-          blobType: "audio/mpeg",
-          requestId: "req-123",
-        }
-      );
-      expect(mockBlobMonitorLogger.debug).toHaveBeenCalledWith(
-        "Successfully extracted blob content, sending to background script"
-      );
-    });
-
-    it("should handle chrome.runtime.sendMessage response", async () => {
-      const mockMessage = {
-        action: "DOWNLOAD_BLOB",
-        blobUrl: "blob:test-url",
-        blobType: "audio/mpeg",
-        requestId: "req-123",
-      };
-
-      const mockResult = {
-        base64data: "dGVzdA==",
-        blobType: "audio/mpeg",
-        blobSize: 1000,
-      };
-
-      mockExtractBlobContent.mockResolvedValue(mockResult);
-
-      const mockSendResponse = jest.fn();
-
-      // Mock chrome.runtime.sendMessage to call the callback
-      mockBlobMonitorChrome.runtime.sendMessage.mockImplementation(
-        (message, callback) => {
-          if (callback) {
-            callback({ success: true });
-          }
-        }
-      );
-
-      await blobMonitor.handleExtractBlobRequest(mockMessage, mockSendResponse);
-
-      expect(mockBlobMonitorLogger.debug).toHaveBeenCalledWith(
-        "Background script responded to download request",
-        { response: { success: true } }
-      );
-    });
-  });
 
   describe("initBlobMonitor", () => {
     it("should initialize blob monitor successfully", () => {

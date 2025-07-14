@@ -94,7 +94,6 @@ export const MESSAGE_ACTIONS = {
   REGISTER_ELEMENT: "registerElement",
   REGISTER_AUDIO_URL: "registerAudioUrl",
   REGISTER_BLOB_URL: "registerBlobUrl",
-  DOWNLOAD_BLOB: "downloadBlobContent",
   BLOB_DETECTED: "blobUrlDetected",
   UPDATE_ELEMENT: "updateVoiceMessageElement",
   GET_AUDIO_DURATION: "getAudioDuration",
