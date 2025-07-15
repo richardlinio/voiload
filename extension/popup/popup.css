@@ -1,7 +1,7 @@
 :root {
-  --primary-color: #0084ff;
+  --primary-color: #0072ff;
   --primary-hover: #1777f2;
-  --primary-gradient: linear-gradient(135deg, #0084ff 0%, #1777f2 100%);
+  --primary-gradient: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
   --text-primary: #ffffff;
   --text-secondary: #b3b9c5;
   --background: #0e1525;
