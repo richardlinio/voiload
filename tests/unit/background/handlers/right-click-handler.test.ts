@@ -12,9 +12,17 @@ jest.mock("../../../../extension/scripts/background/download-manager", () => ({
 jest.mock("../../../../extension/scripts/utils/constants", () => ({
   MODULE_NAMES: {
     RIGHT_CLICK_HANDLER: "right-click-handler",
+    DATA_STORE: "data-store",
   },
   MESSAGE_ACTIONS: {
     DOWNLOAD_ALL_VOICE_MESSAGES: "downloadAllVoiceMessages",
+  },
+  // Needed by the shared data-store search the handler delegates to
+  // (mirrors production values, pinned in constants.test.ts)
+  MATCHING_TOLERANCE: 1000,
+  EXACT_MATCHING_TOLERANCE: 5,
+  TIME_CONSTANTS: {
+    DATA_RETENTION_PERIOD: 7 * 24 * 60 * 60 * 1000,
   },
 }));
 
@@ -144,41 +152,6 @@ describe("right-click-handler.ts", () => {
         });
       });
 
-      it("should handle right-click without download URL and fallback to iteration", () => {
-        // Mock findItemByDuration to return null, but add matching item to store
-        mockVoiceMessagesStore.findItemByDuration.mockReturnValue(null);
-        const matchingItem = {
-          id: "iteration-match",
-          durationMs: 5003, // Within 5ms tolerance
-          downloadUrl: "https://example.com/iteration.mp3",
-          lastModified: null,
-        };
-        mockVoiceMessagesStore.items.set("iteration-match", matchingItem);
-
-        const message = {
-          elementId: "element-123",
-          downloadUrl: null,
-          lastModified: null,
-          durationMs: 5000,
-        };
-
-        const result = rightClickHandler.handleRightClick(
-          mockVoiceMessagesStore,
-          message,
-          mockSender,
-          mockSendResponse
-        );
-
-        expect(result).toBe(true);
-        expect(mockSetLastRightClickedInfo).toHaveBeenCalledWith({
-          elementId: "element-123",
-          downloadUrl: "https://example.com/iteration.mp3",
-          lastModified: null,
-          tabId: 123,
-          durationMs: 5000,
-        });
-      });
-
       it("should handle right-click without tab ID", () => {
         const message = {
           elementId: "element-123",
@@ -241,23 +214,24 @@ describe("right-click-handler.ts", () => {
     });
 
     describe("Duration Matching Logic", () => {
-      it("should match items within 5ms tolerance boundary", () => {
-        mockVoiceMessagesStore.findItemByDuration.mockReturnValue(null);
+      it("should match an integer-second DOM duration against a fractional blob duration", () => {
+        // Delegates to the shared data-store search when the store has no
+        // findItemByDuration method (real runtime fixture: valuemax=61 ↔ 60547ms)
+        delete mockVoiceMessagesStore.findItemByDuration;
 
-        // Add item exactly 5ms different (boundary case)
-        const boundaryItem = {
-          id: "boundary-item",
-          durationMs: 5005, // Exactly 5ms difference
-          downloadUrl: "https://example.com/boundary.mp3",
+        const fixtureItem = {
+          id: "fixture-61s",
+          durationMs: 60547,
+          downloadUrl: "https://example.com/61s.mp3",
           lastModified: null,
         };
-        mockVoiceMessagesStore.items.set("boundary-item", boundaryItem);
+        mockVoiceMessagesStore.items.set("fixture-61s", fixtureItem);
 
         const message = {
           elementId: "element-123",
           downloadUrl: null,
           lastModified: null,
-          durationMs: 5000,
+          durationMs: 61000,
         };
 
         const result = rightClickHandler.handleRightClick(
@@ -270,20 +244,20 @@ describe("right-click-handler.ts", () => {
         expect(result).toBe(true);
         expect(mockSetLastRightClickedInfo).toHaveBeenCalledWith({
           elementId: "element-123",
-          downloadUrl: "https://example.com/boundary.mp3",
+          downloadUrl: "https://example.com/61s.mp3",
           lastModified: null,
           tabId: 123,
-          durationMs: 5000,
+          durationMs: 61000,
         });
       });
 
-      it("should not match items outside 5ms tolerance", () => {
+      it("should not match items outside the matching tolerance", () => {
         mockVoiceMessagesStore.findItemByDuration.mockReturnValue(null);
 
-        // Add item outside tolerance (6ms difference)
+        // Add item outside tolerance (2s difference)
         const outsideToleranceItem = {
           id: "outside-item",
-          durationMs: 5006, // 6ms difference, outside tolerance
+          durationMs: 7000, // 2000ms difference, outside tolerance
           downloadUrl: "https://example.com/outside.mp3",
           lastModified: null,
         };
@@ -386,25 +360,25 @@ describe("right-click-handler.ts", () => {
         });
       });
 
-      it("should return first matching item when multiple matches exist", () => {
-        mockVoiceMessagesStore.findItemByDuration.mockReturnValue(null);
+      it("should return the nearest item when multiple matches exist", () => {
+        delete mockVoiceMessagesStore.findItemByDuration;
 
         // Add multiple matching items
-        const firstMatch = {
-          id: "first-match",
-          durationMs: 5002,
-          downloadUrl: "https://example.com/first.mp3",
+        const fartherMatch = {
+          id: "farther-match",
+          durationMs: 5202,
+          downloadUrl: "https://example.com/farther.mp3",
           lastModified: null,
         };
-        const secondMatch = {
-          id: "second-match",
-          durationMs: 5001,
-          downloadUrl: "https://example.com/second.mp3",
+        const nearerMatch = {
+          id: "nearer-match",
+          durationMs: 5101,
+          downloadUrl: "https://example.com/nearer.mp3",
           lastModified: null,
         };
 
-        mockVoiceMessagesStore.items.set("first-match", firstMatch);
-        mockVoiceMessagesStore.items.set("second-match", secondMatch);
+        mockVoiceMessagesStore.items.set("farther-match", fartherMatch);
+        mockVoiceMessagesStore.items.set("nearer-match", nearerMatch);
 
         const message = {
           elementId: "element-123",
@@ -421,10 +395,10 @@ describe("right-click-handler.ts", () => {
         );
 
         expect(result).toBe(true);
-        // Should match the first one in iteration order
+        // Should match the item with the smallest duration difference
         expect(mockSetLastRightClickedInfo).toHaveBeenCalledWith({
           elementId: "element-123",
-          downloadUrl: "https://example.com/first.mp3",
+          downloadUrl: "https://example.com/nearer.mp3",
           lastModified: null,
           tabId: 123,
           durationMs: 5000,
@@ -469,16 +443,18 @@ describe("right-click-handler.ts", () => {
         });
       });
 
-      it("should try both methods when findItemByDuration returns null", () => {
+      it("should trust the store method's null result and fall back to download-all", () => {
+        // The store method owns the matching semantics (including the
+        // ambiguity refusal), so its null must not be second-guessed
         mockVoiceMessagesStore.findItemByDuration.mockReturnValue(null);
 
-        const iterationMatch = {
-          id: "iteration-match",
+        const nearbyItem = {
+          id: "nearby-item",
           durationMs: 5001,
-          downloadUrl: "https://example.com/iteration-match.mp3",
+          downloadUrl: "https://example.com/nearby.mp3",
           lastModified: null,
         };
-        mockVoiceMessagesStore.items.set("iteration-match", iterationMatch);
+        mockVoiceMessagesStore.items.set("nearby-item", nearbyItem);
 
         const message = {
           elementId: "element-123",
@@ -498,12 +474,10 @@ describe("right-click-handler.ts", () => {
         expect(mockVoiceMessagesStore.findItemByDuration).toHaveBeenCalledWith(
           5000
         );
-        expect(mockSetLastRightClickedInfo).toHaveBeenCalledWith({
-          elementId: "element-123",
-          downloadUrl: "https://example.com/iteration-match.mp3",
-          lastModified: null,
-          tabId: 123,
-          durationMs: 5000,
+        expect(mockSendResponse).toHaveBeenCalledWith({
+          success: true,
+          action: "downloadAllVoiceMessages",
+          message: "No matching voice message found, ready to download all available voice messages",
         });
       });
     });

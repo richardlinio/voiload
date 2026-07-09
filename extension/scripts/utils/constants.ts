@@ -111,7 +111,14 @@ export const TIME_CONSTANTS = {
   URL_CACHE_EXPIRATION: 10 * 60 * 1000, // 10 minutes
 } as const;
 
-export const MATCHING_TOLERANCE = 5; // ms
+// aria-valuemax on current Facebook UI is integer seconds, while decoded blob
+// durations are precise milliseconds — the gap can approach 1s (FB may round or
+// ceil the displayed seconds), so matching uses a nearest-neighbour search
+// within this band instead of an equality check.
+export const MATCHING_TOLERANCE = 1000; // ms
+// Durations closer than this are considered the same audio (e.g. the same
+// message re-registered after a page re-render).
+export const EXACT_MATCHING_TOLERANCE = 5; // ms
 
 // ===========================================
 // UI Related Constants

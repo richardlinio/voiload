@@ -31,24 +31,37 @@ jest.mock("../../../extension/scripts/utils/time-utils", () => ({
   secondsToMilliseconds: jest.fn((seconds: number) =>
     Math.round(seconds * 1000)
   ),
+  domDurationToMilliseconds: jest.fn((value: number) =>
+    value > 1200 ? Math.round(value) : Math.round(value * 1000)
+  ),
 }));
 
-jest.mock("../../../extension/scripts/utils/logger", () => ({
-  Logger: {
-    createModuleLogger: jest.fn(() => ({
-      debug: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-    })),
-  },
-}));
+// Shared logger instance (created inside the factory because jest.mock is
+// hoisted above imports) so tests can assert on warnings (e.g. ambiguous matches)
+jest.mock("../../../extension/scripts/utils/logger", () => {
+  const sharedLogger = {
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  };
+  return {
+    Logger: {
+      createModuleLogger: jest.fn(() => sharedLogger),
+    },
+  };
+});
+
+const mockDataStoreLogger =
+  require("../../../extension/scripts/utils/logger").Logger.createModuleLogger();
 
 jest.mock("../../../extension/scripts/utils/constants", () => ({
   MODULE_NAMES: {
     DATA_STORE: "data-store",
   },
-  MATCHING_TOLERANCE: 5,
+  // Mirror production values (pinned in constants.test.ts)
+  MATCHING_TOLERANCE: 1000,
+  EXACT_MATCHING_TOLERANCE: 5,
   TIME_CONSTANTS: {
     DATA_RETENTION_PERIOD: 7 * 24 * 60 * 60 * 1000, // 7 days
   },
@@ -126,15 +139,14 @@ describe("data-store.ts", () => {
       it("should return true for durations within default tolerance", () => {
         expect(isDurationMatch(1000, 1005)).toBe(true); // +5ms
         expect(isDurationMatch(1000, 995)).toBe(true); // -5ms
-        expect(isDurationMatch(1000, 1003)).toBe(true); // +3ms
-        expect(isDurationMatch(1000, 997)).toBe(true); // -3ms
+        expect(isDurationMatch(1000, 1999)).toBe(true); // +999ms
+        expect(isDurationMatch(1000, 2000)).toBe(true); // +1000ms (boundary)
       });
 
       it("should return false for durations outside default tolerance", () => {
-        expect(isDurationMatch(1000, 1006)).toBe(false); // +6ms
-        expect(isDurationMatch(1000, 994)).toBe(false); // -6ms
-        expect(isDurationMatch(1000, 1010)).toBe(false); // +10ms
-        expect(isDurationMatch(1000, 990)).toBe(false); // -10ms
+        expect(isDurationMatch(1000, 2001)).toBe(false); // +1001ms
+        expect(isDurationMatch(2001, 1000)).toBe(false); // -1001ms
+        expect(isDurationMatch(1000, 5000)).toBe(false); // +4000ms
       });
 
       it("should respect custom tolerance values", () => {
@@ -148,22 +160,22 @@ describe("data-store.ts", () => {
     describe("Boundary Conditions", () => {
       it("should handle zero values", () => {
         expect(isDurationMatch(0, 0)).toBe(true);
-        expect(isDurationMatch(0, 5)).toBe(true); // Within tolerance
-        expect(isDurationMatch(0, 6)).toBe(false); // Outside tolerance
-        expect(isDurationMatch(5, 0)).toBe(true); // Within tolerance
+        expect(isDurationMatch(0, 1000)).toBe(true); // Within tolerance
+        expect(isDurationMatch(0, 1001)).toBe(false); // Outside tolerance
+        expect(isDurationMatch(1000, 0)).toBe(true); // Within tolerance
       });
 
       it("should handle negative numbers", () => {
         expect(isDurationMatch(-1000, -1000)).toBe(true);
-        expect(isDurationMatch(-1000, -1005)).toBe(true);
-        expect(isDurationMatch(-1000, -1006)).toBe(false);
+        expect(isDurationMatch(-1000, -2000)).toBe(true);
+        expect(isDurationMatch(-1000, -2001)).toBe(false);
       });
 
       it("should handle large numbers", () => {
-        const largeNum = Number.MAX_SAFE_INTEGER - 10;
+        const largeNum = Number.MAX_SAFE_INTEGER - 2000;
         expect(isDurationMatch(largeNum, largeNum)).toBe(true);
-        expect(isDurationMatch(largeNum, largeNum + 5)).toBe(true);
-        expect(isDurationMatch(largeNum, largeNum + 6)).toBe(false);
+        expect(isDurationMatch(largeNum, largeNum + 1000)).toBe(true);
+        expect(isDurationMatch(largeNum, largeNum + 1001)).toBe(false);
       });
 
       it("should handle zero tolerance", () => {
@@ -512,10 +524,10 @@ describe("data-store.ts", () => {
   describe("getDownloadUrlForElement", () => {
     beforeEach(() => {
       const {
-        secondsToMilliseconds,
+        domDurationToMilliseconds,
       } = require("../../../extension/scripts/utils/time-utils");
-      secondsToMilliseconds.mockImplementation((seconds: number) =>
-        Math.round(seconds * 1000)
+      domDurationToMilliseconds.mockImplementation((value: number) =>
+        value > 1200 ? Math.round(value) : Math.round(value * 1000)
       );
     });
 
@@ -659,8 +671,8 @@ describe("data-store.ts", () => {
         };
         mockStore.items.set("test-id", item);
 
-        // Duration outside tolerance (5.01 seconds = 5010ms, outside 5ms tolerance)
-        const element = createMockElement(undefined, "5.01");
+        // Duration outside tolerance (8 seconds = 8000ms, outside 1000ms tolerance of 5000ms)
+        const element = createMockElement(undefined, "8");
         const result = getDownloadUrlForElement(mockStore, element);
 
         expect(result).toBeNull();
@@ -863,6 +875,106 @@ describe("data-store.ts", () => {
 
         expect(mockStore.items.size).toBe(0); // Should remove all items
       });
+    });
+  });
+
+  // Real runtime fixtures measured on messenger.com (2026-07-09): aria-valuemax
+  // is integer seconds while decoded blob durations are fractional ms
+  describe("Integer-second aria-valuemax matching (real runtime fixtures)", () => {
+    const measuredCases = [
+      { blobMs: 60547, domMs: 61000 }, // 1:01 message, valuemax=61
+      { blobMs: 2767, domMs: 3000 }, // 0:03 message, valuemax=3
+      { blobMs: 6980, domMs: 7000 }, // 0:07 message, valuemax=7
+    ];
+
+    it.each(measuredCases)(
+      "should match blob duration $blobMs ms when queried with DOM duration $domMs ms",
+      ({ blobMs, domMs }) => {
+        registerDownloadUrl(mockStore, blobMs, "https://example.com/audio.mp3");
+
+        const item = findItemByDuration(mockStore, domMs);
+
+        expect(item?.durationMs).toBe(blobMs);
+        expect(item?.downloadUrl).toBe("https://example.com/audio.mp3");
+      }
+    );
+
+    it("should pick the nearest and warn when two messages share the same integer second", () => {
+      const itemA: VoiceMessageItem = {
+        id: "item-a",
+        element: null,
+        durationMs: 2767, // Displays as 0:03
+        downloadUrl: "url-a",
+        timestamp: Date.now(),
+        isPending: false,
+      };
+      const itemB: VoiceMessageItem = {
+        id: "item-b",
+        element: null,
+        durationMs: 2900, // Also displays as 0:03
+        downloadUrl: "url-b",
+        timestamp: Date.now(),
+        isPending: false,
+      };
+      mockStore.items.set("item-a", itemA);
+      mockStore.items.set("item-b", itemB);
+
+      const item = findItemByDuration(mockStore, 3000);
+
+      expect(item?.id).toBe("item-b"); // |2900-3000| = 100 < |2767-3000| = 233
+      expect(mockDataStoreLogger.warn).toHaveBeenCalledWith(
+        "Multiple items within matching tolerance, choosing the nearest",
+        expect.objectContaining({ durationMs: 3000 })
+      );
+    });
+
+    it("should refuse to guess and warn when candidates are equally distant", () => {
+      const itemA: VoiceMessageItem = {
+        id: "item-a",
+        element: null,
+        durationMs: 2900,
+        downloadUrl: "url-a",
+        timestamp: Date.now(),
+        isPending: false,
+      };
+      const itemB: VoiceMessageItem = {
+        id: "item-b",
+        element: null,
+        durationMs: 3100,
+        downloadUrl: "url-b",
+        timestamp: Date.now(),
+        isPending: false,
+      };
+      mockStore.items.set("item-a", itemA);
+      mockStore.items.set("item-b", itemB);
+
+      const item = findItemByDuration(mockStore, 3000);
+
+      expect(item).toBeNull();
+      expect(mockDataStoreLogger.warn).toHaveBeenCalledWith(
+        "Ambiguous duration match: nearest candidates are equally distant, refusing to guess",
+        expect.objectContaining({ durationMs: 3000 })
+      );
+    });
+
+    it("should not clobber another message's URL when registering a nearby blob", () => {
+      // Two distinct short messages whose precise durations are within 1s of
+      // each other must remain separate items
+      registerDownloadUrl(mockStore, 2767, "url-a");
+      const {
+        generateVoiceMessageId,
+      } = require("../../../extension/scripts/utils/id-generator");
+      generateVoiceMessageId.mockReturnValueOnce(
+        "voice-msg-1710859680000-efgh5678"
+      );
+
+      registerDownloadUrl(mockStore, 2900, "url-b");
+
+      expect(mockStore.items.size).toBe(2);
+      const urls = Array.from(mockStore.items.values()).map(
+        (item) => item.downloadUrl
+      );
+      expect(urls).toEqual(expect.arrayContaining(["url-a", "url-b"]));
     });
   });
 

@@ -6,6 +6,7 @@ import {
   generateVoiceMessageFilename,
   millisecondsToSeconds,
   secondsToMilliseconds,
+  domDurationToMilliseconds,
 } from "../../../extension/scripts/utils/time-utils";
 
 // Mock Logger to avoid side effects
@@ -251,6 +252,36 @@ describe("secondsToMilliseconds", () => {
     it("should handle Infinity", () => {
       expect(secondsToMilliseconds(Infinity)).toBe(Infinity);
       expect(secondsToMilliseconds(-Infinity)).toBe(-Infinity);
+    });
+  });
+});
+
+describe("domDurationToMilliseconds", () => {
+  describe("Normal Cases", () => {
+    it("should treat plausible values as seconds", () => {
+      expect(domDurationToMilliseconds(61)).toBe(61000); // Integer-second aria-valuemax
+      expect(domDurationToMilliseconds(3)).toBe(3000);
+      expect(domDurationToMilliseconds(12.75)).toBe(12750); // Fractional seconds (legacy surfaces)
+      expect(domDurationToMilliseconds(0)).toBe(0);
+    });
+
+    it("should treat values above the 20-minute cap as already milliseconds", () => {
+      expect(domDurationToMilliseconds(60547)).toBe(60547);
+      expect(domDurationToMilliseconds(2767.4)).toBe(2767);
+    });
+
+    it("should handle the boundary value as seconds", () => {
+      expect(domDurationToMilliseconds(1200)).toBe(1200000); // Exactly 20 minutes
+      expect(domDurationToMilliseconds(1201)).toBe(1201); // Just above: must be ms
+    });
+  });
+
+  describe("Error Handling", () => {
+    it("should return 0 for invalid input", () => {
+      expect(domDurationToMilliseconds(NaN)).toBe(0);
+      expect(domDurationToMilliseconds("not-a-number" as any)).toBe(0);
+      expect(domDurationToMilliseconds(null as any)).toBe(0);
+      expect(domDurationToMilliseconds(undefined as any)).toBe(0);
     });
   });
 });

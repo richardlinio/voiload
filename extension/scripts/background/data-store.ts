@@ -5,9 +5,14 @@
  */
 
 import { generateVoiceMessageId } from "../utils/id-generator";
-import { secondsToMilliseconds } from "../utils/time-utils";
+import { domDurationToMilliseconds } from "../utils/time-utils";
 import { Logger } from "../utils/logger";
-import { MODULE_NAMES, MATCHING_TOLERANCE, TIME_CONSTANTS } from "../utils/constants";
+import {
+  MODULE_NAMES,
+  MATCHING_TOLERANCE,
+  EXACT_MATCHING_TOLERANCE,
+  TIME_CONSTANTS,
+} from "../utils/constants";
 import type {
   VoiceMessageItem,
   VoiceMessageStore,
@@ -96,6 +101,63 @@ export function isDurationMatch(
 }
 
 /**
+ * Find the item whose duration is nearest to the target, within MATCHING_TOLERANCE.
+ * When several candidates fall inside the band the nearest wins with a warning;
+ * when the two nearest are equally distant the match is refused (returning null)
+ * rather than guessing, so callers fall through to their fallback path.
+ *
+ * @param voiceMessages - Voice message data store
+ * @param durationMs - Target duration (milliseconds)
+ * @param filter - Optional additional predicate on candidate items
+ * @param context - Caller name, included in ambiguity warnings
+ * @returns Nearest item, or null when nothing (or nothing unambiguous) matches
+ */
+function findNearestItemByDuration(
+  voiceMessages: VoiceMessageStore,
+  durationMs: number,
+  filter: (item: VoiceMessageItem) => boolean = () => true,
+  context: string = "findNearestItemByDuration"
+): VoiceMessageItem | null {
+  const candidates = Array.from(voiceMessages.items.values())
+    .filter((item) => typeof item.durationMs === "number" && filter(item))
+    .map((item) => ({
+      item,
+      diffMs: Math.abs(item.durationMs - durationMs),
+    }))
+    .filter(({ diffMs }) => diffMs <= MATCHING_TOLERANCE)
+    .sort((a, b) => a.diffMs - b.diffMs);
+
+  const nearest = candidates[0];
+  if (!nearest) {
+    return null;
+  }
+
+  const runnerUp = candidates[1];
+  if (runnerUp) {
+    const summary = candidates.map(({ item, diffMs }) => ({
+      id: item.id,
+      durationMs: item.durationMs,
+      diffMs,
+    }));
+
+    if (nearest.diffMs === runnerUp.diffMs) {
+      logger.warn(
+        "Ambiguous duration match: nearest candidates are equally distant, refusing to guess",
+        { context, durationMs, candidates: summary }
+      );
+      return null;
+    }
+
+    logger.warn(
+      "Multiple items within matching tolerance, choosing the nearest",
+      { context, durationMs, candidates: summary }
+    );
+  }
+
+  return nearest.item;
+}
+
+/**
  * Register a download URL
  *
  * @param voiceMessages - Voice message data store
@@ -138,45 +200,62 @@ export function registerDownloadUrl(
 
   logger.debug("DATASTORE-REGISTER", registerData);
 
-  // Check if there is an element matching this duration
-  for (const [id, item] of voiceMessages.items.entries()) {
-    if (isDurationMatch(item.durationMs, durationMs)) {
-      // If a matching element exists, update its properties
-      logger.debug("Found matching item, updating info", {
-        id,
-        oldUrl: item.downloadUrl
-          ? item.downloadUrl.substring(0, 30) + "..."
-          : null,
-        newUrl: downloadUrl ? downloadUrl.substring(0, 30) + "..." : null,
-      });
+  // Tier 1: a near-identical duration means the same audio was re-registered
+  // (e.g. the page re-created the blob URL) — update that item in place.
+  // Tier 2: an element registered from the DOM carries an integer-second
+  // duration, so it sits up to ~1s away from the decoded blob duration; only
+  // items still without a download URL are eligible, to avoid clobbering a
+  // distinct message's URL.
+  const matchingItem =
+    findNearestItemByDuration(
+      voiceMessages,
+      durationMs,
+      (item) => isDurationMatch(item.durationMs, durationMs, EXACT_MATCHING_TOLERANCE),
+      "registerDownloadUrl(exact)"
+    ) ??
+    findNearestItemByDuration(
+      voiceMessages,
+      durationMs,
+      (item) => !item.downloadUrl,
+      "registerDownloadUrl(pending-element)"
+    );
 
-      // Update properties
-      item.downloadUrl = downloadUrl;
+  if (matchingItem) {
+    const id = matchingItem.id;
+    logger.debug("Found matching item, updating info", {
+      id,
+      oldUrl: matchingItem.downloadUrl
+        ? matchingItem.downloadUrl.substring(0, 30) + "..."
+        : null,
+      newUrl: downloadUrl ? downloadUrl.substring(0, 30) + "..." : null,
+    });
 
-      // Update other properties if provided
-      if (lastModified) {
-        item.lastModified = lastModified;
-      }
-      if (blobType) {
-        item.blobType = blobType;
-      }
-      if (blobSize) {
-        item.blobSize = blobSize;
-      }
+    // Update properties
+    matchingItem.downloadUrl = downloadUrl;
 
-      // Log update diagnostic info
-      const updateData = {
-        itemId: id,
-        durationMs: item.durationMs,
-        blobType: item.blobType,
-        blobSize: item.blobSize,
-        timestamp: new Date().toISOString(),
-      };
-
-      logger.debug("DATASTORE-UPDATE", updateData);
-
-      return id;
+    // Update other properties if provided
+    if (lastModified) {
+      matchingItem.lastModified = lastModified;
     }
+    if (blobType) {
+      matchingItem.blobType = blobType;
+    }
+    if (blobSize) {
+      matchingItem.blobSize = blobSize;
+    }
+
+    // Log update diagnostic info
+    const updateData = {
+      itemId: id,
+      durationMs: matchingItem.durationMs,
+      blobType: matchingItem.blobType,
+      blobSize: matchingItem.blobSize,
+      timestamp: new Date().toISOString(),
+    };
+
+    logger.debug("DATASTORE-UPDATE", updateData);
+
+    return id;
   }
 
   // If no matching element, create a pending item
@@ -240,13 +319,12 @@ export function findPendingItemByDuration(
   voiceMessages: VoiceMessageStore,
   durationMs: number
 ): VoiceMessageItem | null {
-  for (const item of voiceMessages.items.values()) {
-    if (item.isPending && isDurationMatch(item.durationMs, durationMs)) {
-      return item;
-    }
-  }
-
-  return null;
+  return findNearestItemByDuration(
+    voiceMessages,
+    durationMs,
+    (item) => !!item.isPending,
+    "findPendingItemByDuration"
+  );
 }
 
 /**
@@ -301,7 +379,7 @@ export function getDownloadUrlForElement(
     }
     const durationSec = parseFloat(ariaValuemax);
     if (!isNaN(durationSec)) {
-      const durationMs = secondsToMilliseconds(durationSec);
+      const durationMs = domDurationToMilliseconds(durationSec);
       logger.debug("Trying to find by duration", { durationMs });
 
       // Output all items' durations for debugging
@@ -350,13 +428,12 @@ export function findItemByDuration(
   voiceMessages: VoiceMessageStore,
   durationMs: number
 ): VoiceMessageItem | null {
-  for (const item of voiceMessages.items.values()) {
-    if (isDurationMatch(item.durationMs, durationMs)) {
-      return item;
-    }
-  }
-
-  return null;
+  return findNearestItemByDuration(
+    voiceMessages,
+    durationMs,
+    undefined,
+    "findItemByDuration"
+  );
 }
 
 /**

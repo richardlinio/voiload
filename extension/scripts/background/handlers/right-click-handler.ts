@@ -6,7 +6,11 @@
 import { setLastRightClickedInfo } from "../download-manager";
 import { Logger } from "../../utils/logger";
 import { MODULE_NAMES, MESSAGE_ACTIONS } from "../../utils/constants";
-import { type VoiceMessageStore, type VoiceMessageItem } from "../data-store";
+import {
+  findItemByDuration as findItemByDurationInStore,
+  type VoiceMessageStore,
+  type VoiceMessageItem,
+} from "../data-store";
 import type { RightClickMessage } from "../../types/messages";
 
 // Create a module-specific logger
@@ -154,80 +158,33 @@ function findItemByDuration(
   voiceMessagesStore: VoiceMessageStore,
   durationMs: number
 ): VoiceMessageItem | null {
-  // Method 1: Use findItemByDuration function if available
-  let matchingItem = null;
-  if (typeof voiceMessagesStore.findItemByDuration === "function") {
-    logger.debug("Using findItemByDuration function to search");
-    matchingItem = voiceMessagesStore.findItemByDuration(durationMs);
-    logger.debug("findItemByDuration result", {
-      found: !!matchingItem,
-    });
+  // Prefer the store's own method; fall back to the shared data-store search
+  // so both paths use the same nearest-neighbour matching semantics
+  const matchingItem =
+    typeof voiceMessagesStore.findItemByDuration === "function"
+      ? voiceMessagesStore.findItemByDuration(durationMs)
+      : findItemByDurationInStore(voiceMessagesStore, durationMs);
 
-    if (matchingItem) {
-      logger.debug("Match found", {
-        phase: "findItemByDuration",
-        result: "success",
-        itemId: matchingItem.id,
-        itemDuration: matchingItem.durationMs,
-        targetDuration: durationMs,
-        difference: Math.abs(matchingItem.durationMs - durationMs),
-        hasUrl: !!matchingItem.downloadUrl,
-        isPending: !!matchingItem.isPending,
-        timestamp: new Date().toISOString(),
-      });
-      return matchingItem;
-    } else {
-      logger.debug("No match found", {
-        phase: "findItemByDuration",
-        result: "failure",
-        targetDuration: durationMs,
-        timestamp: new Date().toISOString(),
-      });
-    }
-  }
-
-  // Method 2: Directly iterate items collection
-  logger.debug("Directly iterating items collection to search");
-  const tolerance = 5; // Tolerance (ms)
-  let attemptCount = 0;
-  const matchStartTime = Date.now();
-
-  for (const [id, item] of voiceMessagesStore.items.entries()) {
-    attemptCount++;
-    const difference = Math.abs(item.durationMs - durationMs);
-
-    // Log each matching attempt
-    logger.debug("Matching attempt details", {
-      phase: "iteration",
-      attemptNumber: attemptCount,
-      itemId: id,
-      itemDuration: item.durationMs,
+  if (matchingItem) {
+    logger.debug("Match found", {
+      phase: "findItemByDuration",
+      result: "success",
+      itemId: matchingItem.id,
+      itemDuration: matchingItem.durationMs,
       targetDuration: durationMs,
-      difference: difference,
-      withinTolerance: difference <= tolerance,
-      hasUrl: !!item.downloadUrl,
-      isPending: !!item.isPending,
+      difference: Math.abs(matchingItem.durationMs - durationMs),
+      hasUrl: !!matchingItem.downloadUrl,
+      isPending: !!matchingItem.isPending,
       timestamp: new Date().toISOString(),
     });
-
-    if (item.durationMs && difference <= tolerance) {
-      logger.debug("Found matching item", {
-        durationMs: item.durationMs,
-        hasDownloadUrl: !!item.downloadUrl,
-      });
-      matchingItem = item;
-      break;
-    }
+  } else {
+    logger.debug("No match found", {
+      phase: "findItemByDuration",
+      result: "failure",
+      targetDuration: durationMs,
+      timestamp: new Date().toISOString(),
+    });
   }
-
-  // Log iteration result
-  logger.debug("Iteration complete", {
-    phase: "iterationComplete",
-    result: matchingItem ? "success" : "failure",
-    attemptCount: attemptCount,
-    elapsedMs: Date.now() - matchStartTime,
-    timestamp: new Date().toISOString(),
-  });
 
   return matchingItem;
 }

@@ -52,6 +52,9 @@ jest.mock("../../../extension/scripts/utils/constants", () => ({
 
 jest.mock("../../../extension/scripts/utils/time-utils", () => ({
   secondsToMilliseconds: jest.fn((seconds) => seconds * 1000),
+  domDurationToMilliseconds: jest.fn((value) =>
+    value > 1200 ? Math.round(value) : Math.round(value * 1000)
+  ),
 }));
 
 jest.mock("../../../extension/scripts/page-context/audio-analyzer", () => ({

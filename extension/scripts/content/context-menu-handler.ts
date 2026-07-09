@@ -3,7 +3,7 @@
  * Responsible for handling context menu (right-click) events
  */
 
-import { secondsToMilliseconds } from "../utils/time-utils";
+import { domDurationToMilliseconds } from "../utils/time-utils";
 import { Logger } from "../utils/logger";
 import { MESSAGE_ACTIONS, MODULE_NAMES } from "../utils/constants";
 
@@ -114,7 +114,7 @@ function handleContextMenu(event: MouseEvent): void {
 
   if (durationSec !== null) {
     // Convert seconds to milliseconds
-    const durationMs = secondsToMilliseconds(durationSec);
+    const durationMs = domDurationToMilliseconds(durationSec);
     Logger.debug("Duration (milliseconds)", {
       module: MODULE_NAMES.CONTEXT_MENU,
       data: durationMs,
