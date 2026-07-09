@@ -360,7 +360,7 @@ describe("Constants", () => {
 
   describe("Computed Values", () => {
     it("should calculate audio sizes correctly", () => {
-      expect(BLOB_MONITOR_CONSTANTS.MIN_VALID_AUDIO_SIZE).toBe(20 * 1024); // 20KB
+      expect(BLOB_MONITOR_CONSTANTS.MIN_VALID_AUDIO_SIZE).toBe(2 * 1024); // 2KB
       expect(BLOB_MONITOR_CONSTANTS.MAX_VALID_AUDIO_SIZE).toBe(
         200 * 1024 * 1024
       ); // 200MB

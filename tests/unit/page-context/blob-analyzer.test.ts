@@ -44,7 +44,7 @@ jest.mock("../../../extension/scripts/utils/constants", () => ({
       "audio/wav",
       "audio/webm",
     ],
-    MIN_VALID_AUDIO_SIZE: 1024,
+    MIN_VALID_AUDIO_SIZE: 2 * 1024, // Mirrors production value (pinned in constants.test.ts)
     MAX_VALID_AUDIO_SIZE: 10485760,
   },
 }));
@@ -455,7 +455,7 @@ describe("blob-analyzer", () => {
       // Test minimum valid size
       const minSizeBlob = {
         type: "audio/mpeg",
-        size: 1025, // Just above minimum
+        size: 2049, // Just above minimum
       } as Blob;
 
       expect(blobAnalyzer.isLikelyVoiceMessageBlob(minSizeBlob)).toBe(true);
@@ -467,6 +467,33 @@ describe("blob-analyzer", () => {
       } as Blob;
 
       expect(blobAnalyzer.isLikelyVoiceMessageBlob(maxSizeBlob)).toBe(true);
+    });
+
+    // Fixtures measured from real messenger.com e2ee voice messages
+    // (blob sizes captured at runtime: 7s = 3,323 bytes, 3s = 10,543 bytes, 61s = 192,713 bytes)
+    it("should accept real short voice message blobs (measured e2ee audio/ogg sizes)", () => {
+      const measuredSizes = [3323, 10543, 192713];
+
+      measuredSizes.forEach((size) => {
+        const mockBlob = {
+          type: "audio/ogg",
+          size,
+        } as Blob;
+
+        expect(blobAnalyzer.isLikelyVoiceMessageBlob(mockBlob)).toBe(true);
+      });
+    });
+
+    it("should reject sub-1KB blobs as noise", () => {
+      const mockBlob = {
+        type: "audio/ogg",
+        size: 1000,
+      } as Blob;
+
+      expect(blobAnalyzer.isLikelyVoiceMessageBlob(mockBlob)).toBe(false);
+      expect(mockBlobAnalyzerLogger.debug).toHaveBeenCalledWith(
+        "Blob size is too small"
+      );
     });
   });
 });

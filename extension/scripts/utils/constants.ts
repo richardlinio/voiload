@@ -37,7 +37,7 @@ export const BLOB_MONITOR_CONSTANTS = {
   PERIODIC_CLEANUP_INTERVAL: 300000, // Clear processed URLs every 5 minutes
   MIN_VALID_DURATION: 500, // Minimum valid duration (ms)
   MAX_VALID_DURATION: 1200000, // Maximum valid duration (ms)
-  MIN_VALID_AUDIO_SIZE: 20 * 1024, // Minimum reasonable audio size (20KB)
+  MIN_VALID_AUDIO_SIZE: 2 * 1024, // Minimum reasonable audio size (2KB; real e2ee audio/ogg voice messages measured as small as 3,323 bytes for 7s)
   MAX_VALID_AUDIO_SIZE: 200 * 1024 * 1024, // Maximum reasonable audio size (200MB)
   POSSIBLE_AUDIO_TYPES: ["audio", "video/mp4", "mp4", "mp3", "mpeg"] as const, // Possible audio file types
 } as const;
