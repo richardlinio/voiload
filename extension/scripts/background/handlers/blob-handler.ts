@@ -98,9 +98,24 @@ export function handleBlobUrl(
     return true;
   }
 
+  void registerAndRespond(voiceMessagesStore, message, sendResponse);
+
+  return true; // Keep the connection open for async response
+}
+
+/**
+ * Persist the Blob URL and respond once session storage settles.
+ */
+async function registerAndRespond(
+  voiceMessagesStore: VoiceMessageStore,
+  message: BlobUrlMessage,
+  sendResponse: (response?: any) => void
+): Promise<void> {
+  const { blobUrl, blobType, blobSize, durationMs } = message;
+
   try {
     // Use registerDownloadUrl to register the Blob URL in voiceMessagesStore
-    const id = voiceMessagesStore.registerDownloadUrl(
+    const id = await voiceMessagesStore.registerDownloadUrl(
       durationMs,
       blobUrl,
       null, // No lastModified info
@@ -132,8 +147,6 @@ export function handleBlobUrl(
       message: `Error occurred while registering Blob URL: ${error.message}`,
     });
   }
-
-  return true; // Keep the connection open for async response
 }
 
 /**

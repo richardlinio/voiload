@@ -3,6 +3,8 @@
  * Unit tests for audio-url-registration-handler module
  */
 
+import { flushPromises } from "../../../helpers/flush-promises";
+
 // Mock modules
 jest.mock("../../../../extension/scripts/utils/constants", () => ({
   MODULE_NAMES: {
@@ -60,9 +62,9 @@ describe("audio-url-registration-handler.ts", () => {
 
   describe("handleAudioUrlRegistration", () => {
     describe("Normal Cases", () => {
-      it("should successfully register audio URL with all parameters", () => {
+      it("should successfully register audio URL with all parameters", async () => {
         const mockId = "generated-id-123";
-        mockVoiceMessagesStore.registerDownloadUrl.mockReturnValue(mockId);
+        mockVoiceMessagesStore.registerDownloadUrl.mockResolvedValue(mockId);
 
         const message = {
           audioUrl: "https://example.com/audio.mp3",
@@ -76,6 +78,7 @@ describe("audio-url-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockVoiceMessagesStore.registerDownloadUrl).toHaveBeenCalledWith(
@@ -92,9 +95,9 @@ describe("audio-url-registration-handler.ts", () => {
         });
       });
 
-      it("should register audio URL without timestamp", () => {
+      it("should register audio URL without timestamp", async () => {
         const mockId = "generated-id-456";
-        mockVoiceMessagesStore.registerDownloadUrl.mockReturnValue(mockId);
+        mockVoiceMessagesStore.registerDownloadUrl.mockResolvedValue(mockId);
 
         const message = {
           audioUrl: "https://example.com/audio.wav",
@@ -107,6 +110,7 @@ describe("audio-url-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockVoiceMessagesStore.registerDownloadUrl).toHaveBeenCalledWith(
@@ -120,9 +124,9 @@ describe("audio-url-registration-handler.ts", () => {
         });
       });
 
-      it("should log current store state after registration", () => {
+      it("should log current store state after registration", async () => {
         const mockId = "generated-id-789";
-        mockVoiceMessagesStore.registerDownloadUrl.mockReturnValue(mockId);
+        mockVoiceMessagesStore.registerDownloadUrl.mockResolvedValue(mockId);
 
         // Add some items to simulate store size
         mockVoiceMessagesStore.items.set("item1", { id: "item1" });
@@ -141,6 +145,7 @@ describe("audio-url-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.debug).toHaveBeenCalledWith(
@@ -151,7 +156,7 @@ describe("audio-url-registration-handler.ts", () => {
     });
 
     describe("Validation and Error Handling", () => {
-      it("should handle null voiceMessagesStore", () => {
+      it("should handle null voiceMessagesStore", async () => {
         const message = {
           audioUrl: "https://example.com/audio.mp3",
           durationMs: 5000,
@@ -164,6 +169,7 @@ describe("audio-url-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -178,7 +184,7 @@ describe("audio-url-registration-handler.ts", () => {
         ).not.toHaveBeenCalled();
       });
 
-      it("should handle undefined voiceMessagesStore", () => {
+      it("should handle undefined voiceMessagesStore", async () => {
         const message = {
           audioUrl: "https://example.com/audio.mp3",
           durationMs: 5000,
@@ -190,6 +196,7 @@ describe("audio-url-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -201,7 +208,7 @@ describe("audio-url-registration-handler.ts", () => {
         });
       });
 
-      it("should handle missing audioUrl", () => {
+      it("should handle missing audioUrl", async () => {
         const message = {
           audioUrl: "",
           durationMs: 5000,
@@ -214,6 +221,7 @@ describe("audio-url-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -228,7 +236,7 @@ describe("audio-url-registration-handler.ts", () => {
         ).not.toHaveBeenCalled();
       });
 
-      it("should handle null audioUrl", () => {
+      it("should handle null audioUrl", async () => {
         const message = {
           audioUrl: null,
           durationMs: 5000,
@@ -241,6 +249,7 @@ describe("audio-url-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -252,7 +261,7 @@ describe("audio-url-registration-handler.ts", () => {
         });
       });
 
-      it("should handle missing durationMs", () => {
+      it("should handle missing durationMs", async () => {
         const message = {
           audioUrl: "https://example.com/audio.mp3",
           durationMs: null,
@@ -265,6 +274,7 @@ describe("audio-url-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -276,7 +286,7 @@ describe("audio-url-registration-handler.ts", () => {
         });
       });
 
-      it("should handle zero durationMs", () => {
+      it("should handle zero durationMs", async () => {
         const message = {
           audioUrl: "https://example.com/audio.mp3",
           durationMs: 0,
@@ -289,6 +299,7 @@ describe("audio-url-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -300,7 +311,7 @@ describe("audio-url-registration-handler.ts", () => {
         });
       });
 
-      it("should handle undefined durationMs", () => {
+      it("should handle undefined durationMs", async () => {
         const message = {
           audioUrl: "https://example.com/audio.mp3",
           durationMs: undefined,
@@ -313,6 +324,7 @@ describe("audio-url-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -324,7 +336,7 @@ describe("audio-url-registration-handler.ts", () => {
         });
       });
 
-      it("should handle registration error from voiceMessagesStore", () => {
+      it("should handle registration error from voiceMessagesStore", async () => {
         const errorMessage = "Registration failed";
         mockVoiceMessagesStore.registerDownloadUrl.mockImplementation(() => {
           throw new Error(errorMessage);
@@ -342,6 +354,7 @@ describe("audio-url-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -357,7 +370,7 @@ describe("audio-url-registration-handler.ts", () => {
         });
       });
 
-      it("should handle registration error with custom error object", () => {
+      it("should handle registration error with custom error object", async () => {
         const customError = new Error("Custom registration error");
         customError.stack = "custom stack trace";
         mockVoiceMessagesStore.registerDownloadUrl.mockImplementation(() => {
@@ -375,6 +388,7 @@ describe("audio-url-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -393,9 +407,9 @@ describe("audio-url-registration-handler.ts", () => {
     });
 
     describe("Logging and Debug Information", () => {
-      it("should log detailed debug information on successful registration", () => {
+      it("should log detailed debug information on successful registration", async () => {
         const mockId = "debug-test-id";
-        mockVoiceMessagesStore.registerDownloadUrl.mockReturnValue(mockId);
+        mockVoiceMessagesStore.registerDownloadUrl.mockResolvedValue(mockId);
 
         const message = {
           audioUrl: "https://example.com/debug-test.mp3",
@@ -409,6 +423,7 @@ describe("audio-url-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.debug).toHaveBeenCalledWith(
@@ -421,9 +436,9 @@ describe("audio-url-registration-handler.ts", () => {
         );
       });
 
-      it("should log debug information without timestamp", () => {
+      it("should log debug information without timestamp", async () => {
         const mockId = "no-timestamp-id";
-        mockVoiceMessagesStore.registerDownloadUrl.mockReturnValue(mockId);
+        mockVoiceMessagesStore.registerDownloadUrl.mockResolvedValue(mockId);
 
         const message = {
           audioUrl: "https://example.com/no-timestamp.mp3",
@@ -436,6 +451,7 @@ describe("audio-url-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.debug).toHaveBeenCalledWith(
@@ -450,9 +466,9 @@ describe("audio-url-registration-handler.ts", () => {
     });
 
     describe("Edge Cases", () => {
-      it("should handle very long audio URL", () => {
+      it("should handle very long audio URL", async () => {
         const mockId = "long-url-id";
-        mockVoiceMessagesStore.registerDownloadUrl.mockReturnValue(mockId);
+        mockVoiceMessagesStore.registerDownloadUrl.mockResolvedValue(mockId);
 
         const longUrl = "https://example.com/" + "a".repeat(1000) + ".mp3";
         const message = {
@@ -467,6 +483,7 @@ describe("audio-url-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockVoiceMessagesStore.registerDownloadUrl).toHaveBeenCalledWith(
@@ -480,9 +497,9 @@ describe("audio-url-registration-handler.ts", () => {
         });
       });
 
-      it("should handle very large duration values", () => {
+      it("should handle very large duration values", async () => {
         const mockId = "large-duration-id";
-        mockVoiceMessagesStore.registerDownloadUrl.mockReturnValue(mockId);
+        mockVoiceMessagesStore.registerDownloadUrl.mockResolvedValue(mockId);
 
         const largeDuration = 999999999; // Very large duration
         const message = {
@@ -497,6 +514,7 @@ describe("audio-url-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockVoiceMessagesStore.registerDownloadUrl).toHaveBeenCalledWith(
@@ -508,9 +526,9 @@ describe("audio-url-registration-handler.ts", () => {
         );
       });
 
-      it("should handle audio URLs with special characters", () => {
+      it("should handle audio URLs with special characters", async () => {
         const mockId = "special-chars-id";
-        mockVoiceMessagesStore.registerDownloadUrl.mockReturnValue(mockId);
+        mockVoiceMessagesStore.registerDownloadUrl.mockResolvedValue(mockId);
 
         const specialUrl =
           "https://example.com/audio%20file%20(1).mp3?token=abc123&v=2";
@@ -525,6 +543,7 @@ describe("audio-url-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockVoiceMessagesStore.registerDownloadUrl).toHaveBeenCalledWith(
@@ -540,7 +559,7 @@ describe("audio-url-registration-handler.ts", () => {
     });
 
     describe("Integration Tests", () => {
-      it("should work with realistic audio URL registration workflow", () => {
+      it("should work with realistic audio URL registration workflow", async () => {
         const mockId1 = "workflow-id-1";
         const mockId2 = "workflow-id-2";
         mockVoiceMessagesStore.registerDownloadUrl
@@ -560,6 +579,7 @@ describe("audio-url-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockSendResponse).toHaveBeenLastCalledWith({
@@ -582,6 +602,7 @@ describe("audio-url-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(

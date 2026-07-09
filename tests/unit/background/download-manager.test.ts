@@ -77,14 +77,19 @@ function createMockRightClickInfo(
 
 // Helper function to create mock voice message store
 function createMockVoiceMessageStore(): VoiceMessageStore {
-  return {
+  const store: VoiceMessageStore = {
     items: new Map(),
     isDurationMatch: jest.fn(),
     registerDownloadUrl: jest.fn(),
+    registerElement: jest.fn(),
     findPendingItemByDuration: jest.fn(),
     findItemByDuration: jest.fn(),
     getDownloadUrlForElement: jest.fn(),
+    // Reads through the seeded Map, mirroring the real hydrate-then-read store
+    getAllItems: jest.fn(async () => Array.from(store.items.values())),
+    updateItem: jest.fn(),
   };
+  return store;
 }
 
 
@@ -158,7 +163,7 @@ describe("download-manager.ts", () => {
       );
     });
 
-    it("should trigger batch download when download URL is null", () => {
+    it("should trigger batch download when download URL is null", async () => {
       const mockStore = createMockVoiceMessageStore();
       mockStore.items.set("voice-msg-001", {
         id: "voice-msg-001",
@@ -186,7 +191,8 @@ describe("download-manager.ts", () => {
         menuItemId: "downloadVoiceMessage",
       } as chrome.contextMenus.OnClickData;
 
-      addedListener(mockInfo, undefined);
+      // The listener now awaits the session-storage-backed store before downloading
+      await addedListener(mockInfo, undefined);
 
       // Should call chrome.downloads.download for batch download with first file saveAs: true
       expect(mockChrome.downloads.download).toHaveBeenCalledWith(
@@ -442,16 +448,16 @@ describe("download-manager.ts", () => {
   });
 
   describe("downloadAllVoiceMessages", () => {
-    it("should return 0 when datastore is empty", () => {
+    it("should return 0 when datastore is empty", async () => {
       const mockStore = createMockVoiceMessageStore();
       
-      const result = downloadAllVoiceMessages(mockStore);
+      const result = await downloadAllVoiceMessages(mockStore);
       
       expect(result).toBe(0);
       expect(mockChrome.downloads.download).not.toHaveBeenCalled();
     });
 
-    it("should download all voice messages with valid URLs", () => {
+    it("should download all voice messages with valid URLs", async () => {
       const mockStore = createMockVoiceMessageStore();
       
       // Add test items to the store
@@ -483,7 +489,7 @@ describe("download-manager.ts", () => {
         callback(123);
       });
 
-      const result = downloadAllVoiceMessages(mockStore);
+      const result = await downloadAllVoiceMessages(mockStore);
 
       expect(result).toBe(2);
       expect(mockChrome.downloads.download).toHaveBeenCalledTimes(2);
@@ -503,7 +509,7 @@ describe("download-manager.ts", () => {
       );
     });
 
-    it("should skip items without download URLs", () => {
+    it("should skip items without download URLs", async () => {
       const mockStore = createMockVoiceMessageStore();
       
       mockStore.items.set("item1", {
@@ -534,7 +540,7 @@ describe("download-manager.ts", () => {
         callback(123);
       });
 
-      const result = downloadAllVoiceMessages(mockStore);
+      const result = await downloadAllVoiceMessages(mockStore);
 
       expect(result).toBe(1);
       expect(mockChrome.downloads.download).toHaveBeenCalledTimes(1);
@@ -547,7 +553,7 @@ describe("download-manager.ts", () => {
       );
     });
 
-    it("should skip items with empty download URLs", () => {
+    it("should skip items with empty download URLs", async () => {
       const mockStore = createMockVoiceMessageStore();
       
       mockStore.items.set("item1", {
@@ -562,13 +568,13 @@ describe("download-manager.ts", () => {
         isPending: false,
       });
 
-      const result = downloadAllVoiceMessages(mockStore);
+      const result = await downloadAllVoiceMessages(mockStore);
 
       expect(result).toBe(0);
       expect(mockChrome.downloads.download).not.toHaveBeenCalled();
     });
 
-    it("should include unique identifiers in filenames for batch download", () => {
+    it("should include unique identifiers in filenames for batch download", async () => {
       const mockStore = createMockVoiceMessageStore();
       
       // Add test items with different IDs
@@ -600,7 +606,7 @@ describe("download-manager.ts", () => {
         callback(123);
       });
 
-      const result = downloadAllVoiceMessages(mockStore);
+      const result = await downloadAllVoiceMessages(mockStore);
 
       expect(result).toBe(2);
       expect(mockChrome.downloads.download).toHaveBeenCalledTimes(2);
@@ -625,7 +631,7 @@ describe("download-manager.ts", () => {
       );
     });
 
-    it("should download with first dialog when showFirstDialog is true", () => {
+    it("should download with first dialog when showFirstDialog is true", async () => {
       const mockStore = createMockVoiceMessageStore();
       mockStore.items.set("voice-msg-001", {
         id: "voice-msg-001",
@@ -650,7 +656,7 @@ describe("download-manager.ts", () => {
         callback(123);
       });
 
-      const result = downloadAllVoiceMessages(mockStore, true);
+      const result = await downloadAllVoiceMessages(mockStore, true);
 
       expect(result).toBe(2);
       expect(mockChrome.downloads.download).toHaveBeenCalledTimes(2);
@@ -676,7 +682,7 @@ describe("download-manager.ts", () => {
       );
     });
 
-    it("should download single file with dialog when showFirstDialog is true", () => {
+    it("should download single file with dialog when showFirstDialog is true", async () => {
       const mockStore = createMockVoiceMessageStore();
       mockStore.items.set("voice-msg-001", {
         id: "voice-msg-001",
@@ -692,7 +698,7 @@ describe("download-manager.ts", () => {
         callback(123);
       });
 
-      const result = downloadAllVoiceMessages(mockStore, true);
+      const result = await downloadAllVoiceMessages(mockStore, true);
 
       expect(result).toBe(1);
       expect(mockChrome.downloads.download).toHaveBeenCalledTimes(1);

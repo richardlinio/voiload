@@ -39,9 +39,7 @@ export function initMessageHandler(voiceMessages?: VoiceMessageStore): void {
     voiceMessagesStore = createDataStore();
   }
 
-  logger.debug("voiceMessagesStore initialized", {
-    mapSize: voiceMessagesStore.items.size,
-  });
+  logger.debug("voiceMessagesStore initialized");
 
   // Listen for messages from the content script
   chrome.runtime.onMessage.addListener(

@@ -3,6 +3,8 @@
  * Unit tests for element-registration-handler module
  */
 
+import { flushPromises } from "../../../helpers/flush-promises";
+
 // Chrome APIs are already mocked in setup.js
 
 // Mock modules
@@ -10,6 +12,8 @@ jest.mock("../../../../extension/scripts/utils/constants", () => ({
   MODULE_NAMES: {
     ELEMENT_REGISTRATION_HANDLER: "element-registration-handler",
   },
+  // Mirrors production (pinned in constants.test.ts)
+  EXACT_MATCHING_TOLERANCE: 5,
 }));
 
 jest.mock("../../../../extension/scripts/utils/logger", () => ({
@@ -47,9 +51,36 @@ describe("element-registration-handler.ts", () => {
       error: jest.fn(),
     };
 
-    // Create mock voice messages store
+    // Create mock voice messages store — a working in-memory stand-in for the
+    // session-storage-backed store, so tests can seed and inspect `items` while
+    // the handler goes through the async accessors
     mockVoiceMessagesStore = {
       items: new Map(),
+      registerElement: jest.fn(async (elementId: string, durationMs: number) => {
+        const item = {
+          id: elementId,
+          element: null,
+          durationMs,
+          downloadUrl: null,
+          lastModified: null,
+          timestamp: Date.now(),
+          isPending: true,
+        };
+        mockVoiceMessagesStore.items.set(elementId, item);
+        return item;
+      }),
+      getAllItems: jest.fn(async () =>
+        Array.from(mockVoiceMessagesStore.items.values())
+      ),
+      updateItem: jest.fn(async (id: string, patch: any) => {
+        const item = mockVoiceMessagesStore.items.get(id);
+        if (!item) {
+          mockLogger.error("Cannot find item to update", { id });
+          return null;
+        }
+        Object.assign(item, patch);
+        return item;
+      }),
     };
 
     // Create mock sender and response
@@ -68,7 +99,7 @@ describe("element-registration-handler.ts", () => {
 
   describe("handleElementRegistration", () => {
     describe("Normal Cases", () => {
-      it("should register element without matching download URL", () => {
+      it("should register element without matching download URL", async () => {
         const mockTimestamp = 1234567890000;
         jest.spyOn(Date, "now").mockReturnValue(mockTimestamp);
 
@@ -83,6 +114,7 @@ describe("element-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockVoiceMessagesStore.items.get("element-123")).toEqual({
@@ -102,7 +134,7 @@ describe("element-registration-handler.ts", () => {
         jest.restoreAllMocks();
       });
 
-      it("should register element and match with existing download URL", () => {
+      it("should register element and match with existing download URL", async () => {
         const mockTimestamp = 1234567890000;
         jest.spyOn(Date, "now").mockReturnValue(mockTimestamp);
 
@@ -127,6 +159,7 @@ describe("element-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
 
@@ -163,7 +196,7 @@ describe("element-registration-handler.ts", () => {
         jest.restoreAllMocks();
       });
 
-      it("should handle element registration without tab ID", () => {
+      it("should handle element registration without tab ID", async () => {
         const mockTimestamp = 1234567890000;
         jest.spyOn(Date, "now").mockReturnValue(mockTimestamp);
 
@@ -190,6 +223,7 @@ describe("element-registration-handler.ts", () => {
           senderWithoutTab,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockSendResponse).toHaveBeenCalledWith({
@@ -204,7 +238,7 @@ describe("element-registration-handler.ts", () => {
         jest.restoreAllMocks();
       });
 
-      it("should handle matching within tolerance boundaries", () => {
+      it("should handle matching within tolerance boundaries", async () => {
         const mockTimestamp = 1234567890000;
         jest.spyOn(Date, "now").mockReturnValue(mockTimestamp);
 
@@ -229,6 +263,7 @@ describe("element-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockSendResponse).toHaveBeenCalledWith({
@@ -240,7 +275,7 @@ describe("element-registration-handler.ts", () => {
         jest.restoreAllMocks();
       });
 
-      it("should not match items outside tolerance", () => {
+      it("should not match items outside tolerance", async () => {
         const mockTimestamp = 1234567890000;
         jest.spyOn(Date, "now").mockReturnValue(mockTimestamp);
 
@@ -265,6 +300,7 @@ describe("element-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockSendResponse).toHaveBeenCalledWith({
@@ -275,7 +311,7 @@ describe("element-registration-handler.ts", () => {
         jest.restoreAllMocks();
       });
 
-      it("should not match items without download URL", () => {
+      it("should not match items without download URL", async () => {
         const mockTimestamp = 1234567890000;
         jest.spyOn(Date, "now").mockReturnValue(mockTimestamp);
 
@@ -300,6 +336,7 @@ describe("element-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockSendResponse).toHaveBeenCalledWith({
@@ -310,7 +347,7 @@ describe("element-registration-handler.ts", () => {
         jest.restoreAllMocks();
       });
 
-      it("should not match the same element ID", () => {
+      it("should not match the same element ID", async () => {
         const mockTimestamp = 1234567890000;
         jest.spyOn(Date, "now").mockReturnValue(mockTimestamp);
 
@@ -335,6 +372,7 @@ describe("element-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockSendResponse).toHaveBeenCalledWith({
@@ -347,7 +385,7 @@ describe("element-registration-handler.ts", () => {
     });
 
     describe("Validation and Error Handling", () => {
-      it("should handle missing elementId", () => {
+      it("should handle missing elementId", async () => {
         const message = {
           elementId: "",
           durationMs: 5000,
@@ -359,6 +397,7 @@ describe("element-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -370,7 +409,7 @@ describe("element-registration-handler.ts", () => {
         });
       });
 
-      it("should handle missing durationMs", () => {
+      it("should handle missing durationMs", async () => {
         const message = {
           elementId: "element-123",
           durationMs: 0,
@@ -382,6 +421,7 @@ describe("element-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -393,7 +433,7 @@ describe("element-registration-handler.ts", () => {
         });
       });
 
-      it("should handle null voiceMessagesStore", () => {
+      it("should handle null voiceMessagesStore", async () => {
         const message = {
           elementId: "element-123",
           durationMs: 5000,
@@ -405,6 +445,7 @@ describe("element-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -416,17 +457,12 @@ describe("element-registration-handler.ts", () => {
         });
       });
 
-      it("should handle exceptions during registration", () => {
-        // Mock store.items.set to throw an error
-        const mockStore = {
-          items: {
-            set: jest.fn(() => {
-              throw new Error("Store operation failed");
-            }),
-            get: jest.fn(),
-            entries: jest.fn(() => []),
-          },
-        };
+      it("should handle exceptions during registration", async () => {
+        // A rejected store write must be reported through sendResponse rather
+        // than escaping the fire-and-forget continuation
+        mockVoiceMessagesStore.registerElement.mockRejectedValue(
+          new Error("Store operation failed")
+        );
 
         const message = {
           elementId: "element-123",
@@ -434,11 +470,12 @@ describe("element-registration-handler.ts", () => {
         };
 
         const result = elementRegistrationHandler.handleElementRegistration(
-          mockStore,
+          mockVoiceMessagesStore,
           message,
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -451,7 +488,7 @@ describe("element-registration-handler.ts", () => {
         });
       });
 
-      it("should handle chrome.tabs.sendMessage error", () => {
+      it("should handle chrome.tabs.sendMessage error", async () => {
         const mockTimestamp = 1234567890000;
         jest.spyOn(Date, "now").mockReturnValue(mockTimestamp);
 
@@ -481,6 +518,7 @@ describe("element-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockSendResponse).toHaveBeenCalledWith({
@@ -498,7 +536,7 @@ describe("element-registration-handler.ts", () => {
     });
 
     describe("Edge Cases", () => {
-      it("should handle update when element no longer exists in store", () => {
+      it("should handle update when element no longer exists in store", async () => {
         const mockTimestamp = 1234567890000;
         jest.spyOn(Date, "now").mockReturnValue(mockTimestamp);
 
@@ -532,19 +570,20 @@ describe("element-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.error).toHaveBeenCalledWith(
           "Cannot find item to update",
           {
-            elementId: "element-123",
+            id: "element-123",
           }
         );
 
         jest.restoreAllMocks();
       });
 
-      it("should handle multiple matching items and return first match", () => {
+      it("should handle multiple matching items and return first match", async () => {
         const mockTimestamp = 1234567890000;
         jest.spyOn(Date, "now").mockReturnValue(mockTimestamp);
 
@@ -578,6 +617,7 @@ describe("element-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         // Should match the first one in iteration order
@@ -590,7 +630,7 @@ describe("element-registration-handler.ts", () => {
         jest.restoreAllMocks();
       });
 
-      it("should handle items without durationMs", () => {
+      it("should handle items without durationMs", async () => {
         const mockTimestamp = 1234567890000;
         jest.spyOn(Date, "now").mockReturnValue(mockTimestamp);
 
@@ -615,6 +655,7 @@ describe("element-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockSendResponse).toHaveBeenCalledWith({
@@ -627,7 +668,7 @@ describe("element-registration-handler.ts", () => {
     });
 
     describe("Integration Tests", () => {
-      it("should work with realistic registration flow", () => {
+      it("should work with realistic registration flow", async () => {
         const mockTimestamp = 1234567890000;
         jest.spyOn(Date, "now").mockReturnValue(mockTimestamp);
 
@@ -643,6 +684,7 @@ describe("element-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockVoiceMessagesStore.items.size).toBe(1);
@@ -674,6 +716,7 @@ describe("element-registration-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockVoiceMessagesStore.items.size).toBe(3);

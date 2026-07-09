@@ -2,6 +2,11 @@
  * data-store.ts
  * Provides a unified data structure to manage the mapping between voice message elements and download URLs.
  * Uses the singleton pattern to ensure only one instance of voiceMessages exists throughout the extension.
+ *
+ * The in-memory Map is a cache in front of chrome.storage.session: an MV3 service
+ * worker is evicted after ~30s idle, so anything kept only in module scope is gone
+ * by the time the user right-clicks. Every mutation is written through to session
+ * storage, and every read hydrates the cache first.
  */
 
 import { generateVoiceMessageId } from "../utils/id-generator";
@@ -12,6 +17,7 @@ import {
   MATCHING_TOLERANCE,
   EXACT_MATCHING_TOLERANCE,
   TIME_CONSTANTS,
+  STORAGE_KEYS,
 } from "../utils/constants";
 import type {
   VoiceMessageItem,
@@ -28,9 +34,91 @@ const logger = Logger.createModuleLogger(MODULE_NAMES.DATA_STORE);
 // Global singleton instance
 let voiceMessagesInstance: VoiceMessageStore | null = null;
 
+// Resolves once the in-memory cache has been filled from session storage.
+// Kept per service-worker lifetime: a fresh worker starts with a null promise
+// and hydrates on the first store access.
+let hydrationPromise: Promise<void> | null = null;
+
+/**
+ * Read the persisted items into the in-memory cache.
+ * Runs at most once per service-worker lifetime; concurrent callers share the
+ * same promise so the storage read is not duplicated.
+ *
+ * @param voiceMessages - Voice message data store
+ */
+export function hydrate(voiceMessages: VoiceMessageStore): Promise<void> {
+  if (hydrationPromise) {
+    return hydrationPromise;
+  }
+
+  hydrationPromise = (async () => {
+    try {
+      const stored = await chrome.storage.session.get(STORAGE_KEYS.VOICE_MESSAGES);
+      const persisted = stored?.[STORAGE_KEYS.VOICE_MESSAGES];
+
+      if (!Array.isArray(persisted)) {
+        logger.debug("No persisted voice messages found");
+        return;
+      }
+
+      for (const item of persisted) {
+        if (item && typeof item.id === "string") {
+          voiceMessages.items.set(item.id, item as VoiceMessageItem);
+        }
+      }
+
+      logger.info("Hydrated voice messages from session storage", {
+        itemCount: voiceMessages.items.size,
+      });
+    } catch (error: any) {
+      // A failed hydrate degrades to an empty cache rather than breaking the
+      // worker: the user loses history, not the ability to download.
+      logger.error("Failed to hydrate voice messages from session storage", {
+        error: error?.message,
+      });
+    }
+  })();
+
+  return hydrationPromise;
+}
+
+/**
+ * Write the in-memory cache back to session storage.
+ * Session storage is JSON-serialised, so the Map is flattened to an array of items.
+ *
+ * @param voiceMessages - Voice message data store
+ */
+async function persist(voiceMessages: VoiceMessageStore): Promise<void> {
+  try {
+    await chrome.storage.session.set({
+      [STORAGE_KEYS.VOICE_MESSAGES]: Array.from(voiceMessages.items.values()),
+    });
+  } catch (error: any) {
+    // Losing a write means the item survives only until the worker is evicted;
+    // the current request still succeeds, so this is logged rather than thrown.
+    logger.error("Failed to persist voice messages to session storage", {
+      error: error?.message,
+      itemCount: voiceMessages.items.size,
+    });
+  }
+}
+
+/**
+ * Reset the hydration state. Exported for tests, which simulate a service-worker
+ * restart by discarding the module-scope cache while session storage survives.
+ */
+export function resetHydrationState(): void {
+  hydrationPromise = null;
+  voiceMessagesInstance = null;
+}
+
 /**
  * Create the voice message data store (singleton pattern)
  * Provides a single data structure to manage the mapping between voice message elements and download URLs
+ *
+ * Construction is synchronous so the background script can register its event
+ * listeners in the first turn of the event loop, as MV3 requires; the store
+ * hydrates lazily on first access.
  *
  * @returns Voice message data store
  */
@@ -45,7 +133,7 @@ export function createDataStore(): VoiceMessageStore {
 
   // Main data structure
   voiceMessagesInstance = {
-    // Map with ID as key, storing complete voice message data
+    // Map with ID as key, caching the persisted voice message data
     items: new Map<string, VoiceMessageItem>(),
 
     // Helper functions
@@ -69,12 +157,17 @@ export function createDataStore(): VoiceMessageStore {
         blobType,
         blobSize
       ),
+    registerElement: (elementId: string, durationMs: number) =>
+      registerElement(voiceMessagesInstance!, elementId, durationMs),
     findPendingItemByDuration: (durationMs: number) =>
       findPendingItemByDuration(voiceMessagesInstance!, durationMs),
     findItemByDuration: (durationMs: number) =>
       findItemByDuration(voiceMessagesInstance!, durationMs),
     getDownloadUrlForElement: (element: Element) =>
       getDownloadUrlForElement(voiceMessagesInstance!, element),
+    getAllItems: () => getAllItems(voiceMessagesInstance!),
+    updateItem: (id: string, patch: Partial<VoiceMessageItem>) =>
+      updateItem(voiceMessagesInstance!, id, patch),
   };
 
   return voiceMessagesInstance;
@@ -105,6 +198,9 @@ export function isDurationMatch(
  * When several candidates fall inside the band the nearest wins with a warning;
  * when the two nearest are equally distant the match is refused (returning null)
  * rather than guessing, so callers fall through to their fallback path.
+ *
+ * Operates on the already-hydrated cache; callers are responsible for awaiting
+ * hydrate() first.
  *
  * @param voiceMessages - Voice message data store
  * @param durationMs - Target duration (milliseconds)
@@ -168,14 +264,16 @@ function findNearestItemByDuration(
  * @param blobSize - Size of the Blob (bytes)
  * @returns Voice message ID
  */
-export function registerDownloadUrl(
+export async function registerDownloadUrl(
   voiceMessages: VoiceMessageStore,
   durationMs: number,
   downloadUrl: string,
   lastModified: string | null = null,
   blobType: string | null = null,
   blobSize: number | null = null
-): string {
+): Promise<string> {
+  await hydrate(voiceMessages);
+
   const blobSizeKB = blobSize ? (blobSize / 1024).toFixed(2) : "N/A";
 
   logger.debug("Registering download URL", {
@@ -255,6 +353,8 @@ export function registerDownloadUrl(
 
     logger.debug("DATASTORE-UPDATE", updateData);
 
+    await persist(voiceMessages);
+
     return id;
   }
 
@@ -305,7 +405,80 @@ export function registerDownloadUrl(
 
   logger.debug("DATASTORE-NEW", newItemData);
 
+  await persist(voiceMessages);
+
   return id;
+}
+
+/**
+ * Register a voice message element discovered in the DOM, keyed by its element ID.
+ *
+ * @param voiceMessages - Voice message data store
+ * @param elementId - Element ID assigned by the content script
+ * @param durationMs - Duration read from the DOM (milliseconds)
+ * @returns The stored item
+ */
+export async function registerElement(
+  voiceMessages: VoiceMessageStore,
+  elementId: string,
+  durationMs: number
+): Promise<VoiceMessageItem> {
+  await hydrate(voiceMessages);
+
+  const item: VoiceMessageItem = {
+    id: elementId,
+    element: null,
+    durationMs,
+    downloadUrl: null,
+    lastModified: null,
+    timestamp: Date.now(),
+    isPending: true,
+  };
+
+  voiceMessages.items.set(elementId, item);
+  await persist(voiceMessages);
+
+  return item;
+}
+
+/**
+ * Apply a partial update to a stored item and persist the result.
+ *
+ * @param voiceMessages - Voice message data store
+ * @param id - Item ID
+ * @param patch - Fields to overwrite
+ * @returns The updated item, or null when no item carries that ID
+ */
+export async function updateItem(
+  voiceMessages: VoiceMessageStore,
+  id: string,
+  patch: Partial<VoiceMessageItem>
+): Promise<VoiceMessageItem | null> {
+  await hydrate(voiceMessages);
+
+  const item = voiceMessages.items.get(id);
+  if (!item) {
+    logger.error("Cannot find item to update", { id });
+    return null;
+  }
+
+  Object.assign(item, patch);
+  await persist(voiceMessages);
+
+  return item;
+}
+
+/**
+ * Return every stored item, hydrating from session storage first.
+ *
+ * @param voiceMessages - Voice message data store
+ * @returns All stored items
+ */
+export async function getAllItems(
+  voiceMessages: VoiceMessageStore
+): Promise<VoiceMessageItem[]> {
+  await hydrate(voiceMessages);
+  return Array.from(voiceMessages.items.values());
 }
 
 /**
@@ -315,10 +488,12 @@ export function registerDownloadUrl(
  * @param durationMs - Duration (milliseconds)
  * @returns Pending item, or null if not found
  */
-export function findPendingItemByDuration(
+export async function findPendingItemByDuration(
   voiceMessages: VoiceMessageStore,
   durationMs: number
-): VoiceMessageItem | null {
+): Promise<VoiceMessageItem | null> {
+  await hydrate(voiceMessages);
+
   return findNearestItemByDuration(
     voiceMessages,
     durationMs,
@@ -334,14 +509,16 @@ export function findPendingItemByDuration(
  * @param element - Voice message element
  * @returns Object containing downloadUrl and lastModified, or null if not found
  */
-export function getDownloadUrlForElement(
+export async function getDownloadUrlForElement(
   voiceMessages: VoiceMessageStore,
   element: Element
-): DownloadUrlResult | null {
+): Promise<DownloadUrlResult | null> {
   if (!element) {
     logger.debug("getDownloadUrlForElement: element is null");
     return null;
   }
+
+  await hydrate(voiceMessages);
 
   logger.debug("Looking up download URL for element");
   logger.debug("voiceMessages Map size", { size: voiceMessages.items.size });
@@ -396,7 +573,12 @@ export function getDownloadUrlForElement(
 
       logger.debug("Item duration details", { items: itemsInfo });
 
-      const item = findItemByDuration(voiceMessages, durationMs);
+      const item = findNearestItemByDuration(
+        voiceMessages,
+        durationMs,
+        undefined,
+        "getDownloadUrlForElement"
+      );
       if (item && item.downloadUrl) {
         logger.debug("Found matching item by duration", {
           id: item.id,
@@ -424,10 +606,12 @@ export function getDownloadUrlForElement(
  * @param durationMs - Duration (milliseconds)
  * @returns Found item, or null if not found
  */
-export function findItemByDuration(
+export async function findItemByDuration(
   voiceMessages: VoiceMessageStore,
   durationMs: number
-): VoiceMessageItem | null {
+): Promise<VoiceMessageItem | null> {
+  await hydrate(voiceMessages);
+
   return findNearestItemByDuration(
     voiceMessages,
     durationMs,
@@ -442,16 +626,24 @@ export function findItemByDuration(
  * @param voiceMessages - Voice message data store
  * @param maxAgeMs - Maximum lifetime (milliseconds), default is 7 days
  */
-export function cleanupOldItems(
+export async function cleanupOldItems(
   voiceMessages: VoiceMessageStore,
   maxAgeMs: number = TIME_CONSTANTS.DATA_RETENTION_PERIOD
-): void {
+): Promise<void> {
+  await hydrate(voiceMessages);
+
   const now = Date.now();
+  let removed = 0;
 
   for (const [id, item] of voiceMessages.items.entries()) {
     // Check if the item is expired
     if (now - item.timestamp > maxAgeMs) {
       voiceMessages.items.delete(id);
+      removed++;
     }
+  }
+
+  if (removed > 0) {
+    await persist(voiceMessages);
   }
 }

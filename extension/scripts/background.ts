@@ -40,6 +40,11 @@ logger.debug("Chrome API availability", {
 
 /**
  * Main initialization function
+ *
+ * Stays synchronous: MV3 re-executes this script when it wakes an evicted service
+ * worker and only dispatches the queued event to listeners registered in the first
+ * turn of the event loop. The data store hydrates lazily from chrome.storage.session
+ * on its first access instead.
  */
 function initialize(): VoiceMessageStore {
   logger.info("Initializing background script");
@@ -68,7 +73,9 @@ function initialize(): VoiceMessageStore {
 
     // Set up periodic cleanup of old items
     setInterval(() => {
-      cleanupOldItems(voiceMessages);
+      void cleanupOldItems(voiceMessages).catch((error: any) => {
+        logger.error("Error during periodic cleanup", { error });
+      });
     }, TIME_CONSTANTS.CLEANUP_INTERVAL);
 
     logger.info("Background script initialization complete");

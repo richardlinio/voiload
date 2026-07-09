@@ -182,10 +182,7 @@ describe("MessageHandler", () => {
         "Using singleton voiceMessages instance"
       );
       expect(mockLogger.debug).toHaveBeenCalledWith(
-        "voiceMessagesStore initialized",
-        {
-          mapSize: 0,
-        }
+        "voiceMessagesStore initialized"
       );
     });
 
@@ -204,10 +201,7 @@ describe("MessageHandler", () => {
         "Using provided voiceMessages instance"
       );
       expect(mockLogger.debug).toHaveBeenCalledWith(
-        "voiceMessagesStore initialized",
-        {
-          mapSize: 1,
-        }
+        "voiceMessagesStore initialized"
       );
     });
 

@@ -121,6 +121,15 @@ export const MATCHING_TOLERANCE = 1000; // ms
 export const EXACT_MATCHING_TOLERANCE = 5; // ms
 
 // ===========================================
+// Storage Keys
+// ===========================================
+export const STORAGE_KEYS = {
+  // chrome.storage.session key holding the voice message items, so the store
+  // survives MV3 service-worker eviction.
+  VOICE_MESSAGES: "voiceMessages",
+} as const;
+
+// ===========================================
 // UI Related Constants
 // ===========================================
 export const UI_CONSTANTS = {

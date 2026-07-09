@@ -3,6 +3,8 @@
  * Unit tests for blob-handler module
  */
 
+import { flushPromises } from "../../../helpers/flush-promises";
+
 // Chrome APIs are already mocked in setup.js
 
 // Mock modules
@@ -74,9 +76,9 @@ describe("blob-handler.ts", () => {
 
   describe("handleBlobUrl", () => {
     describe("Normal Cases", () => {
-      it("should successfully register blob URL with all parameters", () => {
+      it("should successfully register blob URL with all parameters", async () => {
         const mockId = "blob-id-123";
-        mockVoiceMessagesStore.registerDownloadUrl.mockReturnValue(mockId);
+        mockVoiceMessagesStore.registerDownloadUrl.mockResolvedValue(mockId);
 
         const message = {
           blobUrl:
@@ -93,6 +95,7 @@ describe("blob-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockVoiceMessagesStore.registerDownloadUrl).toHaveBeenCalledWith(
@@ -112,9 +115,9 @@ describe("blob-handler.ts", () => {
         });
       });
 
-      it("should register blob URL without optional parameters", () => {
+      it("should register blob URL without optional parameters", async () => {
         const mockId = "blob-id-456";
-        mockVoiceMessagesStore.registerDownloadUrl.mockReturnValue(mockId);
+        mockVoiceMessagesStore.registerDownloadUrl.mockResolvedValue(mockId);
 
         const message = {
           blobUrl:
@@ -129,6 +132,7 @@ describe("blob-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockVoiceMessagesStore.registerDownloadUrl).toHaveBeenCalledWith(
@@ -145,9 +149,9 @@ describe("blob-handler.ts", () => {
         });
       });
 
-      it("should log debug information with truncated blob URL", () => {
+      it("should log debug information with truncated blob URL", async () => {
         const mockId = "blob-id-789";
-        mockVoiceMessagesStore.registerDownloadUrl.mockReturnValue(mockId);
+        mockVoiceMessagesStore.registerDownloadUrl.mockResolvedValue(mockId);
 
         const message = {
           blobUrl:
@@ -164,6 +168,7 @@ describe("blob-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.debug).toHaveBeenCalledWith(
@@ -178,9 +183,9 @@ describe("blob-handler.ts", () => {
         );
       });
 
-      it("should log current store state after registration", () => {
+      it("should log current store state after registration", async () => {
         const mockId = "blob-id-state";
-        mockVoiceMessagesStore.registerDownloadUrl.mockReturnValue(mockId);
+        mockVoiceMessagesStore.registerDownloadUrl.mockResolvedValue(mockId);
 
         // Add some items to simulate store size
         mockVoiceMessagesStore.items.set("item1", { id: "item1" });
@@ -198,6 +203,7 @@ describe("blob-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.debug).toHaveBeenCalledWith(
@@ -208,7 +214,7 @@ describe("blob-handler.ts", () => {
     });
 
     describe("Validation and Error Handling", () => {
-      it("should handle null voiceMessagesStore", () => {
+      it("should handle null voiceMessagesStore", async () => {
         const message = {
           blobUrl: "blob:https://facebook.com/test",
           durationMs: 5000,
@@ -221,6 +227,7 @@ describe("blob-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -235,7 +242,7 @@ describe("blob-handler.ts", () => {
         ).not.toHaveBeenCalled();
       });
 
-      it("should handle missing blobUrl", () => {
+      it("should handle missing blobUrl", async () => {
         const message = {
           blobUrl: "",
           durationMs: 5000,
@@ -248,6 +255,7 @@ describe("blob-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -259,7 +267,7 @@ describe("blob-handler.ts", () => {
         });
       });
 
-      it("should handle null blobUrl", () => {
+      it("should handle null blobUrl", async () => {
         const message = {
           blobUrl: null,
           durationMs: 5000,
@@ -272,6 +280,7 @@ describe("blob-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -283,7 +292,7 @@ describe("blob-handler.ts", () => {
         });
       });
 
-      it("should handle missing durationMs", () => {
+      it("should handle missing durationMs", async () => {
         const message = {
           blobUrl: "blob:https://facebook.com/test",
           durationMs: null,
@@ -296,6 +305,7 @@ describe("blob-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -307,7 +317,7 @@ describe("blob-handler.ts", () => {
         });
       });
 
-      it("should handle zero durationMs", () => {
+      it("should handle zero durationMs", async () => {
         const message = {
           blobUrl: "blob:https://facebook.com/test",
           durationMs: 0,
@@ -320,6 +330,7 @@ describe("blob-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -331,7 +342,7 @@ describe("blob-handler.ts", () => {
         });
       });
 
-      it("should handle registration error from voiceMessagesStore", () => {
+      it("should handle registration error from voiceMessagesStore", async () => {
         const errorMessage = "Registration failed";
         mockVoiceMessagesStore.registerDownloadUrl.mockImplementation(() => {
           throw new Error(errorMessage);
@@ -349,6 +360,7 @@ describe("blob-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -368,7 +380,7 @@ describe("blob-handler.ts", () => {
 
   describe("handleBlobDetection", () => {
     describe("Normal Cases", () => {
-      it("should handle blob detection message with all information", () => {
+      it("should handle blob detection message with all information", async () => {
         const message = {
           url: "https://facebook.com/test",
           type: "audio",
@@ -402,7 +414,7 @@ describe("blob-handler.ts", () => {
         });
       });
 
-      it("should handle blob detection message without optional fields", () => {
+      it("should handle blob detection message without optional fields", async () => {
         const message = {
           url: "https://facebook.com/minimal",
           type: "audio",
@@ -432,7 +444,7 @@ describe("blob-handler.ts", () => {
         });
       });
 
-      it("should handle blob detection message with error", () => {
+      it("should handle blob detection message with error", async () => {
         const message = {
           url: "https://facebook.com/error-case",
           type: "audio",
@@ -471,7 +483,7 @@ describe("blob-handler.ts", () => {
 
   describe("handleBlobContent", () => {
     describe("Normal Cases", () => {
-      it("should successfully download blob content with MP3 type", () => {
+      it("should successfully download blob content with MP3 type", async () => {
         const mockDownloadId = 12345;
         (global.chrome as any).downloads.download.mockImplementation(
           (options: any, callback: any) => {
@@ -517,7 +529,7 @@ describe("blob-handler.ts", () => {
         });
       });
 
-      it("should generate correct filename for different audio types", () => {
+      it("should generate correct filename for different audio types", async () => {
         const mockDownloadId = 67890;
         (global.chrome as any).downloads.download.mockImplementation(
           (options: any, callback: any) => {
@@ -562,7 +574,7 @@ describe("blob-handler.ts", () => {
         });
       });
 
-      it("should handle blob content without timestamp", () => {
+      it("should handle blob content without timestamp", async () => {
         const mockDownloadId = 11111;
         (global.chrome as any).downloads.download.mockImplementation(
           (options: any, callback: any) => {
@@ -600,7 +612,7 @@ describe("blob-handler.ts", () => {
     });
 
     describe("Validation and Error Handling", () => {
-      it("should handle missing base64data", () => {
+      it("should handle missing base64data", async () => {
         const message = {
           blobType: "audio/mpeg",
           base64data: "",
@@ -626,7 +638,7 @@ describe("blob-handler.ts", () => {
         ).not.toHaveBeenCalled();
       });
 
-      it("should handle missing blobType", () => {
+      it("should handle missing blobType", async () => {
         const message = {
           blobType: "",
           base64data: "dGVzdGRhdGE=",
@@ -649,7 +661,7 @@ describe("blob-handler.ts", () => {
         });
       });
 
-      it("should handle download API error", () => {
+      it("should handle download API error", async () => {
         const errorMessage = "Download failed";
         (global.chrome as any).runtime.lastError = { message: errorMessage };
         (global.chrome as any).downloads.download.mockImplementation(
@@ -681,7 +693,7 @@ describe("blob-handler.ts", () => {
         });
       });
 
-      it("should handle exception during blob content processing", () => {
+      it("should handle exception during blob content processing", async () => {
         // Mock Date constructor to throw error
         const originalDate = Date;
         global.Date = jest.fn(() => {
@@ -720,7 +732,7 @@ describe("blob-handler.ts", () => {
     });
 
     describe("File Extension Logic", () => {
-      it("should correctly map MIME types to file extensions", () => {
+      it("should correctly map MIME types to file extensions", async () => {
         const mockDownloadId = 99999;
         (global.chrome as any).downloads.download.mockImplementation(
           (options: any, callback: any) => {
@@ -764,7 +776,7 @@ describe("blob-handler.ts", () => {
     });
 
     describe("Integration Tests", () => {
-      it("should work with realistic blob content download workflow", () => {
+      it("should work with realistic blob content download workflow", async () => {
         const mockDownloadId1 = 11111;
         const mockDownloadId2 = 22222;
 

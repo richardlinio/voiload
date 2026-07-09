@@ -4,7 +4,7 @@
  */
 
 import { Logger } from "../../utils/logger";
-import { MODULE_NAMES } from "../../utils/constants";
+import { MODULE_NAMES, EXACT_MATCHING_TOLERANCE } from "../../utils/constants";
 import { type VoiceMessageStore, type VoiceMessageItem } from "../data-store";
 import type { ElementRegistrationMessage } from "../../types/messages";
 
@@ -36,20 +36,28 @@ export function handleElementRegistration(
     return true;
   }
 
+  void registerAndRespond(voiceMessagesStore, message, _sender, sendResponse);
+
+  return true; // Keep the connection open for async response
+}
+
+/**
+ * Persist the element and respond once the store settles.
+ */
+async function registerAndRespond(
+  voiceMessagesStore: VoiceMessageStore,
+  message: ElementRegistrationMessage,
+  sender: chrome.runtime.MessageSender,
+  sendResponse: (response?: any) => void
+): Promise<void> {
+  const { elementId, durationMs } = message;
+
   try {
     // Create a new item in voiceMessages
-    voiceMessagesStore.items.set(elementId, {
-      id: elementId,
-      element: null,
-      durationMs,
-      downloadUrl: null,
-      lastModified: null,
-      timestamp: Date.now(),
-      isPending: true,
-    });
+    await voiceMessagesStore.registerElement(elementId, durationMs);
 
     // Check if there is a pending download URL that can be matched
-    const matchingItem = findMatchingPendingItem(
+    const matchingItem = await findMatchingPendingItem(
       voiceMessagesStore,
       elementId,
       durationMs
@@ -57,15 +65,19 @@ export function handleElementRegistration(
 
     if (matchingItem && matchingItem.downloadUrl) {
       // If a matching item is found, update the element's download URL
-      updateElementWithMatchingItem(
-        voiceMessagesStore,
+      await voiceMessagesStore.updateItem(elementId, {
+        downloadUrl: matchingItem.downloadUrl,
+        lastModified: matchingItem.lastModified ?? null,
+      });
+
+      logger.debug("Updated element's download URL:", {
         elementId,
-        matchingItem
-      );
+        downloadUrl: matchingItem.downloadUrl.substring(0, 50) + "...",
+      });
 
       // Notify content script to update UI
       notifyContentScriptToUpdateUI(
-        _sender.tab?.id,
+        sender.tab?.id,
         elementId,
         matchingItem.downloadUrl
       );
@@ -89,27 +101,25 @@ export function handleElementRegistration(
     );
     sendResponse({ success: false, error: error.message });
   }
-
-  return true; // Keep the connection open for async response
 }
 
 /**
- * Find a matching pending item
+ * Find another item, already carrying a download URL, whose duration is the same
+ * audio as the just-registered element.
  */
-function findMatchingPendingItem(
+async function findMatchingPendingItem(
   voiceMessagesStore: VoiceMessageStore,
   elementId: string,
   durationMs: number
-): VoiceMessageItem | null {
-  // Use a tolerance value to find a matching item
-  const tolerance = 5; // Tolerance (milliseconds)
+): Promise<VoiceMessageItem | null> {
+  const items = await voiceMessagesStore.getAllItems();
 
-  for (const [id, item] of voiceMessagesStore.items) {
+  for (const item of items) {
     if (
-      id !== elementId && // Not itself
+      item.id !== elementId && // Not itself
       item.downloadUrl && // Has download URL
       item.durationMs && // Has duration
-      Math.abs(item.durationMs - durationMs) <= tolerance
+      Math.abs(item.durationMs - durationMs) <= EXACT_MATCHING_TOLERANCE
     ) {
       // Duration matches
       logger.debug("Found matching pending item", { item });
@@ -118,33 +128,6 @@ function findMatchingPendingItem(
   }
 
   return null;
-}
-
-/**
- * Update element with matching item
- *
- * @param {Object} voiceMessagesStore - Voice message data store
- * @param {string} elementId - Element ID
- * @param {Object} matchingItem - Matching item
- * @private
- */
-function updateElementWithMatchingItem(
-  voiceMessagesStore: VoiceMessageStore,
-  elementId: string,
-  matchingItem: any
-) {
-  const currentItem = voiceMessagesStore.items.get(elementId);
-  if (!currentItem) {
-    logger.error("Cannot find item to update", { elementId });
-    return;
-  }
-  currentItem.downloadUrl = matchingItem.downloadUrl;
-  currentItem.lastModified = matchingItem.lastModified;
-
-  logger.debug("Updated element's download URL:", {
-    elementId,
-    downloadUrl: matchingItem.downloadUrl.substring(0, 50) + "...",
-  });
 }
 
 /**

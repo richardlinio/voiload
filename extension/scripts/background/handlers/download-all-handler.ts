@@ -38,30 +38,48 @@ export function handleDownloadAll(
     return true;
   }
 
-  logger.debug("voiceMessagesStore Map size", {
-    mapSize: voiceMessagesStore.items ? voiceMessagesStore.items.size : 0,
-  });
+  void downloadAndRespond(voiceMessagesStore, sendResponse);
 
-  // Execute batch download
-  logger.info("Executing batch download of all available voice messages");
-  const downloadCount = downloadAllVoiceMessages(voiceMessagesStore);
+  return true; // Keep the connection open for async response
+}
 
-  if (downloadCount > 0) {
-    logger.info("Batch download initiated", { downloadCount });
-    sendResponse({
-      success: true,
-      message: `Started downloading all available voice messages (${downloadCount} files)`,
-      downloadCount,
+/**
+ * Run the batch download and respond once the store has been read.
+ */
+async function downloadAndRespond(
+  voiceMessagesStore: VoiceMessageStore,
+  sendResponse: (response?: any) => void
+): Promise<void> {
+  try {
+    // Execute batch download
+    logger.info("Executing batch download of all available voice messages");
+    const downloadCount = await downloadAllVoiceMessages(voiceMessagesStore);
+
+    if (downloadCount > 0) {
+      logger.info("Batch download initiated", { downloadCount });
+      sendResponse({
+        success: true,
+        message: `Started downloading all available voice messages (${downloadCount} files)`,
+        downloadCount,
+      });
+    } else {
+      logger.warn("No downloadable voice messages found in cache");
+      sendResponse({
+        success: true,
+        message: "No downloadable voice messages available in cache",
+        downloadCount: 0,
+      });
+    }
+
+    logger.debug("Download all voice messages handling complete");
+  } catch (error: any) {
+    logger.error("Error occurred while downloading all voice messages", {
+      error: error?.message,
+      stack: error?.stack,
     });
-  } else {
-    logger.warn("No downloadable voice messages found in cache");
     sendResponse({
-      success: true,
-      message: "No downloadable voice messages available in cache",
-      downloadCount: 0,
+      success: false,
+      message: `Error occurred while downloading all voice messages: ${error?.message}`,
     });
   }
-
-  logger.debug("Download all voice messages handling complete");
-  return true; // Keep the connection open for async response
 }

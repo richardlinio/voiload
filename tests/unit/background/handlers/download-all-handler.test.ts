@@ -3,6 +3,8 @@
  * Unit tests for download-all-handler module
  */
 
+import { flushPromises } from "../../../helpers/flush-promises";
+
 // Mock modules first
 const mockDownloadAllVoiceMessages = jest.fn();
 jest.mock("../../../../extension/scripts/background/download-manager", () => ({
@@ -70,7 +72,7 @@ describe("download-all-handler.ts", () => {
 
   describe("handleDownloadAll", () => {
     describe("Normal Cases", () => {
-      it("should handle download all request with items available", () => {
+      it("should handle download all request with items available", async () => {
         // Mock store with items
         mockVoiceMessagesStore.items.set("item1", {
           id: "item1",
@@ -86,7 +88,7 @@ describe("download-all-handler.ts", () => {
           lastModified: null,
         });
 
-        mockDownloadAllVoiceMessages.mockReturnValue(2);
+        mockDownloadAllVoiceMessages.mockResolvedValue(2);
 
         const message = {};
 
@@ -96,6 +98,7 @@ describe("download-all-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockDownloadAllVoiceMessages).toHaveBeenCalledWith(mockVoiceMessagesStore);
@@ -106,9 +109,9 @@ describe("download-all-handler.ts", () => {
         });
       });
 
-      it("should handle download all request with no items available", () => {
+      it("should handle download all request with no items available", async () => {
         // Empty store
-        mockDownloadAllVoiceMessages.mockReturnValue(0);
+        mockDownloadAllVoiceMessages.mockResolvedValue(0);
 
         const message = {};
 
@@ -118,6 +121,7 @@ describe("download-all-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockDownloadAllVoiceMessages).toHaveBeenCalledWith(mockVoiceMessagesStore);
@@ -128,7 +132,7 @@ describe("download-all-handler.ts", () => {
         });
       });
 
-      it("should handle download all request with single item", () => {
+      it("should handle download all request with single item", async () => {
         mockVoiceMessagesStore.items.set("item1", {
           id: "item1",
           durationMs: 5000,
@@ -136,7 +140,7 @@ describe("download-all-handler.ts", () => {
           lastModified: null,
         });
 
-        mockDownloadAllVoiceMessages.mockReturnValue(1);
+        mockDownloadAllVoiceMessages.mockResolvedValue(1);
 
         const message = {};
 
@@ -146,6 +150,7 @@ describe("download-all-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockDownloadAllVoiceMessages).toHaveBeenCalledWith(mockVoiceMessagesStore);
@@ -156,7 +161,7 @@ describe("download-all-handler.ts", () => {
         });
       });
 
-      it("should handle download all request with large number of items", () => {
+      it("should handle download all request with large number of items", async () => {
         // Mock a large number of items
         for (let i = 0; i < 50; i++) {
           mockVoiceMessagesStore.items.set(`item${i}`, {
@@ -167,7 +172,7 @@ describe("download-all-handler.ts", () => {
           });
         }
 
-        mockDownloadAllVoiceMessages.mockReturnValue(50);
+        mockDownloadAllVoiceMessages.mockResolvedValue(50);
 
         const message = {};
 
@@ -177,6 +182,7 @@ describe("download-all-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockDownloadAllVoiceMessages).toHaveBeenCalledWith(mockVoiceMessagesStore);
@@ -189,7 +195,7 @@ describe("download-all-handler.ts", () => {
     });
 
     describe("Error Handling", () => {
-      it("should handle null voiceMessagesStore", () => {
+      it("should handle null voiceMessagesStore", async () => {
         const message = {};
 
         const result = downloadAllHandler.handleDownloadAll(
@@ -198,6 +204,7 @@ describe("download-all-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -210,7 +217,7 @@ describe("download-all-handler.ts", () => {
         expect(mockDownloadAllVoiceMessages).not.toHaveBeenCalled();
       });
 
-      it("should handle undefined voiceMessagesStore", () => {
+      it("should handle undefined voiceMessagesStore", async () => {
         const message = {};
 
         const result = downloadAllHandler.handleDownloadAll(
@@ -219,6 +226,7 @@ describe("download-all-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -231,10 +239,10 @@ describe("download-all-handler.ts", () => {
         expect(mockDownloadAllVoiceMessages).not.toHaveBeenCalled();
       });
 
-      it("should handle voiceMessagesStore without items property", () => {
+      it("should handle voiceMessagesStore without items property", async () => {
         const invalidStore = {};
 
-        mockDownloadAllVoiceMessages.mockReturnValue(0);
+        mockDownloadAllVoiceMessages.mockResolvedValue(0);
 
         const message = {};
 
@@ -244,6 +252,7 @@ describe("download-all-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockDownloadAllVoiceMessages).toHaveBeenCalledWith(invalidStore);
@@ -256,10 +265,10 @@ describe("download-all-handler.ts", () => {
     });
 
     describe("Integration with downloadAllVoiceMessages", () => {
-      it("should pass correct store to downloadAllVoiceMessages", () => {
+      it("should pass correct store to downloadAllVoiceMessages", async () => {
         const message = {};
 
-        mockDownloadAllVoiceMessages.mockReturnValue(3);
+        mockDownloadAllVoiceMessages.mockResolvedValue(3);
 
         const result = downloadAllHandler.handleDownloadAll(
           mockVoiceMessagesStore,
@@ -267,35 +276,45 @@ describe("download-all-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockDownloadAllVoiceMessages).toHaveBeenCalledTimes(1);
         expect(mockDownloadAllVoiceMessages).toHaveBeenCalledWith(mockVoiceMessagesStore);
       });
 
-      it("should handle when downloadAllVoiceMessages throws error", () => {
+      it("should report the failure rather than reject when downloadAllVoiceMessages throws", async () => {
         const message = {};
 
-        mockDownloadAllVoiceMessages.mockImplementation(() => {
-          throw new Error("Download failed");
+        mockDownloadAllVoiceMessages.mockRejectedValue(
+          new Error("Download failed")
+        );
+
+        // The download now runs after the listener has returned, so a rejection
+        // must surface through sendResponse instead of escaping the handler.
+        const result = downloadAllHandler.handleDownloadAll(
+          mockVoiceMessagesStore,
+          message,
+          mockSender,
+          mockSendResponse
+        );
+        await flushPromises();
+
+        expect(result).toBe(true);
+        expect(mockDownloadAllVoiceMessages).toHaveBeenCalledWith(
+          mockVoiceMessagesStore
+        );
+        expect(mockSendResponse).toHaveBeenCalledWith({
+          success: false,
+          message:
+            "Error occurred while downloading all voice messages: Download failed",
         });
-
-        expect(() => {
-          downloadAllHandler.handleDownloadAll(
-            mockVoiceMessagesStore,
-            message,
-            mockSender,
-            mockSendResponse
-          );
-        }).toThrow("Download failed");
-
-        expect(mockDownloadAllVoiceMessages).toHaveBeenCalledWith(mockVoiceMessagesStore);
       });
     });
 
     describe("Logging Behavior", () => {
-      it("should log debug information", () => {
-        mockDownloadAllVoiceMessages.mockReturnValue(1);
+      it("should log debug information", async () => {
+        mockDownloadAllVoiceMessages.mockResolvedValue(1);
 
         const message = {};
 
@@ -305,21 +324,18 @@ describe("download-all-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(mockLogger.debug).toHaveBeenCalledWith(
           "Handling download all voice messages request"
-        );
-        expect(mockLogger.debug).toHaveBeenCalledWith(
-          "voiceMessagesStore Map size",
-          { mapSize: 0 }
         );
         expect(mockLogger.debug).toHaveBeenCalledWith(
           "Download all voice messages handling complete"
         );
       });
 
-      it("should log info for successful downloads", () => {
-        mockDownloadAllVoiceMessages.mockReturnValue(5);
+      it("should log info for successful downloads", async () => {
+        mockDownloadAllVoiceMessages.mockResolvedValue(5);
 
         const message = {};
 
@@ -329,6 +345,7 @@ describe("download-all-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(mockLogger.info).toHaveBeenCalledWith(
           "Executing batch download of all available voice messages"
@@ -339,8 +356,8 @@ describe("download-all-handler.ts", () => {
         );
       });
 
-      it("should log warning when no downloads available", () => {
-        mockDownloadAllVoiceMessages.mockReturnValue(0);
+      it("should log warning when no downloads available", async () => {
+        mockDownloadAllVoiceMessages.mockResolvedValue(0);
 
         const message = {};
 
@@ -350,6 +367,7 @@ describe("download-all-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(mockLogger.warn).toHaveBeenCalledWith(
           "No downloadable voice messages found in cache"
@@ -358,8 +376,8 @@ describe("download-all-handler.ts", () => {
     });
 
     describe("Response Format", () => {
-      it("should return response with correct format for successful downloads", () => {
-        mockDownloadAllVoiceMessages.mockReturnValue(3);
+      it("should return response with correct format for successful downloads", async () => {
+        mockDownloadAllVoiceMessages.mockResolvedValue(3);
 
         const message = {};
 
@@ -369,6 +387,7 @@ describe("download-all-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(mockSendResponse).toHaveBeenCalledWith({
           success: true,
@@ -377,8 +396,8 @@ describe("download-all-handler.ts", () => {
         });
       });
 
-      it("should return response with correct format for no downloads", () => {
-        mockDownloadAllVoiceMessages.mockReturnValue(0);
+      it("should return response with correct format for no downloads", async () => {
+        mockDownloadAllVoiceMessages.mockResolvedValue(0);
 
         const message = {};
 
@@ -388,6 +407,7 @@ describe("download-all-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(mockSendResponse).toHaveBeenCalledWith({
           success: true,
@@ -396,7 +416,7 @@ describe("download-all-handler.ts", () => {
         });
       });
 
-      it("should return error response for invalid store", () => {
+      it("should return error response for invalid store", async () => {
         const message = {};
 
         downloadAllHandler.handleDownloadAll(
@@ -405,6 +425,7 @@ describe("download-all-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(mockSendResponse).toHaveBeenCalledWith({
           success: false,

@@ -24,7 +24,7 @@ export function initDownloadManager(voiceMessagesStore?: VoiceMessageStore): voi
 
   // Listen for context menu click events
   chrome.contextMenus.onClicked.addListener(
-    (
+    async (
       info: chrome.contextMenus.OnClickData,
       _tab: chrome.tabs.Tab | undefined
     ) => {
@@ -49,7 +49,7 @@ export function initDownloadManager(voiceMessagesStore?: VoiceMessageStore): voi
             logger.info("No specific voice message URL found, triggering batch download with first dialog");
             // Directly call downloadAllVoiceMessages if voiceMessagesStore is available
             if (voiceMessagesStore) {
-              const downloadCount = downloadAllVoiceMessages(voiceMessagesStore, true);
+              const downloadCount = await downloadAllVoiceMessages(voiceMessagesStore, true);
               logger.info("Batch download triggered with first dialog", { downloadCount });
             } else {
               logger.error("Cannot trigger batch download: voiceMessagesStore not available");
@@ -136,27 +136,30 @@ export function downloadVoiceMessage(url: string, lastModified?: string, uniqueI
  * @param showFirstDialog - Whether to show save dialog for the first file (defaults to false)
  * @returns Number of downloads started
  */
-export function downloadAllVoiceMessages(voiceMessagesStore: VoiceMessageStore, showFirstDialog: boolean = false): number {
+export async function downloadAllVoiceMessages(voiceMessagesStore: VoiceMessageStore, showFirstDialog: boolean = false): Promise<number> {
   logger.debug("downloadAllVoiceMessages function called");
 
-  if (!voiceMessagesStore || !voiceMessagesStore.items) {
+  if (!voiceMessagesStore || typeof voiceMessagesStore.getAllItems !== "function") {
     logger.error("Invalid voice messages store");
     return 0;
   }
+
+  const items = await voiceMessagesStore.getAllItems();
 
   let downloadCount = 0;
   let isFirstFile = true;
 
   logger.debug("Iterating through voice message store", {
-    totalItems: voiceMessagesStore.items.size,
+    totalItems: items.length,
     showFirstDialog,
   });
 
-  for (const [id, item] of voiceMessagesStore.items.entries()) {
+  for (const item of items) {
+    const id = item.id;
     if (item.downloadUrl && item.downloadUrl.trim() !== "") {
       // Determine saveAs value: first file uses showFirstDialog, others use false
       const useSaveAs = isFirstFile && showFirstDialog;
-      
+
       logger.debug("Downloading voice message", {
         id,
         durationMs: item.durationMs,
@@ -180,7 +183,7 @@ export function downloadAllVoiceMessages(voiceMessagesStore: VoiceMessageStore, 
 
   logger.info("Batch download completed", {
     downloadCount,
-    totalItems: voiceMessagesStore.items.size,
+    totalItems: items.length,
   });
 
   return downloadCount;

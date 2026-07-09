@@ -24,6 +24,10 @@ export interface VoiceMessageItem {
 
 /**
  * Voice message data store interface
+ *
+ * `items` is the in-memory cache in front of chrome.storage.session and may be
+ * stale before the first store call of a service-worker lifetime resolves.
+ * Read through `getAllItems()` rather than iterating `items` directly.
  */
 export interface VoiceMessageStore {
   items: Map<string, VoiceMessageItem>;
@@ -38,10 +42,23 @@ export interface VoiceMessageStore {
     lastModified?: string | null,
     blobType?: string | null,
     blobSize?: number | null
-  ) => string;
-  findPendingItemByDuration: (durationMs: number) => VoiceMessageItem | null;
-  findItemByDuration: (durationMs: number) => VoiceMessageItem | null;
-  getDownloadUrlForElement: (element: Element) => DownloadUrlResult | null;
+  ) => Promise<string>;
+  registerElement: (
+    elementId: string,
+    durationMs: number
+  ) => Promise<VoiceMessageItem>;
+  findPendingItemByDuration: (
+    durationMs: number
+  ) => Promise<VoiceMessageItem | null>;
+  findItemByDuration: (durationMs: number) => Promise<VoiceMessageItem | null>;
+  getDownloadUrlForElement: (
+    element: Element
+  ) => Promise<DownloadUrlResult | null>;
+  getAllItems: () => Promise<VoiceMessageItem[]>;
+  updateItem: (
+    id: string,
+    patch: Partial<VoiceMessageItem>
+  ) => Promise<VoiceMessageItem | null>;
 }
 
 /**
