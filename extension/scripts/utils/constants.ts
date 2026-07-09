@@ -143,7 +143,31 @@ export const UI_CONSTANTS = {
 // DOM Related Constants
 // ===========================================
 export const DOM_CONSTANTS = {
-  // aria-labels for voice message slider
+  // Primary, language-independent voice message signal.
+  // Verified against a real logged-in messenger.com thread: aria-valuemax appears
+  // on exactly the voice sliders and nowhere else in the app shell.
+  VOICE_MESSAGE_SLIDER_SELECTOR:
+    '[role="slider"][aria-valuemin="0"][aria-valuemax]',
+
+  // How far up from a slider the voice message container may sit. Measured at 2
+  // hops on the real page (hop 1 is a bare wrapper); the extra room absorbs
+  // wrapper churn between FB builds.
+  VOICE_MESSAGE_CONTAINER_MAX_DEPTH: 4,
+
+  // Guard against non-voice sliders (volume, video scrubbers). A voice message
+  // container pairs the slider with a play control and an mm:ss duration label.
+  // The play control is matched on role alone -- its aria-label is localized
+  // ("Play" in English), so matching the label would just swap one language
+  // dictionary for another.
+  PLAY_BUTTON_SELECTOR: '[role="button"], button',
+  DURATION_TEXT_PATTERN: /\b\d{1,2}:\d{2}\b/,
+
+  // Elements whose presence in the container means this is not a voice message.
+  NON_VOICE_MEDIA_SELECTOR: "video",
+
+  // Auxiliary signal only: used to raise confidence and to let the canary
+  // monitor (w6) detect dictionary drift. Detection never depends on it, so an
+  // unlisted language no longer fails silently.
   VOICE_MESSAGE_SLIDER_ARIA_LABEL: [
     "音訊滑桿", // Traditional Chinese
     "音频时间刷", // Simplified Chinese

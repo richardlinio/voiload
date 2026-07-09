@@ -27,6 +27,12 @@ jest.mock("../../../extension/scripts/utils/constants", () => ({
     AUDIO_ANALYZER: "audio-analyzer",
   },
   DOM_CONSTANTS: {
+    VOICE_MESSAGE_SLIDER_SELECTOR:
+      '[role="slider"][aria-valuemin="0"][aria-valuemax]',
+    VOICE_MESSAGE_CONTAINER_MAX_DEPTH: 4,
+    PLAY_BUTTON_SELECTOR: '[role="button"], button',
+    DURATION_TEXT_PATTERN: /\b\d{1,2}:\d{2}\b/,
+    NON_VOICE_MEDIA_SELECTOR: "video",
     VOICE_MESSAGE_SLIDER_ARIA_LABEL: [
       "Voice message",
       "Audio message",
@@ -70,27 +76,64 @@ jest.mock("../../../extension/scripts/page-context/blob-monitor", () => ({
   ELEMENT_NODE: 1,
 };
 
+/**
+ * Build the voice message shape measured on a real messenger.com thread:
+ * container > [ playButton, wrapper > slider, "0:07" ].
+ */
+function buildVoiceMessage(
+  opts: {
+    ariaLabel?: string | null;
+    durationSeconds?: string;
+    durationText?: string | null;
+  } = {}
+): { container: HTMLElement; slider: HTMLElement } {
+  const {
+    ariaLabel = "Voice message",
+    durationSeconds = "7",
+    durationText = "0:07",
+  } = opts;
+
+  const container = document.createElement("div");
+
+  const playButton = document.createElement("div");
+  playButton.setAttribute("role", "button");
+  playButton.setAttribute("aria-label", "Play");
+  container.appendChild(playButton);
+
+  const wrapper = document.createElement("div");
+  const slider = document.createElement("div");
+  slider.setAttribute("role", "slider");
+  slider.setAttribute("aria-valuemin", "0");
+  slider.setAttribute("aria-valuemax", durationSeconds);
+  if (ariaLabel !== null) {
+    slider.setAttribute("aria-label", ariaLabel);
+  }
+  wrapper.appendChild(slider);
+  container.appendChild(wrapper);
+
+  if (durationText !== null) {
+    const time = document.createElement("span");
+    time.textContent = durationText;
+    container.appendChild(time);
+  }
+
+  document.body.appendChild(container);
+  return { container, slider };
+}
+
 describe("Content Module Functionality", () => {
   describe("DOM Utils", () => {
     let domUtils: any;
 
     beforeEach(() => {
       jest.clearAllMocks();
+      document.body.innerHTML = "";
       domUtils = require("../../../extension/scripts/content/dom-utils");
     });
 
     it("should correctly identify voice message sliders", () => {
-      const mockElement = {
-        nodeType: 1,
-        getAttribute: jest.fn((attr) => {
-          if (attr === "role") {return "slider";}
-          if (attr === "aria-label") {return "Voice message";}
-          return null;
-        }),
-      };
-
-      const result = domUtils.isVoiceMessageSlider(mockElement);
-      expect(result).toBe(true);
+      const { slider } = buildVoiceMessage();
+      expect(domUtils.isVoiceMessageSlider(slider)).toBe(true);
     });
 
     it("should extract duration from valid sliders", () => {
@@ -145,45 +188,17 @@ describe("Content Module Functionality", () => {
     });
 
     it("should find voice message elements in containers", () => {
-      const mockSlider = {
-        nodeType: 1,
-        tagName: "DIV",
-        getAttribute: jest.fn((attr) => {
-          if (attr === "role") {return "slider";}
-          if (attr === "aria-label") {return "Voice message";}
-          return null;
-        }),
-      };
-
-      const mockContainer = {
-        nodeType: 1,
-        tagName: "DIV",
-        getAttribute: jest.fn(() => null),
-        querySelector: jest.fn((selector) => {
-          if (selector === '[role="slider"][aria-label="Voice message"]') {
-            return mockSlider;
-          }
-          return null;
-        }),
-      };
+      const { container, slider } = buildVoiceMessage();
+      const mockContainer = container;
+      const mockSlider = slider;
 
       const result = domUtils.findVoiceMessageElement(mockContainer);
       expect(result).toEqual({ element: mockSlider, type: "slider" });
     });
 
     it("should detect voice message containers", () => {
-      const mockElement = {
-        nodeType: 1,
-        querySelector: jest.fn((selector) => {
-          if (selector === '[role="slider"][aria-label="Voice message"]') {
-            return { tagName: "DIV" };
-          }
-          return null;
-        }),
-      };
-
-      const result = domUtils.isPotentialVoiceMessageContainer(mockElement);
-      expect(result).toBe(true);
+      const { container } = buildVoiceMessage();
+      expect(domUtils.isPotentialVoiceMessageContainer(container)).toBe(true);
     });
   });
 
@@ -249,7 +264,7 @@ describe("Content Module Functionality", () => {
       expect(domUtils.isVoiceMessageSlider(mockElement)).toBe(false);
     });
 
-    it("should support all configured aria-labels", () => {
+    it("should recognise all configured aria-labels as a known label", () => {
       const supportedLabels = [
         "Voice message",
         "Audio message",
@@ -257,17 +272,22 @@ describe("Content Module Functionality", () => {
       ];
 
       supportedLabels.forEach((label) => {
-        const mockElement = {
-          nodeType: 1,
-          getAttribute: jest.fn((attr) => {
-            if (attr === "role") {return "slider";}
-            if (attr === "aria-label") {return label;}
-            return null;
-          }),
-        };
+        document.body.innerHTML = "";
+        const { slider } = buildVoiceMessage({ ariaLabel: label });
 
-        expect(domUtils.isVoiceMessageSlider(mockElement)).toBe(true);
+        expect(domUtils.hasKnownVoiceMessageLabel(slider)).toBe(true);
+        expect(domUtils.isVoiceMessageSlider(slider)).toBe(true);
       });
+    });
+
+    it("should detect sliders whose aria-label is outside the dictionary", () => {
+      // Detection must not depend on the label dictionary, otherwise every
+      // unlisted language fails silently.
+      const { slider } = buildVoiceMessage({ ariaLabel: "Penggeser audio" });
+
+      expect(domUtils.hasKnownVoiceMessageLabel(slider)).toBe(false);
+      expect(domUtils.isVoiceMessageSlider(slider)).toBe(true);
+      expect(domUtils.isConfirmedVoiceMessageSlider(slider)).toBe(true);
     });
   });
 
@@ -309,19 +329,13 @@ describe("Content Module Functionality", () => {
       expect(domUtils.getDurationFromSlider(mockElement)).toBe(12.75);
     });
 
-    it("should handle zero duration", () => {
-      const mockElement = {
-        nodeType: 1,
-        tagName: "DIV",
-        getAttribute: jest.fn((attr) => {
-          if (attr === "role") {return "slider";}
-          if (attr === "aria-label") {return "Voice message";}
-          if (attr === "aria-valuemax") {return "0";}
-          return null;
-        }),
-      };
+    it("should reject zero duration", () => {
+      // A zero-length voice message cannot exist. Returning 0 here used to let
+      // the context menu handler (which only guards against null) send a 0ms
+      // duration to the background, where it could never match any blob.
+      const { slider } = buildVoiceMessage({ durationSeconds: "0" });
 
-      expect(domUtils.getDurationFromSlider(mockElement)).toBe(0);
+      expect(domUtils.getDurationFromSlider(slider)).toBe(null);
     });
   });
 });
