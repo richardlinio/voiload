@@ -77,6 +77,15 @@ web_modules/
 # Output of 'npm pack'
 *.tgz
 
+# Extension package output
+voiload-*.zip
+
+# Playwright E2E artifacts
+/test-results/
+/playwright-report/
+/blob-report/
+.playwright/
+
 # Yarn Integrity file
 .yarn-integrity
 
