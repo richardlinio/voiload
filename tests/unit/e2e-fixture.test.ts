@@ -18,13 +18,22 @@ jest.mock("../../extension/scripts/utils/logger", () => ({
   },
 }));
 
-import { buildFixtureHtml } from "../e2e/fixtures/voice-message-fixture";
+import {
+  AUDIO_FILES,
+  audioUrlFor,
+  buildFixtureHtml,
+  type AudioFileName,
+} from "../e2e/fixtures/voice-message-fixture";
 import {
   findVoiceMessageElement,
   isConfirmedVoiceMessageSlider,
   getDurationFromSlider,
 } from "../../extension/scripts/content/dom-utils";
-import { DOM_CONSTANTS } from "../../extension/scripts/utils/constants";
+import {
+  DOM_CONSTANTS,
+  EXACT_MATCHING_TOLERANCE,
+  MATCHING_TOLERANCE,
+} from "../../extension/scripts/utils/constants";
 
 /** Render the fixture body into the jsdom document, minus its inline script. */
 function renderFixture(opts: Parameters<typeof buildFixtureHtml>[0]): void {
@@ -155,5 +164,89 @@ describe("E2E fixture <-> detection contract", () => {
       renderFixture({ ariaLabel: label, durationSeconds: 2 });
       expect(isConfirmedVoiceMessageSlider(slider())).toBe(true);
     }
+  });
+});
+
+describe("regression audio files reproduce the production duration gap", () => {
+  const OPUS_FILES = (
+    Object.keys(AUDIO_FILES) as AudioFileName[]
+  ).filter((name) => name !== "test-audio.wav");
+
+  it.each(OPUS_FILES)("%s rounds to its aria-valuemax", (name) => {
+    const { decodedMs, ariaValuemax } = AUDIO_FILES[name];
+    expect(Math.round(decodedMs / 1000)).toBe(ariaValuemax);
+  });
+
+  // The point of these fixtures: the DOM says N seconds, the blob decodes to
+  // something else. Land inside the exact tolerance and the regression specs
+  // would pass even against the ±5ms matcher they exist to keep buried.
+  it.each(OPUS_FILES)("%s sits in the nearest-neighbour band", (name) => {
+    const { decodedMs, ariaValuemax } = AUDIO_FILES[name];
+    const gapMs = Math.abs(decodedMs - ariaValuemax * 1000);
+
+    expect(gapMs).toBeGreaterThan(EXACT_MATCHING_TOLERANCE);
+    expect(gapMs).toBeLessThanOrEqual(MATCHING_TOLERANCE);
+  });
+
+  it("short voice message stays under the old 20KB size floor", () => {
+    expect(AUDIO_FILES["voice-short.ogg"].bytes).toBeLessThan(20 * 1024);
+  });
+
+  it("colliding messages share an aria-valuemax, and b is the nearer", () => {
+    const a = AUDIO_FILES["voice-collide-a.ogg"];
+    const b = AUDIO_FILES["voice-collide-b.ogg"];
+    expect(a.ariaValuemax).toBe(b.ariaValuemax);
+
+    const target = a.ariaValuemax * 1000;
+    const gapA = Math.abs(a.decodedMs - target);
+    const gapB = Math.abs(b.decodedMs - target);
+    // Unambiguous: nearest-neighbour must pick b, rather than refuse to guess.
+    expect(gapB).toBeLessThan(gapA);
+  });
+});
+
+describe("multi-message fixture", () => {
+  const TWO_MESSAGES = {
+    ariaLabel: "unused",
+    durationSeconds: 3,
+    messages: [
+      { ariaLabel: "Audio scrubber", durationSeconds: 3 },
+      { ariaLabel: "Audio scrubber", durationSeconds: 3 },
+    ],
+  };
+
+  beforeEach(() => {
+    renderFixture(TWO_MESSAGES);
+  });
+
+  it("renders one confirmed slider per message", () => {
+    const sliders = document.querySelectorAll('[role="slider"]');
+    expect(sliders).toHaveLength(2);
+    for (const el of Array.from(sliders)) {
+      expect(isConfirmedVoiceMessageSlider(el)).toBe(true);
+    }
+  });
+
+  it("keeps the first message on the unsuffixed test ids", () => {
+    // The single-message specs select these; suffixing them would break the suite.
+    expect(slider()).not.toBeNull();
+    expect(getDurationFromSlider(slider() as Element)).toBe(3);
+    expect(
+      document.querySelector('[data-testid="voice-slider-1"]')
+    ).not.toBeNull();
+  });
+
+  it("gives each message its own container, so the guard cannot cross over", () => {
+    const containers = document.querySelectorAll('[data-testid^="voice-container"]');
+    expect(containers).toHaveLength(2);
+    for (const container of Array.from(containers)) {
+      expect(container.querySelectorAll('[role="slider"]')).toHaveLength(1);
+    }
+  });
+
+  it("fetches a distinct audio URL per message", () => {
+    expect(audioUrlFor(0)).not.toBe(audioUrlFor(1));
+    // Index 0 keeps the bare URL the single-message specs already route.
+    expect(audioUrlFor(0)).not.toContain("?");
   });
 });

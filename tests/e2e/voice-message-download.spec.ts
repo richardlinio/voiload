@@ -10,14 +10,82 @@
  * the service worker after the real contextmenu event has populated the
  * background's lastRightClickedInfo through the normal message pipeline.
  */
+import type { Page, Worker } from "@playwright/test";
+
 import {
   test,
   expect,
   instrumentDownloads,
   readRecordedDownloads,
 } from "./extension";
+import { AUDIO_FILES } from "./fixtures/voice-message-fixture";
 
 const DURATION_SECONDS = 2; // matches tests/e2e/fixtures/test-audio.wav
+
+/**
+ * Right-click a slider and dispatch the "Download Voice Message" menu click,
+ * then return every recorded chrome.downloads.download call.
+ *
+ * The contextmenu event drives the content script's normal message pipeline,
+ * which populates the background's lastRightClickedInfo; the menu click is
+ * dispatched from the service worker because Playwright cannot reach a native
+ * OS context menu.
+ */
+async function downloadViaRightClick(
+  page: Page,
+  serviceWorker: Worker,
+  sliderTestId = "voice-slider"
+): Promise<Array<{ url: string; filename: string }>> {
+  await page.dispatchEvent(`[data-testid="${sliderTestId}"]`, "contextmenu");
+  await page.waitForTimeout(1500);
+
+  await serviceWorker.evaluate(() => {
+    // @ts-expect-error playwright exposes .dispatch on mocked events
+    chrome.contextMenus.onClicked.dispatch(
+      { menuItemId: "downloadVoiceMessage" },
+      { id: 1 }
+    );
+  });
+  await page.waitForTimeout(1000);
+
+  return readRecordedDownloads(serviceWorker);
+}
+
+/** Wait until the page has created a blob URL for every rendered message. */
+async function waitForBlobs(page: Page, count: number): Promise<string[]> {
+  await page.waitForFunction(
+    (n) => {
+      const urls = (window as any).__E2E_BLOB_URLS;
+      return Array.isArray(urls) && urls.filter(Boolean).length >= n;
+    },
+    count,
+    { timeout: 20_000 }
+  );
+  // Let the page -> content -> background registration pipeline land.
+  await page.waitForTimeout(2000);
+  return page.evaluate(() => (window as any).__E2E_BLOB_URLS as string[]);
+}
+
+/**
+ * Assert a download came from the duration match rather than the batch fallback.
+ *
+ * When matching fails, background responds DOWNLOAD_ALL_VOICE_MESSAGES and
+ * downloadAllVoiceMessages() re-downloads every stored item — which, on a page
+ * holding a single voice message, downloads exactly the blob the test expected.
+ * The two paths are told apart by the filename: the batch path appends the item
+ * id as a uniqueIdentifier, the matched path does not.
+ */
+function expectMatchedDownload(
+  downloads: Array<{ url: string; filename: string }>,
+  expectedUrl: string | undefined
+): void {
+  expect(downloads).toHaveLength(1);
+  const dl = downloads[0]!;
+  expect(dl.url).toBe(expectedUrl);
+  expect(dl.filename).toMatch(/^voice-message-[\d-]+\.mp4$/);
+  // The batch fallback would have produced `voice-message-<date>-voice-msg-<id>.mp4`.
+  expect(dl.filename).not.toContain("voice-msg-");
+}
 
 test("blob path: captured createObjectURL blob is downloaded on menu click", async ({
   context,
@@ -123,4 +191,125 @@ test("full pipeline: webRequest-detected audio is downloaded on menu click", asy
     /^(blob:https:\/\/www\.facebook\.com\/|https:\/\/cdn\.fbcdn\.net\/)/
   );
   expect(dl.filename).toMatch(/^voice-message-.*\.mp4$/);
+});
+
+/**
+ * Regressions for the three symptoms users reported as "clicking download does
+ * nothing". Each pairs an audio file with the integer-second aria-valuemax
+ * Facebook would show beside it, so the DOM duration and the decoded blob
+ * duration disagree exactly as they do in production.
+ */
+test.describe("regressions: reported download failures", () => {
+  test("a 3KB short voice message is downloadable", async ({
+    context,
+    serviceWorker,
+    serveFixture,
+  }) => {
+    // Real e2ee voice messages are tiny: a 7s clip measured 3,323 bytes. The
+    // blob analyzer used to discard anything under 20KB, so the message never
+    // reached the store and the right-click found nothing to download.
+    const audio = AUDIO_FILES["voice-short.ogg"];
+    expect(audio.bytes).toBeLessThan(20 * 1024);
+
+    const url = await serveFixture({
+      ariaLabel: "Audio scrubber",
+      durationSeconds: audio.ariaValuemax,
+      audioFile: "voice-short.ogg",
+      // Keep the webRequest path out of it: the blob path is what regressed.
+      audioContentType: "audio/mpeg",
+    });
+
+    await instrumentDownloads(serviceWorker);
+    const page = await context.newPage();
+    await page.goto(url);
+
+    const [blobUrl] = await waitForBlobs(page, 1);
+    const downloads = await downloadViaRightClick(page, serviceWorker);
+
+    expectMatchedDownload(downloads, blobUrl);
+  });
+
+  test("a 61 second voice message is downloadable", async ({
+    context,
+    serviceWorker,
+    serveFixture,
+  }) => {
+    // The slider reports 61s; the blob decodes to 60,557ms. Matching used to
+    // require the two to agree within 5ms, so a 443ms gap missed every time.
+    const audio = AUDIO_FILES["voice-long.ogg"];
+    const gapMs = Math.abs(audio.decodedMs - audio.ariaValuemax * 1000);
+    expect(gapMs).toBeGreaterThan(5);
+
+    const url = await serveFixture({
+      ariaLabel: "Audio scrubber",
+      durationSeconds: audio.ariaValuemax,
+      audioFile: "voice-long.ogg",
+      audioContentType: "audio/mpeg",
+    });
+
+    await instrumentDownloads(serviceWorker);
+    const page = await context.newPage();
+    await page.goto(url);
+
+    const [blobUrl] = await waitForBlobs(page, 1);
+    const downloads = await downloadViaRightClick(page, serviceWorker);
+
+    expectMatchedDownload(downloads, blobUrl);
+  });
+
+  test("two messages on the same integer second resolve to the nearest blob", async ({
+    context,
+    serviceWorker,
+    serveFixture,
+  }) => {
+    // Both sliders read 3s, but the blobs decode to 2,774ms and 3,147ms, so a
+    // 3,000ms lookup has two candidates inside the tolerance band. The matcher
+    // takes the nearest — message 2, 147ms out, against message 1's 226ms — and
+    // downloads a real blob instead of falling back to "download everything".
+    //
+    // Note what this does NOT establish: both sliders send the same 3,000ms, so
+    // the store cannot tell them apart and right-clicking message 1 resolves to
+    // message 2's blob as well. Distinguishing them needs an element->blob
+    // binding, which duration matching cannot provide (see w2 out_of_scope).
+    const near = AUDIO_FILES["voice-collide-b.ogg"];
+    const far = AUDIO_FILES["voice-collide-a.ogg"];
+    const target = near.ariaValuemax * 1000;
+    expect(Math.abs(near.decodedMs - target)).toBeLessThan(
+      Math.abs(far.decodedMs - target)
+    );
+
+    const url = await serveFixture({
+      ariaLabel: "unused",
+      durationSeconds: far.ariaValuemax,
+      audioContentType: "audio/mpeg",
+      messages: [
+        {
+          ariaLabel: "Audio scrubber",
+          durationSeconds: far.ariaValuemax,
+          audioFile: "voice-collide-a.ogg",
+        },
+        {
+          ariaLabel: "Audio scrubber",
+          durationSeconds: near.ariaValuemax,
+          audioFile: "voice-collide-b.ogg",
+        },
+      ],
+    });
+
+    await instrumentDownloads(serviceWorker);
+    const page = await context.newPage();
+    await page.goto(url);
+
+    const blobUrls = await waitForBlobs(page, 2);
+    expect(blobUrls[0]).not.toBe(blobUrls[1]);
+
+    const downloads = await downloadViaRightClick(
+      page,
+      serviceWorker,
+      "voice-slider-1"
+    );
+
+    // One download, and from the match rather than the two-file batch fallback.
+    expectMatchedDownload(downloads, blobUrls[1]);
+  });
 });

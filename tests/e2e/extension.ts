@@ -15,16 +15,19 @@ import {
 } from "@playwright/test";
 
 import {
+  AUDIO_FILES,
   FIXTURE_AUDIO_URL,
   FIXTURE_PAGE_URL,
+  audioFileOf,
   buildFixtureHtml,
+  messagesOf,
   type FixtureOptions,
 } from "./fixtures/voice-message-fixture";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, "..", "..");
 const DIST_DIR = resolve(REPO_ROOT, "dist");
-const AUDIO_FIXTURE = resolve(__dirname, "fixtures", "test-audio.wav");
+const FIXTURE_DIR = resolve(__dirname, "fixtures");
 
 export interface ExtensionFixtures {
   context: BrowserContext;
@@ -70,32 +73,57 @@ export const test = base.extend<ExtensionFixtures>({
   },
 
   serveFixture: async ({ context }, use) => {
-    const audioBytes = readFileSync(AUDIO_FIXTURE);
-    let audioContentType = "audio/wav";
+    // What the routes serve for the fixture currently under test. The handlers
+    // are registered once and read this on each request, so serving a second
+    // fixture in one test replaces the payload rather than stacking handlers.
+    let pageHtml = "";
+    let audioPlan: Array<{
+      body: ReturnType<typeof readFileSync>;
+      contentType: string;
+    }> = [];
 
-    // Serve the fake fbcdn audio as a real, decodable WAV. The declared
-    // Content-Type is chosen per-fixture (see FixtureOptions.audioContentType).
-    await context.route(FIXTURE_AUDIO_URL, async (route) => {
+    // Route the fixture page under www.facebook.com so content_scripts inject.
+    await context.route(FIXTURE_PAGE_URL, async (route) => {
       await route.fulfill({
         status: 200,
-        contentType: audioContentType,
-        body: audioBytes,
+        contentType: "text/html; charset=utf-8",
+        body: pageHtml,
       });
     });
 
-    const serve = async (opts: FixtureOptions): Promise<string> => {
-      if (opts.audioContentType) {
-        audioContentType = opts.audioContentType;
-      }
-      const html = buildFixtureHtml(opts);
-      // Route the fixture page under www.facebook.com so content_scripts inject.
-      await context.route(FIXTURE_PAGE_URL, async (route) => {
+    // Every message fetches `audio.wav?m=<index>` (index 0 omits the query).
+    // Matched with a predicate rather than a glob so the query string is handled
+    // explicitly: the index selects which audio file the request receives.
+    await context.route(
+      (url) => url.origin + url.pathname === FIXTURE_AUDIO_URL,
+      async (route) => {
+        const index = Number(
+          new URL(route.request().url()).searchParams.get("m") ?? 0
+        );
+        const entry = audioPlan[index];
+        if (!entry) {
+          await route.fulfill({ status: 404, body: "no audio for message" });
+          return;
+        }
         await route.fulfill({
           status: 200,
-          contentType: "text/html; charset=utf-8",
-          body: html,
+          contentType: entry.contentType,
+          body: entry.body,
         });
+      }
+    );
+
+    const serve = async (opts: FixtureOptions): Promise<string> => {
+      audioPlan = messagesOf(opts).map((msg) => {
+        const name = audioFileOf(msg);
+        return {
+          body: readFileSync(resolve(FIXTURE_DIR, name)),
+          // A Content-Type outside AUDIO_CONTENT_TYPES makes the webRequest
+          // interceptor ignore the response, isolating the blob path.
+          contentType: opts.audioContentType ?? AUDIO_FILES[name].contentType,
+        };
       });
+      pageHtml = buildFixtureHtml(opts);
       return FIXTURE_PAGE_URL;
     };
 
