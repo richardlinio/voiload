@@ -140,6 +140,12 @@ describe("download-manager.ts", () => {
         "Wed, 19 Mar 2025 14:04:40 GMT"
       );
 
+      // The listener awaits Chrome accepting the download, which is signalled by
+      // this callback, so the WAV blob URL survives until Chrome has taken it.
+      mockChrome.downloads.download.mockImplementation((options, callback) => {
+        callback(1);
+      });
+
       // Initialize and capture the listener
       initDownloadManager();
       const addedListener =

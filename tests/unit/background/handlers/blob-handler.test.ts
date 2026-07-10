@@ -234,8 +234,8 @@ describe("blob-handler.ts", () => {
 
         expect(result).toBe(true);
 
-        // The page mints a WAV blob URL only on right-click and revokes it on the
-        // next conversion, so the store must never hold one.
+        // The page mints a WAV blob URL only when a download is requested and
+        // revokes it on the next conversion, so the store must never hold one.
         expect(mockVoiceMessagesStore.registerDownloadUrl).toHaveBeenCalledWith(
           6000,
           "blob:https://facebook.com/wav-test",

@@ -191,9 +191,10 @@ async function prepareWavUrl(durationMs: number): Promise<string | null> {
   }
 
   if (currentWavUrl) {
-    // Safe even if a download of this URL is still in flight: revoking removes
-    // only the URL->blob mapping, while a download Chrome has already accepted
-    // holds its own reference to the bytes.
+    // Revoking removes the URL->blob mapping, and Chrome does not read the bytes
+    // until the user confirms the Save-As dialog -- so callers must let a download
+    // of this URL start before asking for the next conversion. Both download paths
+    // await downloadVoiceMessage for that reason.
     URL.revokeObjectURL(currentWavUrl);
   }
 

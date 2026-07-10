@@ -288,9 +288,9 @@ describe("data-store.ts", () => {
     });
 
     describe("WAV re-encoding", () => {
-      // The page mints a WAV blob URL on right-click and revokes it on the next
-      // conversion, so a persisted copy would be a dangling pointer. The store
-      // holds only the original audio; the WAV rides the in-flight download.
+      // The page mints a WAV blob URL when a download is requested and revokes it
+      // on the next conversion, so a persisted copy would be a dangling pointer.
+      // The store holds only the original audio; the WAV rides the in-flight download.
       it("should not persist a wavUrl on a newly created item", async () => {
         const id = await registerDownloadUrl(
           mockStore,

@@ -39,38 +39,40 @@ export function initDownloadManager(voiceMessagesStore?: VoiceMessageStore): voi
 
       if (info.menuItemId === "downloadVoiceMessage") {
         if (lastRightClickedInfo) {
+          // Snapshot before the await below: a right-click on another message
+          // replaces the global, and re-reading it afterwards would mix this
+          // message's URL with that one's lastModified and blobType.
+          const clicked = lastRightClickedInfo;
+
           // Check if downloadUrl is valid
-          if (lastRightClickedInfo.downloadUrl) {
+          if (clicked.downloadUrl) {
             // Re-encode now rather than on right-click: the cost (5-46ms) is
             // imperceptible here, and the right-click no longer has to publish a
             // half-ready state that a fast click could catch.
-            const wavUrl = lastRightClickedInfo.durationMs
-              ? await requestWav(
-                  tab?.id ?? lastRightClickedInfo.tabId,
-                  lastRightClickedInfo.durationMs
-                )
+            const wavUrl = clicked.durationMs
+              ? await requestWav(tab?.id ?? clicked.tabId, clicked.durationMs)
               : null;
 
             const { url, isWav } = selectDownloadUrl({
-              downloadUrl: lastRightClickedInfo.downloadUrl,
+              downloadUrl: clicked.downloadUrl,
               wavUrl,
             });
 
             logger.info("Starting individual voice message download", {
               url: url!.substring(0, 50) + "...",
-              lastModified: lastRightClickedInfo.lastModified,
+              lastModified: clicked.lastModified,
               isWav,
             });
-            // Not awaited: nothing here revokes the WAV afterwards, unlike the
-            // batch loop where the next conversion would pull it out from under
-            // Chrome. Waiting would only hold the service worker open.
-            void downloadVoiceMessage(
+            // Awaited for the same reason as the batch loop: the next message's
+            // conversion revokes this WAV blob URL, and Chrome does not read the
+            // blob's bytes until after the user confirms the Save-As dialog.
+            await downloadVoiceMessage(
               url!,
-              lastRightClickedInfo.lastModified || undefined,
+              clicked.lastModified || undefined,
               undefined,
               undefined,
               isWav,
-              lastRightClickedInfo.blobType
+              clicked.blobType
             );
           } else {
             logger.info("No specific voice message URL found, triggering batch download with first dialog");
@@ -79,7 +81,7 @@ export function initDownloadManager(voiceMessagesStore?: VoiceMessageStore): voi
               const downloadCount = await downloadAllVoiceMessages(
                 voiceMessagesStore,
                 true,
-                tab?.id ?? lastRightClickedInfo.tabId
+                tab?.id ?? clicked.tabId
               );
               logger.info("Batch download triggered with first dialog", { downloadCount });
             } else {
@@ -244,7 +246,10 @@ export async function downloadAllVoiceMessages(voiceMessagesStore: VoiceMessageS
       const wavUrl = await requestWav(tabId, item.durationMs);
 
       // Prefer the WAV re-encoding, falling back to the original audio.
-      const { url, isWav } = selectDownloadUrl({ ...item, wavUrl });
+      const { url, isWav } = selectDownloadUrl({
+        downloadUrl: item.downloadUrl,
+        wavUrl,
+      });
 
       logger.debug("Downloading voice message", {
         id,
