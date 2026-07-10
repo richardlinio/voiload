@@ -9,7 +9,7 @@
 
 import type { VoiceMessageItem } from "../types/voice-message";
 
-import { DOWNLOAD_CONSTANTS } from "./constants";
+import { DOWNLOAD_CONSTANTS, WAV_CONSTANTS } from "./constants";
 
 /**
  * Result of choosing a download URL for a stored voice message.
@@ -34,7 +34,7 @@ export function getFileExtensionForMimeType(
     // nothing is known about the container. Facebook serves those as MP4.
     return DOWNLOAD_CONSTANTS.UNKNOWN_EXTENSION;
   }
-  if (mimeType.includes("audio/wav")) {
+  if (mimeType.includes(WAV_CONSTANTS.MIME_TYPE)) {
     return DOWNLOAD_CONSTANTS.WAV_EXTENSION;
   }
   if (mimeType.includes("audio/ogg")) {
