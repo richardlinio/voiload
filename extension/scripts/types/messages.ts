@@ -29,6 +29,11 @@ export interface RightClickMessage extends BaseMessage {
   downloadUrl: string | null;
   lastModified?: string | null;
   durationMs?: number;
+  /**
+   * Blob URL of the WAV the page re-encoded while the context menu was opening.
+   * Null when the audio could not be converted; the original is downloaded then.
+   */
+  wavUrl?: string | null;
 }
 
 /**
@@ -51,8 +56,6 @@ export interface BlobUrlMessage extends BaseMessage {
   blobType?: string;
   blobSize?: number;
   durationMs: number;
-  /** Blob URL of the WAV re-encoding; null when the conversion failed. */
-  wavUrl?: string | null;
 }
 
 /**
@@ -131,6 +134,21 @@ export interface SendToContentMessage extends BaseMessage {
   blobType: string;
   blobSize: number;
   durationMs: number;
-  /** Blob URL of the WAV re-encoding; null when the conversion failed. */
-  wavUrl?: string | null;
 }
+
+/**
+ * Page's answer to a WAV re-encoding request from the content script.
+ */
+export interface PrepareWavResultMessage extends BaseMessage {
+  /** Correlates the answer with the request that asked for it. */
+  requestId: string;
+  /** Blob URL of the WAV, or null when the audio could not be re-encoded. */
+  wavUrl: string | null;
+}
+
+/**
+ * Any message the page context may hand to the content script.
+ */
+export type PageToContentMessage =
+  | SendToContentMessage
+  | PrepareWavResultMessage;

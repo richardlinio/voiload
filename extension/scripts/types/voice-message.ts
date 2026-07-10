@@ -14,12 +14,12 @@ export interface VoiceMessageItem {
   id: string;
   element: Element | null;
   durationMs: number;
-  /** Original captured audio (opus/ogg). Downloaded when wavUrl is absent. */
+  /** Original captured audio (opus/ogg), or a CDN URL from the webRequest path. */
   downloadUrl: string | null;
   /**
-   * Blob URL of the WAV re-encoding, preferred for downloads. Null when the
-   * audio could not be converted, or when the item came from a path that does
-   * not re-encode (the webRequest interceptor).
+   * Blob URL of the WAV re-encoding. Never persisted: the page mints it on
+   * demand and revokes it on the next conversion, so a stored copy would be a
+   * dangling pointer. Carried only on the in-flight item handed to a download.
    */
   wavUrl?: string | null;
   lastModified?: string | null;
@@ -43,8 +43,7 @@ export interface VoiceMessageStore {
     downloadUrl: string,
     lastModified?: string | null,
     blobType?: string | null,
-    blobSize?: number | null,
-    wavUrl?: string | null
+    blobSize?: number | null
   ) => Promise<string>;
   findItemByDuration: (durationMs: number) => Promise<VoiceMessageItem | null>;
   getAllItems: () => Promise<VoiceMessageItem[]>;

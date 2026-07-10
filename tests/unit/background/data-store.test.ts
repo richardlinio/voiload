@@ -288,28 +288,30 @@ describe("data-store.ts", () => {
     });
 
     describe("WAV re-encoding", () => {
-      it("should store wavUrl on a newly created item", async () => {
+      // The page mints a WAV blob URL on right-click and revokes it on the next
+      // conversion, so a persisted copy would be a dangling pointer. The store
+      // holds only the original audio; the WAV rides the in-flight download.
+      it("should not persist a wavUrl on a newly created item", async () => {
         const id = await registerDownloadUrl(
           mockStore,
           5000,
           "https://example.com/audio.ogg",
           "Wed, 19 Mar 2025 14:04:40 GMT",
           "audio/ogg",
-          1024000,
-          "blob:https://example.com/audio-reencoded.wav"
+          1024000
         );
 
         const item = mockStore.items.get(id);
-        expect(item?.wavUrl).toBe("blob:https://example.com/audio-reencoded.wav");
+        expect(item?.downloadUrl).toBe("https://example.com/audio.ogg");
+        expect(item?.wavUrl).toBeUndefined();
       });
 
-      it("should update wavUrl on a matched item", async () => {
+      it("should not introduce a wavUrl when updating a matched item", async () => {
         const existingItem: VoiceMessageItem = {
           id: "existing-id",
           element: null,
           durationMs: 5000,
           downloadUrl: "https://old-url.com/audio.ogg",
-          wavUrl: null,
           timestamp: Date.now(),
           isPending: true,
         };
@@ -318,45 +320,13 @@ describe("data-store.ts", () => {
         const id = await registerDownloadUrl(
           mockStore,
           5003, // Within tolerance of 5000
-          "https://new-url.com/audio.ogg",
-          null,
-          null,
-          null,
-          "blob:https://example.com/new-reencoded.wav"
+          "https://new-url.com/audio.ogg"
         );
 
         expect(id).toBe("existing-id");
         const updatedItem = mockStore.items.get("existing-id");
-        expect(updatedItem?.wavUrl).toBe("blob:https://example.com/new-reencoded.wav");
-      });
-
-      it("should leave an existing wavUrl untouched when called with wavUrl = null", async () => {
-        const existingItem: VoiceMessageItem = {
-          id: "existing-id",
-          element: null,
-          durationMs: 5000,
-          downloadUrl: "https://old-url.com/audio.ogg",
-          wavUrl: "blob:https://example.com/original-reencoded.wav",
-          timestamp: Date.now(),
-          isPending: true,
-        };
-        mockStore.items.set("existing-id", existingItem);
-
-        const id = await registerDownloadUrl(
-          mockStore,
-          5003, // Within tolerance of 5000
-          "https://new-url.com/audio.ogg",
-          null,
-          null,
-          null,
-          null
-        );
-
-        expect(id).toBe("existing-id");
-        const updatedItem = mockStore.items.get("existing-id");
-        expect(updatedItem?.wavUrl).toBe(
-          "blob:https://example.com/original-reencoded.wav"
-        );
+        expect(updatedItem?.downloadUrl).toBe("https://new-url.com/audio.ogg");
+        expect(updatedItem?.wavUrl).toBeUndefined();
       });
     });
 

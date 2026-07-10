@@ -49,6 +49,12 @@ jest.mock("../../../extension/scripts/utils/logger", () => ({
 jest.mock("../../../extension/scripts/utils/constants", () => ({
   MESSAGE_ACTIONS: {
     REGISTER_BLOB_URL: "REGISTER_BLOB_URL",
+    PREPARE_WAV: "prepareWav",
+    PREPARE_WAV_RESULT: "prepareWavResult",
+  },
+  MESSAGE_SOURCES: {
+    CONTENT_SCRIPT: "CONTENT_SCRIPT",
+    PAGE_CONTEXT: "PAGE_CONTEXT",
   },
   MODULE_NAMES: {
     BLOB_MONITOR: "blob-monitor",
@@ -56,6 +62,11 @@ jest.mock("../../../extension/scripts/utils/constants", () => ({
   BLOB_MONITOR_CONSTANTS: {
     PERIODIC_CLEANUP_INTERVAL: 30000,
   },
+  SOURCE_BLOB_CONSTANTS: {
+    MAX_RETAINED: 200,
+  },
+  // Mirrors production (pinned in constants.test.ts)
+  MATCHING_TOLERANCE: 1000,
 }));
 
 jest.mock("../../../extension/scripts/page-context/blob-analyzer", () => ({
@@ -371,54 +382,31 @@ describe("blob-monitor", () => {
       (global as any).window.sendToContent = mockSendToContent;
     });
 
-    it("should send the converted WAV url alongside the original blob url", async () => {
+    it("should not convert audio at capture time", async () => {
       const mockBlob = new Blob(["test"], { type: "audio/ogg" });
       mockIsLikelyVoiceMessageBlob.mockReturnValue(true);
       mockGetAudioDuration.mockResolvedValue(3000);
-      mockConvertBlobToWav.mockResolvedValue(
-        new Blob(["wav"], { type: "audio/wav" })
-      );
 
       const blobUrl = URL.createObjectURL(mockBlob);
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      expect(mockConvertBlobToWav).toHaveBeenCalledWith(mockBlob);
+      // PCM is ~30x the size of the opus it came from. Converting every blob the
+      // user scrolls past pinned hundreds of MB per tab; conversion now waits for
+      // a right-click.
+      expect(mockConvertBlobToWav).not.toHaveBeenCalled();
       expect(mockSendToContent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          blobUrl,
-          durationMs: 3000,
-          wavUrl: expect.stringMatching(/^blob:/),
-        })
+        expect.objectContaining({ blobUrl, durationMs: 3000 })
       );
 
-      // The original audio is kept as the download fallback, so the two URLs
-      // must be distinct handles rather than the same blob.
+      // No WAV exists yet, so registration cannot carry one.
       const sent = mockSendToContent.mock.calls[0]![0];
-      expect(sent.wavUrl).not.toBe(sent.blobUrl);
+      expect(sent.wavUrl).toBeUndefined();
     });
 
-    it("should send a null wavUrl when conversion fails", async () => {
-      const mockBlob = new Blob(["test"], { type: "audio/ogg" });
-      mockIsLikelyVoiceMessageBlob.mockReturnValue(true);
-      mockGetAudioDuration.mockResolvedValue(3000);
-      mockConvertBlobToWav.mockResolvedValue(null);
-
-      const blobUrl = URL.createObjectURL(mockBlob);
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Registration still happens: the user can download the original audio.
-      expect(mockSendToContent).toHaveBeenCalledWith(
-        expect.objectContaining({ blobUrl, wavUrl: null })
-      );
-    });
-
-    it("should measure duration from the original audio, not the WAV", async () => {
+    it("should measure duration from the original audio", async () => {
       const mockBlob = new Blob(["test"], { type: "audio/ogg" });
       mockIsLikelyVoiceMessageBlob.mockReturnValue(true);
       mockGetAudioDuration.mockResolvedValue(6757);
-      mockConvertBlobToWav.mockResolvedValue(
-        new Blob(["wav"], { type: "audio/wav" })
-      );
 
       const blobUrl = URL.createObjectURL(mockBlob);
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -432,7 +420,83 @@ describe("blob-monitor", () => {
       );
     });
 
-    it("should not re-enqueue the WAV blob it just created", async () => {
+    it("should convert on request and answer with a WAV url", async () => {
+      const mockBlob = new Blob(["test"], { type: "audio/ogg" });
+      mockIsLikelyVoiceMessageBlob.mockReturnValue(true);
+      mockGetAudioDuration.mockResolvedValue(3000);
+      mockConvertBlobToWav.mockResolvedValue(
+        new Blob(["wav"], { type: "audio/wav" })
+      );
+
+      blobMonitor.initBlobMonitor();
+      const blobUrl = URL.createObjectURL(mockBlob);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      mockSendToContent.mockClear();
+
+      // The content script asks for this message by its DOM duration, which is
+      // rounded to whole seconds and so never equals the decoded milliseconds.
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          source: window,
+          data: {
+            type: "CONTENT_SCRIPT",
+            message: {
+              action: "prepareWav",
+              durationMs: 3000,
+              requestId: "wav-0",
+            },
+          },
+        })
+      );
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(mockConvertBlobToWav).toHaveBeenCalledWith(mockBlob);
+      expect(mockSendToContent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "prepareWavResult",
+          requestId: "wav-0",
+          wavUrl: expect.stringMatching(/^blob:/),
+        })
+      );
+
+      // The WAV is a distinct handle: the original stays as the fallback.
+      const answered = mockSendToContent.mock.calls[0]![0];
+      expect(answered.wavUrl).not.toBe(blobUrl);
+    });
+
+    it("should answer with a null wavUrl when conversion fails", async () => {
+      const mockBlob = new Blob(["test"], { type: "audio/ogg" });
+      mockIsLikelyVoiceMessageBlob.mockReturnValue(true);
+      mockGetAudioDuration.mockResolvedValue(3000);
+      mockConvertBlobToWav.mockResolvedValue(null);
+
+      blobMonitor.initBlobMonitor();
+      URL.createObjectURL(mockBlob);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      mockSendToContent.mockClear();
+
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          source: window,
+          data: {
+            type: "CONTENT_SCRIPT",
+            message: {
+              action: "prepareWav",
+              durationMs: 3000,
+              requestId: "wav-1",
+            },
+          },
+        })
+      );
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // The caller downloads the original audio rather than nothing.
+      expect(mockSendToContent).toHaveBeenCalledWith(
+        expect.objectContaining({ requestId: "wav-1", wavUrl: null })
+      );
+    });
+
+    it("should not re-enqueue the WAV blob it creates on request", async () => {
       const mockBlob = new Blob(["test"], { type: "audio/ogg" });
       // A WAV blob would pass this predicate too (audio MIME, plausible size),
       // so publishing it through the patched createObjectURL would loop forever.
@@ -442,14 +506,29 @@ describe("blob-monitor", () => {
         new Blob(["wav"], { type: "audio/wav" })
       );
 
+      blobMonitor.initBlobMonitor();
       URL.createObjectURL(mockBlob);
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // Exactly one audio blob was analysed and converted: the source. The WAV
-      // never re-entered the queue.
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          source: window,
+          data: {
+            type: "CONTENT_SCRIPT",
+            message: {
+              action: "prepareWav",
+              durationMs: 3000,
+              requestId: "wav-2",
+            },
+          },
+        })
+      );
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Only the source blob was ever analysed and converted. The WAV published
+      // through the unpatched createObjectURL never re-entered the queue.
       expect(mockConvertBlobToWav).toHaveBeenCalledTimes(1);
       expect(mockGetAudioDuration).toHaveBeenCalledTimes(1);
-      expect(mockSendToContent).toHaveBeenCalledTimes(1);
     });
 
     it("should truncate long blob URLs in logs", async () => {

@@ -38,7 +38,7 @@ export function handleDownloadAll(
     return true;
   }
 
-  void downloadAndRespond(voiceMessagesStore, sendResponse);
+  void downloadAndRespond(voiceMessagesStore, sender.tab?.id, sendResponse);
 
   return true; // Keep the connection open for async response
 }
@@ -48,12 +48,17 @@ export function handleDownloadAll(
  */
 async function downloadAndRespond(
   voiceMessagesStore: VoiceMessageStore,
+  tabId: number | undefined,
   sendResponse: (response?: any) => void
 ): Promise<void> {
   try {
     // Execute batch download
     logger.info("Executing batch download of all available voice messages");
-    const downloadCount = await downloadAllVoiceMessages(voiceMessagesStore);
+    const downloadCount = await downloadAllVoiceMessages(
+      voiceMessagesStore,
+      false,
+      tabId
+    );
 
     if (downloadCount > 0) {
       logger.info("Batch download initiated", { downloadCount });

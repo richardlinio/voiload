@@ -20,8 +20,6 @@ interface BlobUrlMessage {
   blobSize?: number;
   durationMs: number;
   timestamp: string;
-  /** Blob URL of the WAV re-encoding; null when the conversion failed. */
-  wavUrl?: string | null;
 }
 
 /**
@@ -58,7 +56,7 @@ export function handleBlobUrl(
   sendResponse: (response?: any) => void
 ): boolean {
   // Get basic info
-  const { blobUrl, blobType, blobSize, durationMs, timestamp, wavUrl } = message;
+  const { blobUrl, blobType, blobSize, durationMs, timestamp } = message;
   const urlFeatures = blobUrl ? blobUrl.substring(0, 30) + "..." : null;
 
   logger.debug("Handling Blob URL registration message", {
@@ -67,7 +65,6 @@ export function handleBlobUrl(
     blobType,
     blobSize,
     timestamp,
-    hasWavUrl: !!wavUrl,
   });
 
   // Ensure we have voiceMessagesStore
@@ -103,7 +100,7 @@ async function registerAndRespond(
   message: BlobUrlMessage,
   sendResponse: (response?: any) => void
 ): Promise<void> {
-  const { blobUrl, blobType, blobSize, durationMs, wavUrl } = message;
+  const { blobUrl, blobType, blobSize, durationMs } = message;
 
   try {
     // Use registerDownloadUrl to register the Blob URL in voiceMessagesStore
@@ -112,8 +109,7 @@ async function registerAndRespond(
       blobUrl,
       null, // No lastModified info
       blobType,
-      blobSize,
-      wavUrl
+      blobSize
     );
 
     logger.info(

@@ -52,6 +52,10 @@ const mockChrome = {
   downloads: {
     download: jest.fn(),
   },
+  tabs: {
+    // The batch download asks the page to re-encode each message in turn.
+    sendMessage: jest.fn(),
+  },
   runtime: {
     lastError: undefined as chrome.runtime.LastError | undefined,
   },
@@ -804,14 +808,13 @@ describe("download-manager.ts", () => {
       );
     });
 
-    it("should prefer item.wavUrl over item.downloadUrl and produce a .wav filename", async () => {
+    it("should download the WAV the page re-encodes for each item, under a .wav filename", async () => {
       const mockStore = createMockVoiceMessageStore();
       mockStore.items.set("voice-msg-001", {
         id: "voice-msg-001",
         element: null,
         durationMs: 5000,
         downloadUrl: "https://example.com/audio1.mp4",
-        wavUrl: "https://example.com/audio1.wav",
         lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
         blobType: null,
         blobSize: null,
@@ -819,18 +822,59 @@ describe("download-manager.ts", () => {
         isPending: false,
       });
 
+      // The store holds only the original; the page converts on request.
+      mockChrome.tabs.sendMessage.mockResolvedValue({
+        wavUrl: "https://example.com/audio1.wav",
+      });
       mockChrome.downloads.download.mockImplementation((options, callback) => {
         callback(123);
       });
 
-      const result = await downloadAllVoiceMessages(mockStore);
+      const result = await downloadAllVoiceMessages(mockStore, false, 42);
 
       expect(result).toBe(1);
+      expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(42, {
+        action: "requestWavForBatch",
+        durationMs: 5000,
+      });
       expect(mockChrome.downloads.download).toHaveBeenCalledWith(
         expect.objectContaining({
           url: "https://example.com/audio1.wav",
           filename: "voice-message-2025-03-19-14-04-40-voice-msg-001.wav",
           saveAs: false,
+        }),
+        expect.any(Function)
+      );
+    });
+
+    it("should download the original audio when the page cannot re-encode it", async () => {
+      const mockStore = createMockVoiceMessageStore();
+      mockStore.items.set("voice-msg-002", {
+        id: "voice-msg-002",
+        element: null,
+        durationMs: 5000,
+        downloadUrl: "https://example.com/audio2.ogg",
+        lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
+        blobType: "audio/ogg",
+        blobSize: null,
+        timestamp: Date.now(),
+        isPending: false,
+      });
+
+      // A message the page can no longer convert is downloaded in its original
+      // format rather than skipped.
+      mockChrome.tabs.sendMessage.mockResolvedValue({ wavUrl: null });
+      mockChrome.downloads.download.mockImplementation((options, callback) => {
+        callback(124);
+      });
+
+      const result = await downloadAllVoiceMessages(mockStore, false, 42);
+
+      expect(result).toBe(1);
+      expect(mockChrome.downloads.download).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: "https://example.com/audio2.ogg",
+          filename: "voice-message-2025-03-19-14-04-40-voice-msg-002.ogg",
         }),
         expect.any(Function)
       );

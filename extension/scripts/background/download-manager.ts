@@ -5,7 +5,7 @@
 
 import { generateVoiceMessageFilename } from "../utils/time-utils";
 import { Logger } from "../utils/logger";
-import { DOWNLOAD_CONSTANTS } from "../utils/constants";
+import { DOWNLOAD_CONSTANTS, MESSAGE_ACTIONS } from "../utils/constants";
 import {
   selectDownloadUrl,
   selectDownloadExtension,
@@ -30,7 +30,7 @@ export function initDownloadManager(voiceMessagesStore?: VoiceMessageStore): voi
   chrome.contextMenus.onClicked.addListener(
     async (
       info: chrome.contextMenus.OnClickData,
-      _tab: chrome.tabs.Tab | undefined
+      tab: chrome.tabs.Tab | undefined
     ) => {
       logger.debug("Context menu clicked", {
         menuItemId: info.menuItemId,
@@ -46,7 +46,7 @@ export function initDownloadManager(voiceMessagesStore?: VoiceMessageStore): voi
               lastModified: lastRightClickedInfo.lastModified,
               isWav: lastRightClickedInfo.isWav,
             });
-            downloadVoiceMessage(
+            void downloadVoiceMessage(
               lastRightClickedInfo.downloadUrl,
               lastRightClickedInfo.lastModified || undefined,
               undefined,
@@ -58,7 +58,11 @@ export function initDownloadManager(voiceMessagesStore?: VoiceMessageStore): voi
             logger.info("No specific voice message URL found, triggering batch download with first dialog");
             // Directly call downloadAllVoiceMessages if voiceMessagesStore is available
             if (voiceMessagesStore) {
-              const downloadCount = await downloadAllVoiceMessages(voiceMessagesStore, true);
+              const downloadCount = await downloadAllVoiceMessages(
+                voiceMessagesStore,
+                true,
+                tab?.id ?? lastRightClickedInfo.tabId
+              );
               logger.info("Batch download triggered with first dialog", { downloadCount });
             } else {
               logger.error("Cannot trigger batch download: voiceMessagesStore not available");
@@ -103,12 +107,12 @@ export function setLastRightClickedInfo(info: RightClickInfo): void {
  * @param sourceMimeType - MIME type of the original audio, used to name the file
  *   when it was not re-encoded
  */
-export function downloadVoiceMessage(url: string, lastModified?: string, uniqueIdentifier?: string, saveAs?: boolean, isWav: boolean = false, sourceMimeType?: string | null): void {
+export function downloadVoiceMessage(url: string, lastModified?: string, uniqueIdentifier?: string, saveAs?: boolean, isWav: boolean = false, sourceMimeType?: string | null): Promise<void> {
   logger.debug("downloadVoiceMessage function called");
 
   if (!url) {
     logger.error("Invalid download URL");
-    return;
+    return Promise.resolve();
   }
 
   // Captured audio is re-encoded to WAV; un-converted audio keeps the extension
@@ -126,35 +130,76 @@ export function downloadVoiceMessage(url: string, lastModified?: string, uniqueI
   // Use Chrome downloads API to download the file
   const useSaveAs = saveAs !== undefined ? saveAs : DOWNLOAD_CONSTANTS.SAVE_AS;
   logger.debug("Preparing to call chrome.downloads.download API", { saveAs: useSaveAs });
-  chrome.downloads.download(
-    {
-      url: url,
-      filename: filename,
-      saveAs: useSaveAs,
-    },
-    (downloadId) => {
-      if (chrome.runtime.lastError) {
-        logger.error("Download failed", chrome.runtime.lastError);
-      } else {
-        logger.info("Download succeeded", { downloadId });
-      }
-    }
-  );
 
-  logger.info("Started voice message download", {
-    url: url.substring(0, 50) + "...",
-    filename,
+  // Resolves once Chrome has accepted the URL. A batch download must not revoke
+  // a WAV blob URL before Chrome has taken hold of it.
+  return new Promise((resolve) => {
+    chrome.downloads.download(
+      {
+        url: url,
+        filename: filename,
+        saveAs: useSaveAs,
+      },
+      (downloadId) => {
+        if (chrome.runtime.lastError) {
+          logger.error("Download failed", chrome.runtime.lastError);
+        } else {
+          logger.info("Download succeeded", { downloadId });
+        }
+        resolve();
+      }
+    );
+
+    logger.info("Started voice message download", {
+      url: url.substring(0, 50) + "...",
+      filename,
+    });
   });
+}
+
+/**
+ * Ask the content script in a tab to re-encode one message as WAV.
+ *
+ * Returns null when there is no tab to ask, or the page cannot convert; the
+ * caller then downloads the original audio.
+ */
+async function requestWavForBatch(
+  tabId: number | undefined,
+  durationMs: number
+): Promise<string | null> {
+  if (tabId === undefined) {
+    return null;
+  }
+
+  try {
+    const response = await chrome.tabs.sendMessage(tabId, {
+      action: MESSAGE_ACTIONS.REQUEST_WAV_FOR_BATCH,
+      durationMs,
+    });
+    return response?.wavUrl ?? null;
+  } catch (error) {
+    logger.warn("Could not reach the page to re-encode a batch item", {
+      durationMs,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
 }
 
 /**
  * Download all voice messages from the data store
  *
+ * Each message is re-encoded to WAV just before its download and the blob URL is
+ * released straight after, so the batch holds one WAV at a time rather than one
+ * per message. A message the page cannot convert is downloaded in its original
+ * format instead of being skipped.
+ *
  * @param voiceMessagesStore - Voice message data store
  * @param showFirstDialog - Whether to show save dialog for the first file (defaults to false)
+ * @param tabId - Tab whose page context holds the captured audio
  * @returns Number of downloads started
  */
-export async function downloadAllVoiceMessages(voiceMessagesStore: VoiceMessageStore, showFirstDialog: boolean = false): Promise<number> {
+export async function downloadAllVoiceMessages(voiceMessagesStore: VoiceMessageStore, showFirstDialog: boolean = false, tabId?: number): Promise<number> {
   logger.debug("downloadAllVoiceMessages function called");
 
   if (!voiceMessagesStore || typeof voiceMessagesStore.getAllItems !== "function") {
@@ -178,8 +223,10 @@ export async function downloadAllVoiceMessages(voiceMessagesStore: VoiceMessageS
       // Determine saveAs value: first file uses showFirstDialog, others use false
       const useSaveAs = isFirstFile && showFirstDialog;
 
+      const wavUrl = await requestWavForBatch(tabId, item.durationMs);
+
       // Prefer the WAV re-encoding, falling back to the original audio.
-      const { url, isWav } = selectDownloadUrl(item);
+      const { url, isWav } = selectDownloadUrl({ ...item, wavUrl });
 
       logger.debug("Downloading voice message", {
         id,
@@ -190,8 +237,10 @@ export async function downloadAllVoiceMessages(voiceMessagesStore: VoiceMessageS
         isWav,
       });
 
+      // Awaited so the next iteration's conversion cannot revoke this WAV blob
+      // URL before Chrome has read it.
       // Use voice message ID as unique identifier to prevent filename conflicts
-      downloadVoiceMessage(url!, item.lastModified || undefined, id, useSaveAs, isWav, item.blobType);
+      await downloadVoiceMessage(url!, item.lastModified || undefined, id, useSaveAs, isWav, item.blobType);
       downloadCount++;
       isFirstFile = false; // Mark that we've processed the first file
     } else {

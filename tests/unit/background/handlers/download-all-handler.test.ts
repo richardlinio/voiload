@@ -101,7 +101,11 @@ describe("download-all-handler.ts", () => {
         await flushPromises();
 
         expect(result).toBe(true);
-        expect(mockDownloadAllVoiceMessages).toHaveBeenCalledWith(mockVoiceMessagesStore);
+        expect(mockDownloadAllVoiceMessages).toHaveBeenCalledWith(
+          mockVoiceMessagesStore,
+          false,
+          123
+        );
         expect(mockSendResponse).toHaveBeenCalledWith({
           success: true,
           message: "Started downloading all available voice messages (2 files)",
@@ -124,7 +128,11 @@ describe("download-all-handler.ts", () => {
         await flushPromises();
 
         expect(result).toBe(true);
-        expect(mockDownloadAllVoiceMessages).toHaveBeenCalledWith(mockVoiceMessagesStore);
+        expect(mockDownloadAllVoiceMessages).toHaveBeenCalledWith(
+          mockVoiceMessagesStore,
+          false,
+          123
+        );
         expect(mockSendResponse).toHaveBeenCalledWith({
           success: true,
           message: "No downloadable voice messages available in cache",
@@ -153,7 +161,11 @@ describe("download-all-handler.ts", () => {
         await flushPromises();
 
         expect(result).toBe(true);
-        expect(mockDownloadAllVoiceMessages).toHaveBeenCalledWith(mockVoiceMessagesStore);
+        expect(mockDownloadAllVoiceMessages).toHaveBeenCalledWith(
+          mockVoiceMessagesStore,
+          false,
+          123
+        );
         expect(mockSendResponse).toHaveBeenCalledWith({
           success: true,
           message: "Started downloading all available voice messages (1 files)",
@@ -185,7 +197,11 @@ describe("download-all-handler.ts", () => {
         await flushPromises();
 
         expect(result).toBe(true);
-        expect(mockDownloadAllVoiceMessages).toHaveBeenCalledWith(mockVoiceMessagesStore);
+        expect(mockDownloadAllVoiceMessages).toHaveBeenCalledWith(
+          mockVoiceMessagesStore,
+          false,
+          123
+        );
         expect(mockSendResponse).toHaveBeenCalledWith({
           success: true,
           message: "Started downloading all available voice messages (50 files)",
@@ -255,7 +271,11 @@ describe("download-all-handler.ts", () => {
         await flushPromises();
 
         expect(result).toBe(true);
-        expect(mockDownloadAllVoiceMessages).toHaveBeenCalledWith(invalidStore);
+        expect(mockDownloadAllVoiceMessages).toHaveBeenCalledWith(
+          invalidStore,
+          false,
+          123
+        );
         expect(mockSendResponse).toHaveBeenCalledWith({
           success: true,
           message: "No downloadable voice messages available in cache",
@@ -280,7 +300,11 @@ describe("download-all-handler.ts", () => {
 
         expect(result).toBe(true);
         expect(mockDownloadAllVoiceMessages).toHaveBeenCalledTimes(1);
-        expect(mockDownloadAllVoiceMessages).toHaveBeenCalledWith(mockVoiceMessagesStore);
+        expect(mockDownloadAllVoiceMessages).toHaveBeenCalledWith(
+          mockVoiceMessagesStore,
+          false,
+          123
+        );
       });
 
       it("should report the failure rather than reject when downloadAllVoiceMessages throws", async () => {
@@ -302,7 +326,9 @@ describe("download-all-handler.ts", () => {
 
         expect(result).toBe(true);
         expect(mockDownloadAllVoiceMessages).toHaveBeenCalledWith(
-          mockVoiceMessagesStore
+          mockVoiceMessagesStore,
+          false,
+          123
         );
         expect(mockSendResponse).toHaveBeenCalledWith({
           success: false,

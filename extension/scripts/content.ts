@@ -7,10 +7,12 @@ import { Logger } from "./utils/logger";
 import {
   SUPPORTED_SITES,
   MESSAGE_SOURCES,
+  MESSAGE_ACTIONS,
   MODULE_NAMES,
 } from "./utils/constants";
 import { initMessageHandler } from "./content/message-handler";
 import { initContextMenuHandler } from "./content/context-menu-handler";
+import { requestWavUrl } from "./content/wav-request";
 
 // Create a module-specific logger
 const logger = Logger.createModuleLogger(MODULE_NAMES.CONTENT_SCRIPT);
@@ -96,9 +98,18 @@ if (!isSupportedSite) {
   const messageListener: RuntimeMessageListener = function (
     message: any,
     _sender: chrome.runtime.MessageSender,
-    _sendResponse: (response?: any) => void
+    sendResponse: (response?: any) => void
   ): boolean {
     logger.debug("Received background script message", { message });
+
+    // A batch download needs one WAV at a time. Only the content script can reach
+    // the page context, so the background asks it rather than the page directly.
+    if (message?.action === MESSAGE_ACTIONS.REQUEST_WAV_FOR_BATCH) {
+      void requestWavUrl(message.durationMs).then((wavUrl) => {
+        sendResponse({ wavUrl });
+      });
+      return true; // Keep the port open until the conversion settles
+    }
 
     // Forward to the page context
     window.postMessage(

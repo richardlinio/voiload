@@ -140,8 +140,7 @@ export function createDataStore(): VoiceMessageStore {
       downloadUrl: string,
       lastModified?: string | null,
       blobType?: string | null,
-      blobSize?: number | null,
-      wavUrl?: string | null
+      blobSize?: number | null
     ) =>
       registerDownloadUrl(
         voiceMessagesInstance!,
@@ -149,8 +148,7 @@ export function createDataStore(): VoiceMessageStore {
         downloadUrl,
         lastModified,
         blobType,
-        blobSize,
-        wavUrl
+        blobSize
       ),
     findItemByDuration: (durationMs: number) =>
       findItemByDuration(voiceMessagesInstance!, durationMs),
@@ -251,7 +249,6 @@ function findNearestItemByDuration(
  * @param lastModified - Last-Modified header value
  * @param blobType - MIME type of the Blob
  * @param blobSize - Size of the Blob (bytes)
- * @param wavUrl - Blob URL of the WAV re-encoding, preferred when downloading
  * @returns Voice message ID
  */
 export async function registerDownloadUrl(
@@ -260,8 +257,7 @@ export async function registerDownloadUrl(
   downloadUrl: string,
   lastModified: string | null = null,
   blobType: string | null = null,
-  blobSize: number | null = null,
-  wavUrl: string | null = null
+  blobSize: number | null = null
 ): Promise<string> {
   await hydrate(voiceMessages);
 
@@ -332,9 +328,6 @@ export async function registerDownloadUrl(
     if (blobSize) {
       matchingItem.blobSize = blobSize;
     }
-    if (wavUrl) {
-      matchingItem.wavUrl = wavUrl;
-    }
 
     // Log update diagnostic info
     const updateData = {
@@ -366,7 +359,6 @@ export async function registerDownloadUrl(
     element: null,
     durationMs,
     downloadUrl,
-    wavUrl,
     lastModified,
     blobType,
     blobSize,

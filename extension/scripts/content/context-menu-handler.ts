@@ -12,6 +12,7 @@ import {
   getDurationFromSlider,
   type VoiceMessageElementResult,
 } from "./dom-utils";
+import { requestWavUrl } from "./wav-request";
 
 // ================================================
 // Type Definitions
@@ -26,6 +27,8 @@ interface RightClickMessage {
   downloadUrl: string | null;
   lastModified?: string | null | undefined;
   durationMs?: number | undefined;
+  /** Blob URL of the WAV re-encoding; null when it could not be produced. */
+  wavUrl?: string | null;
 }
 
 // ================================================
@@ -120,11 +123,16 @@ function handleContextMenu(event: MouseEvent): void {
       data: durationMs,
     });
 
-    // Send message to background script, including element ID and duration
-    Logger.debug("Preparing to send right-click message", {
-      module: MODULE_NAMES.CONTEXT_MENU,
+    // Re-encode this one message while the user reads the context menu, so the
+    // eventual download click stays instant. A failure sends wavUrl null and the
+    // original audio is downloaded.
+    void requestWavUrl(durationMs).then((wavUrl) => {
+      Logger.debug("Preparing to send right-click message", {
+        module: MODULE_NAMES.CONTEXT_MENU,
+        data: { hasWavUrl: !!wavUrl },
+      });
+      sendRightClickMessage(id, null, null, durationMs, wavUrl);
     });
-    sendRightClickMessage(id, null, null, durationMs);
   } else {
     Logger.debug("Unable to get duration from slider", {
       module: MODULE_NAMES.CONTEXT_MENU,
@@ -139,12 +147,14 @@ function handleContextMenu(event: MouseEvent): void {
  * @param downloadUrl - Download URL
  * @param lastModified - Last-Modified header value
  * @param durationMs - Duration in milliseconds
+ * @param wavUrl - Blob URL of the WAV re-encoding, when one could be produced
  */
 function sendRightClickMessage(
   elementId: string | null,
   downloadUrl: string | null,
   lastModified?: string | null,
-  durationMs?: number
+  durationMs?: number,
+  wavUrl: string | null = null
 ): void {
   // Prepare the message object
   const message: RightClickMessage = {
@@ -153,6 +163,7 @@ function sendRightClickMessage(
     downloadUrl,
     lastModified,
     durationMs,
+    wavUrl,
   };
 
   Logger.debug("Preparing to send message to background script", {

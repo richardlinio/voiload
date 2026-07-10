@@ -439,12 +439,13 @@ describe("right-click-handler.ts", () => {
     });
 
     describe("WAV re-encoding preference", () => {
-      it("should prefer the matched item's wavUrl and mark isWav true", async () => {
+      it("should prefer the wavUrl the page sent and mark isWav true", async () => {
+        // The store holds only the original audio; the page re-encodes on
+        // right-click and hands the WAV blob URL over on the message.
         const matchingItem = {
           id: "wav-item",
           durationMs: 5002,
           downloadUrl: "https://example.com/original.ogg",
-          wavUrl: "blob:https://example.com/wav-reencoded",
           lastModified: "Wed, 21 Oct 2015 07:28:00 GMT",
         };
         mockVoiceMessagesStore.items.set("wav-item", matchingItem);
@@ -455,6 +456,7 @@ describe("right-click-handler.ts", () => {
           downloadUrl: null,
           lastModified: null,
           durationMs: 5000,
+          wavUrl: "blob:https://example.com/wav-reencoded",
         };
 
         const result = rightClickHandler.handleRightClick(

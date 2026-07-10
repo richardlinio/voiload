@@ -103,8 +103,7 @@ describe("blob-handler.ts", () => {
           "blob:https://facebook.com/12345678-1234-1234-1234-123456789abc",
           null,
           "audio/mpeg",
-          64000,
-          undefined
+          64000
         );
         expect(mockLogger.info).toHaveBeenCalledWith(
           `Successfully registered Blob URL, ID: ${mockId}, duration: 5000ms`
@@ -140,7 +139,6 @@ describe("blob-handler.ts", () => {
           3000,
           "blob:https://facebook.com/87654321-4321-4321-4321-987654321cba",
           null,
-          undefined,
           undefined,
           undefined
         );
@@ -181,7 +179,6 @@ describe("blob-handler.ts", () => {
             blobType: "audio/wav",
             blobSize: 128000,
             timestamp: "2023-10-21T12:00:00.000Z",
-            hasWavUrl: false,
           }
         );
       });
@@ -215,7 +212,7 @@ describe("blob-handler.ts", () => {
         );
       });
 
-      it("should forward message.wavUrl through to registerDownloadUrl as the 6th argument", async () => {
+      it("should register only the original audio, never a wavUrl", async () => {
         const mockId = "blob-id-wav";
         mockVoiceMessagesStore.registerDownloadUrl.mockResolvedValue(mockId);
 
@@ -225,7 +222,6 @@ describe("blob-handler.ts", () => {
           blobSize: 32000,
           durationMs: 6000,
           timestamp: "2023-10-21T14:00:00.000Z",
-          wavUrl: "blob:https://facebook.com/wav-reencoded",
         };
 
         const result = blobHandler.handleBlobUrl(
@@ -237,24 +233,15 @@ describe("blob-handler.ts", () => {
         await flushPromises();
 
         expect(result).toBe(true);
+
+        // The page mints a WAV blob URL only on right-click and revokes it on the
+        // next conversion, so the store must never hold one.
         expect(mockVoiceMessagesStore.registerDownloadUrl).toHaveBeenCalledWith(
           6000,
           "blob:https://facebook.com/wav-test",
           null,
           "audio/ogg",
-          32000,
-          "blob:https://facebook.com/wav-reencoded"
-        );
-        expect(mockLogger.debug).toHaveBeenCalledWith(
-          "Handling Blob URL registration message",
-          {
-            blobUrl: "blob:https://facebook.com/wav-...",
-            durationMs: 6000,
-            blobType: "audio/ogg",
-            blobSize: 32000,
-            timestamp: "2023-10-21T14:00:00.000Z",
-            hasWavUrl: true,
-          }
+          32000
         );
       });
     });

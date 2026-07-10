@@ -15,6 +15,7 @@ export const MODULE_NAMES = {
   MENU_MANAGER: "menu-manager",
   MESSAGE_HANDLER: "message-handler",
   CONTENT_MESSAGE_HANDLER: "content-message-handler",
+  CONTENT_WAV_REQUEST: "content-wav-request",
   DOWNLOAD_MANAGER: "download-manager",
   DATA_STORE: "data-store",
   WEB_REQUEST: "web-request-interceptor",
@@ -49,12 +50,39 @@ export const BLOB_MONITOR_CONSTANTS = {
 // Facebook serves voice messages as opus/ogg, which desktop players either
 // refuse to open or time incorrectly (they estimate duration from the bitrate).
 // Captured audio is decoded and re-packaged as PCM WAV before download.
+//
+// Conversion happens on right-click, not on capture: PCM is ~30x the size of the
+// opus it came from, so converting every scrolled-past message pinned hundreds of
+// MB per tab. Only one WAV is held at a time -- the previous one is revoked.
 export const WAV_CONSTANTS = {
   MIME_TYPE: "audio/wav",
   // A canonical PCM WAV header: RIFF descriptor + fmt chunk + data chunk header.
   HEADER_SIZE: 44,
   BITS_PER_SAMPLE: 16,
   FORMAT_PCM: 1,
+} as const;
+
+// ===========================================
+// Source Blob Retention (page context)
+// ===========================================
+// The captured opus Blob is retained so a later right-click can re-encode it.
+// Facebook owns the blob URL it handed us and revokes it when the message row
+// unmounts, so holding only the URL string loses the audio for older messages.
+// Opus is small (7s ~= 3KB, 60s ~= 40KB), so retaining the bytes costs little.
+export const SOURCE_BLOB_CONSTANTS = {
+  // Oldest entries are dropped past this. 200 messages of retained opus is on the
+  // order of a few MB, versus hundreds of MB had they been retained as WAV.
+  MAX_RETAINED: 200,
+} as const;
+
+// ===========================================
+// WAV Request (content -> page) Constants
+// ===========================================
+export const WAV_REQUEST_CONSTANTS = {
+  // Measured encode cost is 5-46ms for a 7s-60s message, so a page that has not
+  // answered by now is gone (navigated, torn down) rather than merely slow. The
+  // right-click falls back to the original audio instead of waiting.
+  TIMEOUT_MS: 2000,
 } as const;
 
 // ===========================================
@@ -111,6 +139,15 @@ export const MESSAGE_ACTIONS = {
   BLOB_DETECTED: "blobUrlDetected",
   GET_AUDIO_DURATION: "getAudioDuration",
   DOWNLOAD_ALL_VOICE_MESSAGES: "downloadAllVoiceMessages",
+  // Content asks the page to re-encode one captured blob; the page answers with
+  // PREPARE_WAV_RESULT. Conversion runs on right-click rather than on capture,
+  // so only audio the user asked for is ever decoded.
+  PREPARE_WAV: "prepareWav",
+  PREPARE_WAV_RESULT: "prepareWavResult",
+  // Background asks the content script to obtain one WAV during a batch download.
+  // Batch downloads never pass through the right-click path, so they would
+  // otherwise fall back to the un-playable original audio.
+  REQUEST_WAV_FOR_BATCH: "requestWavForBatch",
 } as const;
 
 // ===========================================
