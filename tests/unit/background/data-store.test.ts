@@ -4,9 +4,7 @@ import {
   createDataStore,
   isDurationMatch,
   registerDownloadUrl,
-  findPendingItemByDuration,
   findItemByDuration,
-  getDownloadUrlForElement,
   cleanupOldItems,
   resetHydrationState,
 } from "../../../extension/scripts/background/data-store";
@@ -111,11 +109,10 @@ describe("data-store.ts", () => {
     it("should have all required methods", () => {
       const store = createDataStore();
 
-      expect(typeof store.isDurationMatch).toBe("function");
       expect(typeof store.registerDownloadUrl).toBe("function");
-      expect(typeof store.findPendingItemByDuration).toBe("function");
       expect(typeof store.findItemByDuration).toBe("function");
-      expect(typeof store.getDownloadUrlForElement).toBe("function");
+      expect(typeof store.getAllItems).toBe("function");
+      expect(typeof store.updateItem).toBe("function");
     });
 
     it("should initialize with empty items map", () => {
@@ -437,88 +434,6 @@ describe("data-store.ts", () => {
     });
   });
 
-  describe("findPendingItemByDuration", () => {
-    beforeEach(() => {
-      // Add test items
-      const pendingItem: VoiceMessageItem = {
-        id: "pending-1",
-        element: null,
-        durationMs: 5000,
-        downloadUrl: "url1",
-        timestamp: Date.now(),
-        isPending: true,
-      };
-
-      const processedItem: VoiceMessageItem = {
-        id: "processed-1",
-        element: createMockElement(),
-        durationMs: 3000,
-        downloadUrl: "url2",
-        timestamp: Date.now(),
-        isPending: false,
-      };
-
-      mockStore.items.set("pending-1", pendingItem);
-      mockStore.items.set("processed-1", processedItem);
-    });
-
-    describe("Normal Cases", () => {
-      it("should find pending item by exact duration", async () => {
-        const item = await findPendingItemByDuration(mockStore, 5000);
-
-        expect(item).toBeDefined();
-        expect(item?.id).toBe("pending-1");
-        expect(item?.isPending).toBe(true);
-      });
-
-      it("should find pending item within tolerance", async () => {
-        const item = await findPendingItemByDuration(mockStore, 5003);
-
-        expect(item).toBeDefined();
-        expect(item?.id).toBe("pending-1");
-      });
-
-      it("should not find processed items", async () => {
-        const item = await findPendingItemByDuration(mockStore, 3000);
-
-        expect(item).toBeNull();
-      });
-
-      it("should return null when no matching pending item exists", async () => {
-        const item = await findPendingItemByDuration(mockStore, 8000);
-
-        expect(item).toBeNull();
-      });
-    });
-
-    describe("Edge Cases", () => {
-      it("should handle empty store", async () => {
-        mockStore.items.clear();
-        const item = await findPendingItemByDuration(mockStore, 5000);
-
-        expect(item).toBeNull();
-      });
-
-      it("should handle multiple pending items and return first match", async () => {
-        const pendingItem2: VoiceMessageItem = {
-          id: "pending-2",
-          element: null,
-          durationMs: 5002, // Within tolerance of 5000
-          downloadUrl: "url3",
-          timestamp: Date.now(),
-          isPending: true,
-        };
-        mockStore.items.set("pending-2", pendingItem2);
-
-        const item = await findPendingItemByDuration(mockStore, 5000);
-
-        expect(item).toBeDefined();
-        // Should return one of the matching items
-        expect(["pending-1", "pending-2"]).toContain(item?.id);
-      });
-    });
-  });
-
   describe("findItemByDuration", () => {
     beforeEach(() => {
       const item1: VoiceMessageItem = {
@@ -587,250 +502,6 @@ describe("data-store.ts", () => {
         const item = await findItemByDuration(mockStore, 5000);
 
         expect(["item-1", "item-3"]).toContain(item?.id);
-      });
-    });
-  });
-
-  describe("getDownloadUrlForElement", () => {
-    beforeEach(() => {
-      const {
-        domDurationToMilliseconds,
-      } = require("../../../extension/scripts/utils/time-utils");
-      domDurationToMilliseconds.mockImplementation((value: number) =>
-        value > 1200 ? Math.round(value) : Math.round(value * 1000)
-      );
-    });
-
-    describe("Normal Cases", () => {
-      it("should find URL by element ID", async () => {
-        const item: VoiceMessageItem = {
-          id: "test-id",
-          element: null,
-          durationMs: 5000,
-          downloadUrl: "https://example.com/audio.mp3",
-          lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
-          timestamp: Date.now(),
-          isPending: false,
-        };
-        mockStore.items.set("test-id", item);
-
-        const element = createMockElement("test-id");
-        const result = await getDownloadUrlForElement(mockStore, element);
-
-        expect(result).toEqual({
-          downloadUrl: "https://example.com/audio.mp3",
-          lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
-          isWav: false,
-        });
-      });
-
-      it("should find URL by aria-valuemax duration", async () => {
-        const item: VoiceMessageItem = {
-          id: "test-id",
-          element: null,
-          durationMs: 5000,
-          downloadUrl: "https://example.com/audio.mp3",
-          lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
-          timestamp: Date.now(),
-          isPending: false,
-        };
-        mockStore.items.set("test-id", item);
-
-        const element = createMockElement(undefined, "5.0"); // 5 seconds
-        const result = await getDownloadUrlForElement(mockStore, element);
-
-        expect(result).toEqual({
-          downloadUrl: "https://example.com/audio.mp3",
-          lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
-          isWav: false,
-        });
-      });
-
-      it("should handle missing lastModified", async () => {
-        const item: VoiceMessageItem = {
-          id: "test-id",
-          element: null,
-          durationMs: 5000,
-          downloadUrl: "https://example.com/audio.mp3",
-          timestamp: Date.now(),
-          isPending: false,
-        };
-        mockStore.items.set("test-id", item);
-
-        const element = createMockElement("test-id");
-        const result = await getDownloadUrlForElement(mockStore, element);
-
-        expect(result).toEqual({
-          downloadUrl: "https://example.com/audio.mp3",
-          lastModified: null,
-          isWav: false,
-        });
-      });
-
-      it("should prefer wavUrl and mark isWav true when found by element ID", async () => {
-        const item: VoiceMessageItem = {
-          id: "test-id",
-          element: null,
-          durationMs: 5000,
-          downloadUrl: "https://example.com/audio.ogg",
-          wavUrl: "blob:https://example.com/audio-reencoded.wav",
-          lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
-          timestamp: Date.now(),
-          isPending: false,
-        };
-        mockStore.items.set("test-id", item);
-
-        const element = createMockElement("test-id");
-        const result = await getDownloadUrlForElement(mockStore, element);
-
-        expect(result).toEqual({
-          downloadUrl: "blob:https://example.com/audio-reencoded.wav",
-          lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
-          isWav: true,
-        });
-      });
-
-      it("should prefer wavUrl and mark isWav true when found by aria-valuemax duration", async () => {
-        const item: VoiceMessageItem = {
-          id: "test-id",
-          element: null,
-          durationMs: 5000,
-          downloadUrl: "https://example.com/audio.ogg",
-          wavUrl: "blob:https://example.com/audio-reencoded.wav",
-          lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
-          timestamp: Date.now(),
-          isPending: false,
-        };
-        mockStore.items.set("test-id", item);
-
-        const element = createMockElement(undefined, "5.0"); // 5 seconds
-        const result = await getDownloadUrlForElement(mockStore, element);
-
-        expect(result).toEqual({
-          downloadUrl: "blob:https://example.com/audio-reencoded.wav",
-          lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
-          isWav: true,
-        });
-      });
-    });
-
-    describe("Boundary Conditions", () => {
-      it("should return null for null element", async () => {
-        const result = await getDownloadUrlForElement(mockStore, null as any);
-
-        expect(result).toBeNull();
-      });
-
-      it("should return null when element ID not found in store", async () => {
-        const element = createMockElement("non-existent-id");
-        const result = await getDownloadUrlForElement(mockStore, element);
-
-        expect(result).toBeNull();
-      });
-
-      it("should return null when no aria-valuemax attribute", async () => {
-        const element = createMockElement(); // No ID, no aria-valuemax
-        const result = await getDownloadUrlForElement(mockStore, element);
-
-        expect(result).toBeNull();
-      });
-
-      it("should handle invalid aria-valuemax values", async () => {
-        const element = createMockElement(undefined, "invalid");
-        const result = await getDownloadUrlForElement(mockStore, element);
-
-        expect(result).toBeNull();
-      });
-
-      it("should return null when duration matches but no downloadUrl", async () => {
-        const item: VoiceMessageItem = {
-          id: "test-id",
-          element: null,
-          durationMs: 5000,
-          downloadUrl: null,
-          timestamp: Date.now(),
-          isPending: true,
-        };
-        mockStore.items.set("test-id", item);
-
-        const element = createMockElement(undefined, "5.0");
-        const result = await getDownloadUrlForElement(mockStore, element);
-
-        expect(result).toBeNull();
-      });
-    });
-
-    describe("Duration Matching", () => {
-      it("should find item by duration within tolerance", async () => {
-        const item: VoiceMessageItem = {
-          id: "test-id",
-          element: null,
-          durationMs: 5000,
-          downloadUrl: "https://example.com/audio.mp3",
-          timestamp: Date.now(),
-          isPending: false,
-        };
-        mockStore.items.set("test-id", item);
-
-        // Test duration within tolerance (5.003 seconds = 5003ms, within 5ms tolerance of 5000ms)
-        const element = createMockElement(undefined, "5.003");
-        const result = await getDownloadUrlForElement(mockStore, element);
-
-        expect(result?.downloadUrl).toBe("https://example.com/audio.mp3");
-      });
-
-      it("should not find item when duration is outside tolerance", async () => {
-        const item: VoiceMessageItem = {
-          id: "test-id",
-          element: null,
-          durationMs: 5000,
-          downloadUrl: "https://example.com/audio.mp3",
-          timestamp: Date.now(),
-          isPending: false,
-        };
-        mockStore.items.set("test-id", item);
-
-        // Duration outside tolerance (8 seconds = 8000ms, outside 1000ms tolerance of 5000ms)
-        const element = createMockElement(undefined, "8");
-        const result = await getDownloadUrlForElement(mockStore, element);
-
-        expect(result).toBeNull();
-      });
-    });
-
-    describe("Edge Cases", () => {
-      it("should handle zero duration", async () => {
-        const item: VoiceMessageItem = {
-          id: "test-id",
-          element: null,
-          durationMs: 0,
-          downloadUrl: "https://example.com/audio.mp3",
-          timestamp: Date.now(),
-          isPending: false,
-        };
-        mockStore.items.set("test-id", item);
-
-        const element = createMockElement(undefined, "0");
-        const result = await getDownloadUrlForElement(mockStore, element);
-
-        expect(result?.downloadUrl).toBe("https://example.com/audio.mp3");
-      });
-
-      it("should handle very small durations", async () => {
-        const item: VoiceMessageItem = {
-          id: "test-id",
-          element: null,
-          durationMs: 100,
-          downloadUrl: "https://example.com/audio.mp3",
-          timestamp: Date.now(),
-          isPending: false,
-        };
-        mockStore.items.set("test-id", item);
-
-        const element = createMockElement(undefined, "0.1");
-        const result = await getDownloadUrlForElement(mockStore, element);
-
-        expect(result?.downloadUrl).toBe("https://example.com/audio.mp3");
       });
     });
   });
@@ -1111,14 +782,10 @@ describe("data-store.ts", () => {
       expect(mockStore.items.size).toBe(1);
       expect(mockStore.items.get(id1)?.isPending).toBe(true);
 
-      // 2. Register element with matching duration (should update existing item)
-      const pendingItem = await findPendingItemByDuration(mockStore, 5003); // Within tolerance
-      expect(pendingItem?.id).toBe(id1);
-
-      // 3. Get download URL for element
-      const element = createMockElement(id1);
-      const result = await getDownloadUrlForElement(mockStore, element);
-      expect(result?.downloadUrl).toBe("https://example.com/audio1.mp3");
+      // 2. A right-click on the matching element resolves the item by duration
+      const matched = await findItemByDuration(mockStore, 5003); // Within tolerance
+      expect(matched?.id).toBe(id1);
+      expect(matched?.downloadUrl).toBe("https://example.com/audio1.mp3");
 
       // 4. Register another URL with different duration
       const {
@@ -1180,14 +847,14 @@ describe("data-store.ts", () => {
       expect(item?.blobSize).toBe(3323);
     });
 
-    it("should recover a right-click lookup by element after a restart", async () => {
+    it("should recover a right-click lookup by duration after a restart", async () => {
       await registerDownloadUrl(mockStore, 60547, "blob:https://messenger.com/xyz");
 
       const revivedStore = restartServiceWorker();
-      const element = createMockElement(undefined, "61"); // 1:01 message
-      const result = await revivedStore.getDownloadUrlForElement(element);
+      // A 1:01 message: the DOM reports integer seconds, the blob decoded to 60547ms
+      const item = await revivedStore.findItemByDuration(61000);
 
-      expect(result?.downloadUrl).toBe("blob:https://messenger.com/xyz");
+      expect(item?.downloadUrl).toBe("blob:https://messenger.com/xyz");
     });
 
     it("should persist every item so download-all survives a restart", async () => {

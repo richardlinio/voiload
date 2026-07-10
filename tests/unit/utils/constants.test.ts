@@ -219,7 +219,6 @@ describe("Constants", () => {
   describe("MESSAGE_ACTIONS", () => {
     it("should contain expected message actions", () => {
       expect(MESSAGE_ACTIONS).toHaveProperty("RIGHT_CLICK");
-      expect(MESSAGE_ACTIONS).toHaveProperty("REGISTER_ELEMENT");
       expect(MESSAGE_ACTIONS).toHaveProperty("REGISTER_AUDIO_URL");
       expect(MESSAGE_ACTIONS).toHaveProperty("BLOB_DETECTED");
     });

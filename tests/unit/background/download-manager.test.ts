@@ -81,12 +81,8 @@ function createMockRightClickInfo(
 function createMockVoiceMessageStore(): VoiceMessageStore {
   const store: VoiceMessageStore = {
     items: new Map(),
-    isDurationMatch: jest.fn(),
     registerDownloadUrl: jest.fn(),
-    registerElement: jest.fn(),
-    findPendingItemByDuration: jest.fn(),
     findItemByDuration: jest.fn(),
-    getDownloadUrlForElement: jest.fn(),
     // Reads through the seeded Map, mirroring the real hydrate-then-read store
     getAllItems: jest.fn(async () => Array.from(store.items.values())),
     updateItem: jest.fn(),

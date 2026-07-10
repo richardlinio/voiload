@@ -31,18 +31,6 @@ export interface RightClickMessage extends BaseMessage {
   durationMs?: number;
 }
 
-// ================================================
-// Element Registration Related Messages
-// ================================================
-
-/**
- * Element registration message interface
- */
-export interface ElementRegistrationMessage extends BaseMessage {
-  elementId: string;
-  durationMs: number;
-}
-
 /**
  * Audio URL registration message interface - unified version
  */
@@ -65,16 +53,6 @@ export interface BlobUrlMessage extends BaseMessage {
   durationMs: number;
   /** Blob URL of the WAV re-encoding; null when the conversion failed. */
   wavUrl?: string | null;
-}
-
-/**
- * Blob content message interface
- */
-export interface BlobContentMessage extends BaseMessage {
-  blobUrl: string;
-  blobType: string;
-  base64data: string;
-  requestId?: string;
 }
 
 /**

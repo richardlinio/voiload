@@ -16,7 +16,6 @@ const messageHandlerMockChrome: any = {
 jest.mock("../../../extension/scripts/utils/constants", () => ({
   MESSAGE_ACTIONS: {
     RIGHT_CLICK: "RIGHT_CLICK",
-    REGISTER_ELEMENT: "REGISTER_ELEMENT",
     REGISTER_AUDIO_URL: "REGISTER_AUDIO_URL",
     REGISTER_BLOB_URL: "REGISTER_BLOB_URL",
     BLOB_DETECTED: "BLOB_DETECTED",
@@ -46,13 +45,6 @@ jest.mock(
 );
 
 jest.mock(
-  "../../../extension/scripts/background/handlers/element-registration-handler",
-  () => ({
-    handleElementRegistration: jest.fn(),
-  })
-);
-
-jest.mock(
   "../../../extension/scripts/background/handlers/audio-url-registration-handler",
   () => ({
     handleAudioUrlRegistration: jest.fn(),
@@ -63,7 +55,6 @@ jest.mock(
   "../../../extension/scripts/background/handlers/blob-handler",
   () => ({
     handleBlobUrl: jest.fn(),
-    handleBlobContent: jest.fn(),
     handleBlobDetection: jest.fn(),
   })
 );
@@ -120,10 +111,8 @@ describe("MessageHandler", () => {
     // Mock handlers
     mockHandlers = {
       handleRightClick: jest.fn(),
-      handleElementRegistration: jest.fn(),
       handleAudioUrlRegistration: jest.fn(),
       handleBlobUrl: jest.fn(),
-      handleBlobContent: jest.fn(),
       handleBlobDetection: jest.fn(),
       handleDownloadAll: jest.fn(),
     };
@@ -142,11 +131,6 @@ describe("MessageHandler", () => {
       mockHandlers.handleRightClick
     );
 
-    const elementRegistrationHandler = require("../../../extension/scripts/background/handlers/element-registration-handler");
-    elementRegistrationHandler.handleElementRegistration.mockImplementation(
-      mockHandlers.handleElementRegistration
-    );
-
     const audioUrlRegistrationHandler = require("../../../extension/scripts/background/handlers/audio-url-registration-handler");
     audioUrlRegistrationHandler.handleAudioUrlRegistration.mockImplementation(
       mockHandlers.handleAudioUrlRegistration
@@ -154,9 +138,6 @@ describe("MessageHandler", () => {
 
     const blobHandler = require("../../../extension/scripts/background/handlers/blob-handler");
     blobHandler.handleBlobUrl.mockImplementation(mockHandlers.handleBlobUrl);
-    blobHandler.handleBlobContent.mockImplementation(
-      mockHandlers.handleBlobContent
-    );
     blobHandler.handleBlobDetection.mockImplementation(
       mockHandlers.handleBlobDetection
     );
@@ -240,24 +221,6 @@ describe("MessageHandler", () => {
         "Handling right-click message"
       );
       expect(mockHandlers.handleRightClick).toHaveBeenCalledWith(
-        mockDataStore,
-        message,
-        mockSender,
-        mockSendResponse
-      );
-      expect(result).toBe(true);
-    });
-
-    it("should handle REGISTER_ELEMENT message", () => {
-      const message = { action: "REGISTER_ELEMENT", data: "test" };
-      mockHandlers.handleElementRegistration.mockReturnValue(true);
-
-      const result = messageListener(message, mockSender, mockSendResponse);
-
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        "Handling voice message element registration message"
-      );
-      expect(mockHandlers.handleElementRegistration).toHaveBeenCalledWith(
         mockDataStore,
         message,
         mockSender,
@@ -360,10 +323,8 @@ describe("MessageHandler", () => {
 
       const freshMockHandlers = {
         handleRightClick: jest.fn(),
-        handleElementRegistration: jest.fn(),
         handleAudioUrlRegistration: jest.fn(),
         handleBlobUrl: jest.fn(),
-        handleBlobContent: jest.fn(),
         handleBlobDetection: jest.fn(),
       };
 
@@ -382,11 +343,6 @@ describe("MessageHandler", () => {
         freshMockHandlers.handleRightClick
       );
 
-      const elementRegistrationHandler = require("../../../extension/scripts/background/handlers/element-registration-handler");
-      elementRegistrationHandler.handleElementRegistration.mockImplementation(
-        freshMockHandlers.handleElementRegistration
-      );
-
       const audioUrlRegistrationHandler = require("../../../extension/scripts/background/handlers/audio-url-registration-handler");
       audioUrlRegistrationHandler.handleAudioUrlRegistration.mockImplementation(
         freshMockHandlers.handleAudioUrlRegistration
@@ -395,9 +351,6 @@ describe("MessageHandler", () => {
       const blobHandler = require("../../../extension/scripts/background/handlers/blob-handler");
       blobHandler.handleBlobUrl.mockImplementation(
         freshMockHandlers.handleBlobUrl
-      );
-      blobHandler.handleBlobContent.mockImplementation(
-        freshMockHandlers.handleBlobContent
       );
       blobHandler.handleBlobDetection.mockImplementation(
         freshMockHandlers.handleBlobDetection
@@ -418,7 +371,6 @@ describe("MessageHandler", () => {
         // Simulate the null store check
         const storeRequiredActions = [
           "RIGHT_CLICK",
-          "REGISTER_ELEMENT",
           "REGISTER_AUDIO_URL",
           "REGISTER_BLOB_URL",
         ];
@@ -453,7 +405,6 @@ describe("MessageHandler", () => {
 
     const storeRequiredActions = [
       "RIGHT_CLICK",
-      "REGISTER_ELEMENT",
       "REGISTER_AUDIO_URL",
       "REGISTER_BLOB_URL",
     ];

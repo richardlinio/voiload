@@ -38,11 +38,6 @@ export interface VoiceMessageItem {
  */
 export interface VoiceMessageStore {
   items: Map<string, VoiceMessageItem>;
-  isDurationMatch: (
-    duration1Ms: number,
-    duration2Ms: number,
-    toleranceMs?: number
-  ) => boolean;
   registerDownloadUrl: (
     durationMs: number,
     downloadUrl: string,
@@ -51,30 +46,10 @@ export interface VoiceMessageStore {
     blobSize?: number | null,
     wavUrl?: string | null
   ) => Promise<string>;
-  registerElement: (
-    elementId: string,
-    durationMs: number
-  ) => Promise<VoiceMessageItem>;
-  findPendingItemByDuration: (
-    durationMs: number
-  ) => Promise<VoiceMessageItem | null>;
   findItemByDuration: (durationMs: number) => Promise<VoiceMessageItem | null>;
-  getDownloadUrlForElement: (
-    element: Element
-  ) => Promise<DownloadUrlResult | null>;
   getAllItems: () => Promise<VoiceMessageItem[]>;
   updateItem: (
     id: string,
     patch: Partial<VoiceMessageItem>
   ) => Promise<VoiceMessageItem | null>;
-}
-
-/**
- * Download URL lookup result interface
- */
-export interface DownloadUrlResult {
-  downloadUrl: string | null;
-  lastModified?: string | null;
-  /** True when downloadUrl points at a WAV re-encoding rather than the original audio. */
-  isWav?: boolean;
 }

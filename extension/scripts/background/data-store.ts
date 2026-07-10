@@ -10,8 +10,6 @@
  */
 
 import { generateVoiceMessageId } from "../utils/id-generator";
-import { domDurationToMilliseconds } from "../utils/time-utils";
-import { selectDownloadUrl } from "../utils/download-url";
 import { Logger } from "../utils/logger";
 import {
   MODULE_NAMES,
@@ -23,11 +21,10 @@ import {
 import type {
   VoiceMessageItem,
   VoiceMessageStore,
-  DownloadUrlResult,
 } from "../types/voice-message";
 
 // Re-export types for backward compatibility
-export type { VoiceMessageItem, VoiceMessageStore, DownloadUrlResult };
+export type { VoiceMessageItem, VoiceMessageStore };
 
 // Create a module-specific logger
 const logger = Logger.createModuleLogger(MODULE_NAMES.DATA_STORE);
@@ -138,11 +135,6 @@ export function createDataStore(): VoiceMessageStore {
     items: new Map<string, VoiceMessageItem>(),
 
     // Helper functions
-    isDurationMatch: (
-      duration1Ms: number,
-      duration2Ms: number,
-      toleranceMs: number = MATCHING_TOLERANCE
-    ) => isDurationMatch(duration1Ms, duration2Ms, toleranceMs),
     registerDownloadUrl: (
       durationMs: number,
       downloadUrl: string,
@@ -160,14 +152,8 @@ export function createDataStore(): VoiceMessageStore {
         blobSize,
         wavUrl
       ),
-    registerElement: (elementId: string, durationMs: number) =>
-      registerElement(voiceMessagesInstance!, elementId, durationMs),
-    findPendingItemByDuration: (durationMs: number) =>
-      findPendingItemByDuration(voiceMessagesInstance!, durationMs),
     findItemByDuration: (durationMs: number) =>
       findItemByDuration(voiceMessagesInstance!, durationMs),
-    getDownloadUrlForElement: (element: Element) =>
-      getDownloadUrlForElement(voiceMessagesInstance!, element),
     getAllItems: () => getAllItems(voiceMessagesInstance!),
     updateItem: (id: string, patch: Partial<VoiceMessageItem>) =>
       updateItem(voiceMessagesInstance!, id, patch),
@@ -420,38 +406,6 @@ export async function registerDownloadUrl(
 }
 
 /**
- * Register a voice message element discovered in the DOM, keyed by its element ID.
- *
- * @param voiceMessages - Voice message data store
- * @param elementId - Element ID assigned by the content script
- * @param durationMs - Duration read from the DOM (milliseconds)
- * @returns The stored item
- */
-export async function registerElement(
-  voiceMessages: VoiceMessageStore,
-  elementId: string,
-  durationMs: number
-): Promise<VoiceMessageItem> {
-  await hydrate(voiceMessages);
-
-  const item: VoiceMessageItem = {
-    id: elementId,
-    element: null,
-    durationMs,
-    downloadUrl: null,
-    wavUrl: null,
-    lastModified: null,
-    timestamp: Date.now(),
-    isPending: true,
-  };
-
-  voiceMessages.items.set(elementId, item);
-  await persist(voiceMessages);
-
-  return item;
-}
-
-/**
  * Apply a partial update to a stored item and persist the result.
  *
  * @param voiceMessages - Voice message data store
@@ -489,128 +443,6 @@ export async function getAllItems(
 ): Promise<VoiceMessageItem[]> {
   await hydrate(voiceMessages);
   return Array.from(voiceMessages.items.values());
-}
-
-/**
- * Find a pending item by duration
- *
- * @param voiceMessages - Voice message data store
- * @param durationMs - Duration (milliseconds)
- * @returns Pending item, or null if not found
- */
-export async function findPendingItemByDuration(
-  voiceMessages: VoiceMessageStore,
-  durationMs: number
-): Promise<VoiceMessageItem | null> {
-  await hydrate(voiceMessages);
-
-  return findNearestItemByDuration(
-    voiceMessages,
-    durationMs,
-    (item) => !!item.isPending,
-    "findPendingItemByDuration"
-  );
-}
-
-/**
- * Find the corresponding download URL by element
- *
- * @param voiceMessages - Voice message data store
- * @param element - Voice message element
- * @returns Object containing downloadUrl and lastModified, or null if not found
- */
-export async function getDownloadUrlForElement(
-  voiceMessages: VoiceMessageStore,
-  element: Element
-): Promise<DownloadUrlResult | null> {
-  if (!element) {
-    logger.debug("getDownloadUrlForElement: element is null");
-    return null;
-  }
-
-  await hydrate(voiceMessages);
-
-  logger.debug("Looking up download URL for element");
-  logger.debug("voiceMessages Map size", { size: voiceMessages.items.size });
-
-  // Check if the element has a data-voice-message-id attribute
-  const id = element.getAttribute("data-voice-message-id");
-  logger.debug("Element ID", { id });
-
-  if (id && voiceMessages.items.has(id)) {
-    // If ID exists and is in items, return directly
-    const item = voiceMessages.items.get(id);
-    if (!item) {
-      logger.debug("No item found for specified ID", { id });
-      return null;
-    }
-
-    logger.debug("Found matching item", {
-      id,
-      hasDownloadUrl: !!item.downloadUrl,
-      hasElement: !!item.element,
-      isPending: !!item.isPending,
-    });
-
-    const selected = selectDownloadUrl(item);
-    return {
-      downloadUrl: selected.url,
-      lastModified: item.lastModified || null,
-      isWav: selected.isWav,
-    };
-  }
-
-  // If no ID or ID does not exist, try to find by duration
-  if (element.hasAttribute("aria-valuemax")) {
-    const ariaValuemax = element.getAttribute("aria-valuemax");
-    if (!ariaValuemax) {
-      return null;
-    }
-    const durationSec = parseFloat(ariaValuemax);
-    if (!isNaN(durationSec)) {
-      const durationMs = domDurationToMilliseconds(durationSec);
-      logger.debug("Trying to find by duration", { durationMs });
-
-      // Output all items' durations for debugging
-      logger.debug("All items' durations");
-
-      // Collect all items' durations into an array
-      const itemsInfo = Array.from(voiceMessages.items.entries()).map(
-        ([itemId, item]) => ({
-          id: itemId,
-          durationMs: item.durationMs,
-          hasUrl: !!item.downloadUrl,
-        })
-      );
-
-      logger.debug("Item duration details", { items: itemsInfo });
-
-      const item = findNearestItemByDuration(
-        voiceMessages,
-        durationMs,
-        undefined,
-        "getDownloadUrlForElement"
-      );
-      if (item && item.downloadUrl) {
-        logger.debug("Found matching item by duration", {
-          id: item.id,
-          durationMs: item.durationMs,
-          hasDownloadUrl: !!item.downloadUrl,
-        });
-
-        const selected = selectDownloadUrl(item);
-        return {
-          downloadUrl: selected.url,
-          lastModified: item.lastModified || null,
-          isWav: selected.isWav,
-        };
-      }
-    }
-  }
-
-  // If no ID or ID does not exist, return null
-  logger.debug("No matching download URL found");
-  return null;
 }
 
 /**
