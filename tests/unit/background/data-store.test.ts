@@ -303,10 +303,9 @@ describe("data-store.ts", () => {
 
         const item = mockStore.items.get(id);
         expect(item?.downloadUrl).toBe("https://example.com/audio.ogg");
-        expect(item?.wavUrl).toBeUndefined();
       });
 
-      it("should not introduce a wavUrl when updating a matched item", async () => {
+      it("should store only the original audio when updating a matched item", async () => {
         const existingItem: VoiceMessageItem = {
           id: "existing-id",
           element: null,
@@ -326,7 +325,6 @@ describe("data-store.ts", () => {
         expect(id).toBe("existing-id");
         const updatedItem = mockStore.items.get("existing-id");
         expect(updatedItem?.downloadUrl).toBe("https://new-url.com/audio.ogg");
-        expect(updatedItem?.wavUrl).toBeUndefined();
       });
     });
 

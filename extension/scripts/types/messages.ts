@@ -29,11 +29,6 @@ export interface RightClickMessage extends BaseMessage {
   downloadUrl: string | null;
   lastModified?: string | null;
   durationMs?: number;
-  /**
-   * Blob URL of the WAV the page re-encoded while the context menu was opening.
-   * Null when the audio could not be converted; the original is downloaded then.
-   */
-  wavUrl?: string | null;
 }
 
 /**

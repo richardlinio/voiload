@@ -150,7 +150,7 @@ const BlobProcessingQueue = {
       // EXACT_MATCHING_TOLERANCE and would break duration matching downstream.
       const durationMs = await getAudioDuration(blobUrl);
 
-      // Keep the opus bytes so a later right-click can re-encode them. Converting
+      // Keep the opus bytes so a later download can re-encode them. Converting
       // here instead would decode every scrolled-past message into PCM.
       retainSourceBlob(durationMs, blob);
 
@@ -172,7 +172,7 @@ const BlobProcessingQueue = {
  * Only one WAV is alive at a time: PCM is roughly thirty times the size of the
  * opus it came from, so the previous one is revoked before a new one is made.
  *
- * @param durationMs - Duration of the message the user right-clicked
+ * @param durationMs - Duration of the message the user asked to download
  * @returns Blob URL of the WAV, or null when there is nothing to convert
  */
 async function prepareWavUrl(durationMs: number): Promise<string | null> {
@@ -203,11 +203,10 @@ async function prepareWavUrl(durationMs: number): Promise<string | null> {
 }
 
 /**
- * Answer content-script requests to re-encode a message ahead of a download.
+ * Answer content-script requests to re-encode a message for a download.
  *
- * The request arrives on the `contextmenu` event, before Chrome renders the menu,
- * so the conversion overlaps with the user reading it and the eventual download
- * click stays instant.
+ * The request arrives when the user actually asks to download, so a message is
+ * only ever decoded once someone wants it -- a right-click alone costs nothing.
  */
 function setupWavRequestListener(): void {
   // A second listener would convert and answer the same request twice, revoking

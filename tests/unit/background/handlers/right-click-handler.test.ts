@@ -113,7 +113,6 @@ describe("right-click-handler.ts", () => {
           lastModified: "Wed, 21 Oct 2015 07:28:00 GMT",
           tabId: 123,
           durationMs: 5000,
-          isWav: false,
           blobType: null,
         });
         expect(mockSendResponse).toHaveBeenCalledWith({
@@ -158,7 +157,6 @@ describe("right-click-handler.ts", () => {
           lastModified: "Wed, 21 Oct 2015 07:28:00 GMT",
           tabId: 123,
           durationMs: 5000,
-          isWav: false,
           blobType: null,
         });
         expect(mockSendResponse).toHaveBeenCalledWith({
@@ -192,7 +190,6 @@ describe("right-click-handler.ts", () => {
           lastModified: null,
           tabId: undefined,
           durationMs: 5000,
-          isWav: false,
           blobType: null,
         });
       });
@@ -223,7 +220,6 @@ describe("right-click-handler.ts", () => {
           lastModified: null,
           tabId: 123,
           durationMs: 5000,
-          isWav: false,
           blobType: null,
         });
         expect(mockSendResponse).toHaveBeenCalledWith({
@@ -270,7 +266,6 @@ describe("right-click-handler.ts", () => {
           lastModified: null,
           tabId: 123,
           durationMs: 61000,
-          isWav: false,
           blobType: null,
         });
       });
@@ -309,7 +304,6 @@ describe("right-click-handler.ts", () => {
           lastModified: null,
           tabId: 123,
           durationMs: 5000,
-          isWav: false,
           blobType: null,
         });
         expect(mockSendResponse).toHaveBeenCalledWith({
@@ -432,60 +426,21 @@ describe("right-click-handler.ts", () => {
           lastModified: null,
           tabId: 123,
           durationMs: 5000,
-          isWav: false,
           blobType: null,
         });
       });
     });
 
-    describe("WAV re-encoding preference", () => {
-      it("should prefer the wavUrl the page sent and mark isWav true", async () => {
-        // The store holds only the original audio; the page re-encodes on
-        // right-click and hands the WAV blob URL over on the message.
-        const matchingItem = {
-          id: "wav-item",
-          durationMs: 5002,
-          downloadUrl: "https://example.com/original.ogg",
-          lastModified: "Wed, 21 Oct 2015 07:28:00 GMT",
-        };
-        mockVoiceMessagesStore.items.set("wav-item", matchingItem);
-        mockVoiceMessagesStore.findItemByDuration.mockResolvedValue(matchingItem);
-
-        const message = {
-          elementId: "element-123",
-          downloadUrl: null,
-          lastModified: null,
-          durationMs: 5000,
-          wavUrl: "blob:https://example.com/wav-reencoded",
-        };
-
-        const result = rightClickHandler.handleRightClick(
-          mockVoiceMessagesStore,
-          message,
-          mockSender,
-          mockSendResponse
-        );
-        await flushPromises();
-
-        expect(result).toBe(true);
-        expect(mockSetLastRightClickedInfo).toHaveBeenCalledWith({
-          elementId: "element-123",
-          downloadUrl: "blob:https://example.com/wav-reencoded",
-          lastModified: "Wed, 21 Oct 2015 07:28:00 GMT",
-          tabId: 123,
-          durationMs: 5000,
-          isWav: true,
-          blobType: null,
-        });
-      });
-
-      it("should fall back to the original downloadUrl and mark isWav false when the matched item has no wavUrl", async () => {
+    describe("WAV re-encoding deferral", () => {
+      it("should record only the original audio, leaving re-encoding to the download click", async () => {
+        // A right-click no longer converts anything. Recording a WAV blob URL
+        // here would go stale: the page revokes it on the next conversion.
         const matchingItem = {
           id: "no-wav-item",
           durationMs: 5002,
           downloadUrl: "https://example.com/original.ogg",
-          // Carried through so the download is named after the container the
-          // audio is actually in, instead of being mislabelled a WAV.
+          // Carried through so a download that cannot be re-encoded is named
+          // after the container the audio is actually in.
           blobType: "audio/ogg",
           lastModified: "Wed, 21 Oct 2015 07:28:00 GMT",
         };
@@ -513,10 +468,45 @@ describe("right-click-handler.ts", () => {
           downloadUrl: "https://example.com/original.ogg",
           lastModified: "Wed, 21 Oct 2015 07:28:00 GMT",
           tabId: 123,
+          // durationMs is what lets the download click ask the page to
+          // re-encode this exact message.
           durationMs: 5000,
-          isWav: false,
           blobType: "audio/ogg",
         });
+      });
+
+      it("should ignore a wavUrl smuggled in on the message", async () => {
+        const matchingItem = {
+          id: "wav-item",
+          durationMs: 5002,
+          downloadUrl: "https://example.com/original.ogg",
+          lastModified: "Wed, 21 Oct 2015 07:28:00 GMT",
+        };
+        mockVoiceMessagesStore.items.set("wav-item", matchingItem);
+        mockVoiceMessagesStore.findItemByDuration.mockResolvedValue(matchingItem);
+
+        const message = {
+          elementId: "element-123",
+          downloadUrl: null,
+          lastModified: null,
+          durationMs: 5000,
+          wavUrl: "blob:https://example.com/wav-reencoded",
+        };
+
+        const result = rightClickHandler.handleRightClick(
+          mockVoiceMessagesStore,
+          message,
+          mockSender,
+          mockSendResponse
+        );
+        await flushPromises();
+
+        expect(result).toBe(true);
+        expect(mockSetLastRightClickedInfo).toHaveBeenCalledWith(
+          expect.objectContaining({
+            downloadUrl: "https://example.com/original.ogg",
+          })
+        );
       });
     });
 
@@ -555,7 +545,6 @@ describe("right-click-handler.ts", () => {
           lastModified: null,
           tabId: 123,
           durationMs: 5000,
-          isWav: false,
           blobType: null,
         });
       });
@@ -651,7 +640,6 @@ describe("right-click-handler.ts", () => {
           lastModified: null,
           tabId: 123,
           durationMs: undefined,
-          isWav: false,
           blobType: null,
         });
         expect(mockSendResponse).toHaveBeenCalledWith({
@@ -684,7 +672,6 @@ describe("right-click-handler.ts", () => {
           lastModified: null,
           tabId: 123,
           durationMs: 5000,
-          isWav: false,
           blobType: null,
         });
       });
@@ -751,7 +738,6 @@ describe("right-click-handler.ts", () => {
           lastModified: "Wed, 21 Oct 2015 07:28:00 GMT",
           tabId: 123,
           durationMs: 5000,
-          isWav: false,
           blobType: null,
         });
         expect(mockSendResponse).toHaveBeenCalledWith({
@@ -795,7 +781,6 @@ describe("right-click-handler.ts", () => {
           lastModified: "Wed, 21 Oct 2015 07:28:00 GMT",
           tabId: 123,
           durationMs: 5000,
-          isWav: false,
           blobType: null,
         });
         // Should not call store lookup methods

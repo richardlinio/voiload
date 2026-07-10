@@ -7,8 +7,6 @@
  * manager can share it without pulling one another in.
  */
 
-import type { VoiceMessageItem } from "../types/voice-message";
-
 import { DOWNLOAD_CONSTANTS, WAV_CONSTANTS } from "./constants";
 
 /**
@@ -18,6 +16,19 @@ export interface SelectedDownloadUrl {
   url: string | null;
   /** True when url points at the WAV re-encoding rather than the original audio. */
   isWav: boolean;
+}
+
+/**
+ * The two URLs a download may choose between.
+ *
+ * Deliberately narrower than VoiceMessageItem: the WAV never enters the store,
+ * so callers pair a stored item's original URL with a just-produced conversion.
+ */
+export interface DownloadUrlCandidates {
+  /** Original audio, as captured. Null when nothing was ever registered. */
+  downloadUrl: string | null;
+  /** Blob URL of the WAV re-encoding; null when it could not be produced. */
+  wavUrl?: string | null;
 }
 
 /**
@@ -59,14 +70,16 @@ export function getFileExtensionForMimeType(
  * audio, an unsupported codec, a revoked blob), and downloading the original
  * beats downloading nothing.
  *
- * @param item - Stored voice message item
+ * @param candidates - The original audio URL paired with any WAV re-encoding
  * @returns The chosen URL and whether it is the WAV re-encoding
  */
-export function selectDownloadUrl(item: VoiceMessageItem): SelectedDownloadUrl {
-  if (item.wavUrl) {
-    return { url: item.wavUrl, isWav: true };
+export function selectDownloadUrl(
+  candidates: DownloadUrlCandidates
+): SelectedDownloadUrl {
+  if (candidates.wavUrl) {
+    return { url: candidates.wavUrl, isWav: true };
   }
-  return { url: item.downloadUrl, isWav: false };
+  return { url: candidates.downloadUrl, isWav: false };
 }
 
 /**

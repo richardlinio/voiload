@@ -102,9 +102,10 @@ if (!isSupportedSite) {
   ): boolean {
     logger.debug("Received background script message", { message });
 
-    // A batch download needs one WAV at a time. Only the content script can reach
-    // the page context, so the background asks it rather than the page directly.
-    if (message?.action === MESSAGE_ACTIONS.REQUEST_WAV_FOR_BATCH) {
+    // Downloads re-encode one message at the moment they are requested. Only the
+    // content script can reach the page context, so the background asks it rather
+    // than the page directly.
+    if (message?.action === MESSAGE_ACTIONS.REQUEST_WAV) {
       void requestWavUrl(message.durationMs).then((wavUrl) => {
         sendResponse({ wavUrl });
       });

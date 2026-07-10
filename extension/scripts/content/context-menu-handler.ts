@@ -12,7 +12,6 @@ import {
   getDurationFromSlider,
   type VoiceMessageElementResult,
 } from "./dom-utils";
-import { requestWavUrl } from "./wav-request";
 
 // ================================================
 // Type Definitions
@@ -27,13 +26,7 @@ interface RightClickMessage {
   downloadUrl: string | null;
   lastModified?: string | null | undefined;
   durationMs?: number | undefined;
-  /** Blob URL of the WAV re-encoding; null when it could not be produced. */
-  wavUrl?: string | null;
 }
-
-// Bumped on every right-click that reaches the background, so a WAV that
-// finishes encoding after a newer right-click cannot resurrect stale state.
-let rightClickSeq = 0;
 
 // ================================================
 // Context Menu Handler Functions
@@ -81,7 +74,6 @@ function handleContextMenu(event: MouseEvent): void {
     });
     
     // Send right-click message with null values - download all will be triggered when user clicks context menu
-    rightClickSeq++;
     sendRightClickMessage(null, null, null, undefined);
     return;
   }
@@ -128,27 +120,10 @@ function handleContextMenu(event: MouseEvent): void {
       data: durationMs,
     });
 
-    // Populate the background's state right away: the menu item is clickable the
-    // moment it renders, and a click before the WAV is ready must download THIS
-    // message (as original audio), not whatever a previous right-click left.
-    const seq = ++rightClickSeq;
+    // Identify the message only. The audio is re-encoded when the user actually
+    // clicks the download item, so a right-click costs nothing and no half-ready
+    // state can be observed in between.
     sendRightClickMessage(id, null, null, durationMs);
-
-    // Re-encode this one message while the user reads the context menu, so the
-    // eventual download click stays instant. A failure keeps the provisional
-    // message above and the original audio is downloaded.
-    void requestWavUrl(durationMs).then((wavUrl) => {
-      if (!wavUrl || seq !== rightClickSeq) {
-        // Nothing to upgrade with, or a newer right-click already owns the
-        // background's state — upgrading now would point it at the wrong message.
-        return;
-      }
-      Logger.debug("Upgrading right-click message with WAV", {
-        module: MODULE_NAMES.CONTEXT_MENU,
-        data: { hasWavUrl: true },
-      });
-      sendRightClickMessage(id, null, null, durationMs, wavUrl);
-    });
   } else {
     Logger.debug("Unable to get duration from slider", {
       module: MODULE_NAMES.CONTEXT_MENU,
@@ -163,14 +138,12 @@ function handleContextMenu(event: MouseEvent): void {
  * @param downloadUrl - Download URL
  * @param lastModified - Last-Modified header value
  * @param durationMs - Duration in milliseconds
- * @param wavUrl - Blob URL of the WAV re-encoding, when one could be produced
  */
 function sendRightClickMessage(
   elementId: string | null,
   downloadUrl: string | null,
   lastModified?: string | null,
-  durationMs?: number,
-  wavUrl: string | null = null
+  durationMs?: number
 ): void {
   // Prepare the message object
   const message: RightClickMessage = {
@@ -179,7 +152,6 @@ function sendRightClickMessage(
     downloadUrl,
     lastModified,
     durationMs,
-    wavUrl,
   };
 
   Logger.debug("Preparing to send message to background script", {

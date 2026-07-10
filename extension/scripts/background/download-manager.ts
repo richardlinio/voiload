@@ -41,17 +41,35 @@ export function initDownloadManager(voiceMessagesStore?: VoiceMessageStore): voi
         if (lastRightClickedInfo) {
           // Check if downloadUrl is valid
           if (lastRightClickedInfo.downloadUrl) {
-            logger.info("Starting individual voice message download", {
-              url: lastRightClickedInfo.downloadUrl.substring(0, 50) + "...",
-              lastModified: lastRightClickedInfo.lastModified,
-              isWav: lastRightClickedInfo.isWav,
+            // Re-encode now rather than on right-click: the cost (5-46ms) is
+            // imperceptible here, and the right-click no longer has to publish a
+            // half-ready state that a fast click could catch.
+            const wavUrl = lastRightClickedInfo.durationMs
+              ? await requestWav(
+                  tab?.id ?? lastRightClickedInfo.tabId,
+                  lastRightClickedInfo.durationMs
+                )
+              : null;
+
+            const { url, isWav } = selectDownloadUrl({
+              downloadUrl: lastRightClickedInfo.downloadUrl,
+              wavUrl,
             });
+
+            logger.info("Starting individual voice message download", {
+              url: url!.substring(0, 50) + "...",
+              lastModified: lastRightClickedInfo.lastModified,
+              isWav,
+            });
+            // Not awaited: nothing here revokes the WAV afterwards, unlike the
+            // batch loop where the next conversion would pull it out from under
+            // Chrome. Waiting would only hold the service worker open.
             void downloadVoiceMessage(
-              lastRightClickedInfo.downloadUrl,
+              url!,
               lastRightClickedInfo.lastModified || undefined,
               undefined,
               undefined,
-              lastRightClickedInfo.isWav ?? false,
+              isWav,
               lastRightClickedInfo.blobType
             );
           } else {
@@ -163,7 +181,7 @@ export function downloadVoiceMessage(url: string, lastModified?: string, uniqueI
  * Returns null when there is no tab to ask, or the page cannot convert; the
  * caller then downloads the original audio.
  */
-async function requestWavForBatch(
+async function requestWav(
   tabId: number | undefined,
   durationMs: number
 ): Promise<string | null> {
@@ -173,12 +191,12 @@ async function requestWavForBatch(
 
   try {
     const response = await chrome.tabs.sendMessage(tabId, {
-      action: MESSAGE_ACTIONS.REQUEST_WAV_FOR_BATCH,
+      action: MESSAGE_ACTIONS.REQUEST_WAV,
       durationMs,
     });
     return response?.wavUrl ?? null;
   } catch (error) {
-    logger.warn("Could not reach the page to re-encode a batch item", {
+    logger.warn("Could not reach the page to re-encode a message", {
       durationMs,
       error: error instanceof Error ? error.message : String(error),
     });
@@ -223,7 +241,7 @@ export async function downloadAllVoiceMessages(voiceMessagesStore: VoiceMessageS
       // Determine saveAs value: first file uses showFirstDialog, others use false
       const useSaveAs = isFirstFile && showFirstDialog;
 
-      const wavUrl = await requestWavForBatch(tabId, item.durationMs);
+      const wavUrl = await requestWav(tabId, item.durationMs);
 
       // Prefer the WAV re-encoding, falling back to the original audio.
       const { url, isWav } = selectDownloadUrl({ ...item, wavUrl });

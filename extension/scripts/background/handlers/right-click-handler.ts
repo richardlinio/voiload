@@ -6,7 +6,6 @@
 import { setLastRightClickedInfo } from "../download-manager";
 import { Logger } from "../../utils/logger";
 import { MODULE_NAMES, MESSAGE_ACTIONS } from "../../utils/constants";
-import { selectDownloadUrl } from "../../utils/download-url";
 import {
   findItemByDuration as findItemByDurationInStore,
   type VoiceMessageStore,
@@ -68,7 +67,7 @@ async function resolveAndRespond(
   sender: chrome.runtime.MessageSender,
   sendResponse: (response?: any) => void
 ): Promise<void> {
-  const { elementId, downloadUrl, lastModified, durationMs, wavUrl } = message;
+  const { elementId, downloadUrl, lastModified, durationMs } = message;
 
   try {
     // Output all items' durations and download URL status for debugging
@@ -77,10 +76,7 @@ async function resolveAndRespond(
     // If no download URL is provided but duration exists, try to find from voiceMessagesStore
     let finalDownloadUrl = downloadUrl;
     let finalLastModified = lastModified;
-    // The page re-encodes on right-click and sends the WAV blob URL along; a URL
-    // supplied directly on the message is the original audio.
-    let isWav = false;
-    // Names the file when the audio was not re-encoded; unknown for a URL that
+    // Names the file when the audio cannot be re-encoded; unknown for a URL that
     // arrived on the message rather than from a stored item.
     let blobType: string | null = null;
 
@@ -101,20 +97,15 @@ async function resolveAndRespond(
       );
 
       if (matchingItem && matchingItem.downloadUrl) {
-        // Prefer the WAV the page just produced; fall back to the stored original.
-        const selected = selectDownloadUrl({
-          ...matchingItem,
-          wavUrl: wavUrl ?? null,
-        });
+        // Only the original audio is recorded. The WAV is produced on demand when
+        // the download item is clicked, so storing one here would go stale.
         logger.debug("Found matching download URL in data store", {
           id: matchingItem.id,
           durationMs: matchingItem.durationMs,
-          downloadUrl: selected.url!.substring(0, 30) + "...",
-          isWav: selected.isWav,
+          downloadUrl: matchingItem.downloadUrl.substring(0, 30) + "...",
         });
-        finalDownloadUrl = selected.url;
+        finalDownloadUrl = matchingItem.downloadUrl;
         finalLastModified = matchingItem.lastModified || lastModified;
-        isWav = selected.isWav;
         blobType = matchingItem.blobType ?? null;
       } else {
         logger.warn("No matching download URL found in data store");
@@ -133,7 +124,6 @@ async function resolveAndRespond(
         lastModified: null,
         tabId: sender.tab?.id || undefined,
         durationMs: durationMs || undefined,
-        isWav: false,
         blobType: null,
       });
 
@@ -157,7 +147,6 @@ async function resolveAndRespond(
       hasLastModified: !!finalLastModified,
       tabId: sender.tab?.id,
       durationMs,
-      isWav,
     });
 
     setLastRightClickedInfo({
@@ -166,7 +155,6 @@ async function resolveAndRespond(
       lastModified: finalLastModified || null,
       tabId: sender.tab?.id || undefined,
       durationMs: durationMs || undefined,
-      isWav,
       blobType,
     });
 

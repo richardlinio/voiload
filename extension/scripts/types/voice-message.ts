@@ -16,12 +16,6 @@ export interface VoiceMessageItem {
   durationMs: number;
   /** Original captured audio (opus/ogg), or a CDN URL from the webRequest path. */
   downloadUrl: string | null;
-  /**
-   * Blob URL of the WAV re-encoding. Never persisted: the page mints it on
-   * demand and revokes it on the next conversion, so a stored copy would be a
-   * dangling pointer. Carried only on the in-flight item handed to a download.
-   */
-  wavUrl?: string | null;
   lastModified?: string | null;
   blobType?: string | null;
   blobSize?: number | null;

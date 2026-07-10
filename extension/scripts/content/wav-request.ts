@@ -3,8 +3,8 @@
  * Asks the page context to re-encode one captured voice message as WAV.
  *
  * Only the page can do the work: the source Blob and AudioContext both live
- * there. The request is issued on `contextmenu`, before Chrome renders the menu,
- * so the conversion overlaps with the user reading it.
+ * there. The request is issued when a download is actually asked for, so no
+ * message is decoded on the strength of a right-click the user may abandon.
  */
 
 import { Logger } from "../utils/logger";
@@ -26,9 +26,9 @@ let nextRequestId = 0;
  * Resolves to null rather than rejecting when the page cannot convert: a voice
  * message the user can download in its original format beats one they cannot
  * download at all. A page that never answers resolves null on a timeout, so a
- * torn-down page context cannot wedge the right-click.
+ * torn-down page context cannot wedge the download.
  *
- * @param durationMs - Duration of the right-clicked message, read from the DOM
+ * @param durationMs - Duration of the requested message, read from the DOM
  * @returns WAV blob URL, or null when the page has no audio or conversion failed
  */
 export function requestWavUrl(durationMs: number): Promise<string | null> {

@@ -132,7 +132,7 @@ describe("download-manager.ts", () => {
       expect(mockChrome.downloads.download).not.toHaveBeenCalled();
     });
 
-    it("should handle context menu click for downloadVoiceMessage", () => {
+    it("should handle context menu click for downloadVoiceMessage", async () => {
       // Setup last right-clicked info
       const rightClickInfo = createMockRightClickInfo(
         "test-id",
@@ -153,7 +153,8 @@ describe("download-manager.ts", () => {
         menuItemId: "downloadVoiceMessage",
       } as chrome.contextMenus.OnClickData;
 
-      addedListener(mockInfo, undefined);
+      // The listener now re-encodes to WAV before handing the URL to Chrome
+      await addedListener(mockInfo, undefined);
 
       expect(mockChrome.downloads.download).toHaveBeenCalledWith(
         {
@@ -222,7 +223,7 @@ describe("download-manager.ts", () => {
   });
 
   describe("setLastRightClickedInfo", () => {
-    it("should store right-click info correctly", () => {
+    it("should store right-click info correctly", async () => {
       const rightClickInfo = createMockRightClickInfo(
         "test-element-id",
         "https://example.com/test-audio.mp4",
@@ -230,6 +231,10 @@ describe("download-manager.ts", () => {
         123,
         5000
       );
+
+      // The stored tabId and durationMs make the listener ask the page to
+      // re-encode; a page that cannot convert leaves the original audio.
+      mockChrome.tabs.sendMessage.mockResolvedValue({ wavUrl: null });
 
       setLastRightClickedInfo(rightClickInfo);
 
@@ -242,7 +247,7 @@ describe("download-manager.ts", () => {
         menuItemId: "downloadVoiceMessage",
       } as chrome.contextMenus.OnClickData;
 
-      addedListener(mockInfo, undefined);
+      await addedListener(mockInfo, undefined);
 
       expect(mockChrome.downloads.download).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -834,7 +839,7 @@ describe("download-manager.ts", () => {
 
       expect(result).toBe(1);
       expect(mockChrome.tabs.sendMessage).toHaveBeenCalledWith(42, {
-        action: "requestWavForBatch",
+        action: "requestWav",
         durationMs: 5000,
       });
       expect(mockChrome.downloads.download).toHaveBeenCalledWith(
@@ -887,7 +892,6 @@ describe("download-manager.ts", () => {
         element: null,
         durationMs: 5000,
         downloadUrl: "https://example.com/audio1.mp4",
-        wavUrl: null,
         lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
         blobType: "audio/ogg",
         blobSize: null,
@@ -919,7 +923,6 @@ describe("download-manager.ts", () => {
         element: null,
         durationMs: 5000,
         downloadUrl: "https://example.com/audio1.mp4",
-        wavUrl: null,
         lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
         blobType: "audio/ogg",
         blobSize: null,
@@ -931,7 +934,6 @@ describe("download-manager.ts", () => {
         element: null,
         durationMs: 5000,
         downloadUrl: "https://example.com/audio2.mp4",
-        wavUrl: null,
         lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
         blobType: null,
         blobSize: null,

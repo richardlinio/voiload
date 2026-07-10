@@ -91,7 +91,7 @@ describe("content.ts", () => {
         BACKGROUND_SCRIPT: "BACKGROUND_SCRIPT",
       },
       MESSAGE_ACTIONS: {
-        REQUEST_WAV_FOR_BATCH: "requestWavForBatch",
+        REQUEST_WAV: "requestWav",
         PREPARE_WAV: "prepareWav",
         PREPARE_WAV_RESULT: "prepareWavResult",
       },
