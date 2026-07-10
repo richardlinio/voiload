@@ -315,15 +315,17 @@ export async function registerDownloadUrl(
       newUrl: downloadUrl ? downloadUrl.substring(0, 30) + "..." : null,
     });
 
-    // Update properties
+    // downloadUrl and blobType describe the same source, so they move together.
+    // The webRequest path re-registers with a CDN url and a null blobType; letting
+    // it overwrite the url while a stale blobType survived would name that download
+    // by the wrong container (e.g. a CDN url stamped .wav from an earlier blob
+    // registration), producing a file no player can open.
     matchingItem.downloadUrl = downloadUrl;
+    matchingItem.blobType = blobType;
 
     // Update other properties if provided
     if (lastModified) {
       matchingItem.lastModified = lastModified;
-    }
-    if (blobType) {
-      matchingItem.blobType = blobType;
     }
     if (blobSize) {
       matchingItem.blobSize = blobSize;

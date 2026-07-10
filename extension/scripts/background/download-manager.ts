@@ -49,8 +49,13 @@ export function initDownloadManager(voiceMessagesStore?: VoiceMessageStore): voi
             // Re-encode now rather than on right-click: the cost (5-46ms) is
             // imperceptible here, and the right-click no longer has to publish a
             // half-ready state that a fast click could catch.
+            // Ask the tab the right-click came from, not the menu-click callback's
+            // tab. clicked.tabId is the page that holds the captured audio (it sent
+            // the RIGHT_CLICK); onClicked's `tab` may point elsewhere or be absent,
+            // and sending REQUEST_WAV there fails with "receiving end does not exist"
+            // so the WAV re-encode silently falls back to the original audio.
             const wavUrl = clicked.durationMs
-              ? await requestWav(tab?.id ?? clicked.tabId, clicked.durationMs)
+              ? await requestWav(clicked.tabId ?? tab?.id, clicked.durationMs)
               : null;
 
             const { url, isWav } = selectDownloadUrl({
@@ -81,7 +86,7 @@ export function initDownloadManager(voiceMessagesStore?: VoiceMessageStore): voi
               const downloadCount = await downloadAllVoiceMessages(
                 voiceMessagesStore,
                 true,
-                tab?.id ?? clicked.tabId
+                clicked.tabId ?? tab?.id
               );
               logger.info("Batch download triggered with first dialog", { downloadCount });
             } else {
