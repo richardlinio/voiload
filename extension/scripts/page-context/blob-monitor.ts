@@ -13,9 +13,17 @@ import type { BlobQueueItem } from "../types/messages";
 
 import { isLikelyVoiceMessageBlob } from "./blob-analyzer";
 import { getAudioDuration } from "./audio-analyzer";
+import { convertBlobToWav } from "./wav-encoder";
 
 // Create a module-specific logger
 const logger = Logger.createModuleLogger(MODULE_NAMES.BLOB_MONITOR);
+
+// The unpatched URL.createObjectURL, captured when the monitor is installed.
+// Converted WAV blobs must be published through this rather than the patched
+// function: a WAV blob passes isLikelyVoiceMessageBlob (audio MIME, plausible
+// size), so routing it through the patch would re-enqueue it, decode it, and
+// convert it again, without end.
+let originalCreateObjectURL: typeof URL.createObjectURL = URL.createObjectURL;
 
 /**
  * Blob processing queue object
@@ -75,11 +83,18 @@ const BlobProcessingQueue = {
       // Mark as processed
       this.processedBlobs.set(blob, true);
 
-      // Calculate audio duration
+      // Duration is read from the original audio, never from the decoded WAV.
+      // decodeAudioData drops opus pre-skip (priming) samples, making the WAV
+      // ~7ms shorter than the container reports; that gap exceeds
+      // EXACT_MATCHING_TOLERANCE and would break duration matching downstream.
       const durationMs = await getAudioDuration(blobUrl);
 
+      // Re-encode to WAV so the download plays on a double-click. A failed
+      // conversion leaves wavUrl null and the original audio is downloaded.
+      const wavUrl = await createWavUrl(blob);
+
       // Register with backend
-      registerBlobWithBackend(blob, blobUrl, durationMs);
+      registerBlobWithBackend(blob, blobUrl, durationMs, wavUrl);
     } catch (error) {
       logger.error("Error processing blob in queue", { error });
     } finally {
@@ -91,14 +106,31 @@ const BlobProcessingQueue = {
 };
 
 /**
+ * Convert a captured audio blob to WAV and publish it as a blob URL.
+ *
+ * @param blob - Captured audio blob
+ * @returns Blob URL of the WAV, or null when conversion is not possible
+ */
+async function createWavUrl(blob: Blob): Promise<string | null> {
+  const wavBlob = await convertBlobToWav(blob);
+  if (!wavBlob) {
+    return null;
+  }
+
+  // Deliberately the unpatched function -- see originalCreateObjectURL above.
+  return originalCreateObjectURL(wavBlob);
+}
+
+/**
  * Set up Blob URL monitoring
  * Monkey-patch URL.createObjectURL to capture blob URL creation
  */
 export function setupBlobUrlMonitor(): void {
   logger.info("Setting up Blob URL monitor");
 
-  // Save the original URL.createObjectURL method
-  const originalCreateObjectURL = URL.createObjectURL;
+  // Save the original URL.createObjectURL method, both to delegate to below and
+  // to publish converted WAV blobs without re-entering this patch.
+  originalCreateObjectURL = URL.createObjectURL;
 
   // Monkey-patch URL.createObjectURL
   URL.createObjectURL = function (blob: Blob | MediaSource): string {
@@ -125,11 +157,17 @@ export function setupBlobUrlMonitor(): void {
 
 /**
  * Register Blob with backend
+ *
+ * @param blob - Captured audio blob
+ * @param blobUrl - Blob URL of the original audio, used as the download fallback
+ * @param durationMs - Duration measured from the original audio
+ * @param wavUrl - Blob URL of the WAV re-encoding, or null when conversion failed
  */
 function registerBlobWithBackend(
   blob: Blob,
   blobUrl: string,
-  durationMs: number
+  durationMs: number,
+  wavUrl: string | null
 ): void {
   // Use sendToContent function to send message
   if (window.sendToContent) {
@@ -139,6 +177,7 @@ function registerBlobWithBackend(
       blobType: blob.type,
       blobSize: blob.size,
       durationMs: durationMs,
+      wavUrl: wavUrl,
       timestamp: new Date().toISOString(),
     });
   }
@@ -149,6 +188,7 @@ function registerBlobWithBackend(
     blobType: blob.type,
     blobSizeBytes: blob.size,
     durationMs: durationMs,
+    hasWavUrl: !!wavUrl,
   });
 }
 

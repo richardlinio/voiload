@@ -6,6 +6,7 @@
 import { setLastRightClickedInfo } from "../download-manager";
 import { Logger } from "../../utils/logger";
 import { MODULE_NAMES, MESSAGE_ACTIONS } from "../../utils/constants";
+import { selectDownloadUrl } from "../../utils/download-url";
 import {
   findItemByDuration as findItemByDurationInStore,
   type VoiceMessageStore,
@@ -76,6 +77,12 @@ async function resolveAndRespond(
     // If no download URL is provided but duration exists, try to find from voiceMessagesStore
     let finalDownloadUrl = downloadUrl;
     let finalLastModified = lastModified;
+    // A URL supplied directly on the message is the original audio; only items
+    // resolved from the store carry a WAV re-encoding.
+    let isWav = false;
+    // Names the file when the audio was not re-encoded; unknown for a URL that
+    // arrived on the message rather than from a stored item.
+    let blobType: string | null = null;
 
     if (!downloadUrl && durationMs) {
       logger.debug("Trying to find download URL from data store", {
@@ -94,13 +101,17 @@ async function resolveAndRespond(
       );
 
       if (matchingItem && matchingItem.downloadUrl) {
+        const selected = selectDownloadUrl(matchingItem);
         logger.debug("Found matching download URL in data store", {
           id: matchingItem.id,
           durationMs: matchingItem.durationMs,
-          downloadUrl: matchingItem.downloadUrl.substring(0, 30) + "...",
+          downloadUrl: selected.url!.substring(0, 30) + "...",
+          isWav: selected.isWav,
         });
-        finalDownloadUrl = matchingItem.downloadUrl;
+        finalDownloadUrl = selected.url;
         finalLastModified = matchingItem.lastModified || lastModified;
+        isWav = selected.isWav;
+        blobType = matchingItem.blobType ?? null;
       } else {
         logger.warn("No matching download URL found in data store");
         await logAllDurations(voiceMessagesStore);
@@ -118,6 +129,8 @@ async function resolveAndRespond(
         lastModified: null,
         tabId: sender.tab?.id || undefined,
         durationMs: durationMs || undefined,
+        isWav: false,
+        blobType: null,
       });
 
       // Suggest downloading all available voice messages as fallback
@@ -140,6 +153,7 @@ async function resolveAndRespond(
       hasLastModified: !!finalLastModified,
       tabId: sender.tab?.id,
       durationMs,
+      isWav,
     });
 
     setLastRightClickedInfo({
@@ -148,6 +162,8 @@ async function resolveAndRespond(
       lastModified: finalLastModified || null,
       tabId: sender.tab?.id || undefined,
       durationMs: durationMs || undefined,
+      isWav,
+      blobType,
     });
 
     // Respond to content script

@@ -63,6 +63,8 @@ export interface BlobUrlMessage extends BaseMessage {
   blobType?: string;
   blobSize?: number;
   durationMs: number;
+  /** Blob URL of the WAV re-encoding; null when the conversion failed. */
+  wavUrl?: string | null;
 }
 
 /**
@@ -151,4 +153,6 @@ export interface SendToContentMessage extends BaseMessage {
   blobType: string;
   blobSize: number;
   durationMs: number;
+  /** Blob URL of the WAV re-encoding; null when the conversion failed. */
+  wavUrl?: string | null;
 }

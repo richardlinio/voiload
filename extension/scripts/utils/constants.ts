@@ -24,6 +24,7 @@ export const MODULE_NAMES = {
   BLOB_ANALYZER: "blob-analyzer",
   BLOB_MONITOR: "blob-monitor",
   BLOB_HANDLER: "blob-handler",
+  WAV_ENCODER: "wav-encoder",
   RIGHT_CLICK_HANDLER: "right-click-handler",
   ELEMENT_REGISTRATION_HANDLER: "element-registration-handler",
   AUDIO_URL_REGISTRATION_HANDLER: "audio-url-registration-handler",
@@ -40,6 +41,20 @@ export const BLOB_MONITOR_CONSTANTS = {
   MIN_VALID_AUDIO_SIZE: 2 * 1024, // Minimum reasonable audio size (2KB; real e2ee audio/ogg voice messages measured as small as 3,323 bytes for 7s)
   MAX_VALID_AUDIO_SIZE: 200 * 1024 * 1024, // Maximum reasonable audio size (200MB)
   POSSIBLE_AUDIO_TYPES: ["audio", "video/mp4", "mp4", "mp3", "mpeg"] as const, // Possible audio file types
+} as const;
+
+// ===========================================
+// WAV Re-encoding Related Constants
+// ===========================================
+// Facebook serves voice messages as opus/ogg, which desktop players either
+// refuse to open or time incorrectly (they estimate duration from the bitrate).
+// Captured audio is decoded and re-packaged as PCM WAV before download.
+export const WAV_CONSTANTS = {
+  MIME_TYPE: "audio/wav",
+  // A canonical PCM WAV header: RIFF descriptor + fmt chunk + data chunk header.
+  HEADER_SIZE: 44,
+  BITS_PER_SAMPLE: 16,
+  FORMAT_PCM: 1,
 } as const;
 
 // ===========================================
@@ -281,6 +296,15 @@ export const ID_CONSTANTS = {
 // ===========================================
 export const DOWNLOAD_CONSTANTS = {
   SAVE_AS: true,
+  // Captured audio is re-encoded to WAV, so downloads normally carry .wav. When
+  // the conversion fails, the original is downloaded under its own container's
+  // extension -- claiming .wav for audio that was never re-encoded produces a
+  // file no player can open.
+  WAV_EXTENSION: ".wav",
+  OGG_EXTENSION: ".ogg",
+  // Used when the container is unknown: the webRequest path registers a CDN URL
+  // without reading the body, and Facebook serves that media as MP4.
+  UNKNOWN_EXTENSION: ".mp4",
 } as const;
 
 // ===========================================

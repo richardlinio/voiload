@@ -11,6 +11,7 @@
 
 import { generateVoiceMessageId } from "../utils/id-generator";
 import { domDurationToMilliseconds } from "../utils/time-utils";
+import { selectDownloadUrl } from "../utils/download-url";
 import { Logger } from "../utils/logger";
 import {
   MODULE_NAMES,
@@ -147,7 +148,8 @@ export function createDataStore(): VoiceMessageStore {
       downloadUrl: string,
       lastModified?: string | null,
       blobType?: string | null,
-      blobSize?: number | null
+      blobSize?: number | null,
+      wavUrl?: string | null
     ) =>
       registerDownloadUrl(
         voiceMessagesInstance!,
@@ -155,7 +157,8 @@ export function createDataStore(): VoiceMessageStore {
         downloadUrl,
         lastModified,
         blobType,
-        blobSize
+        blobSize,
+        wavUrl
       ),
     registerElement: (elementId: string, durationMs: number) =>
       registerElement(voiceMessagesInstance!, elementId, durationMs),
@@ -262,6 +265,7 @@ function findNearestItemByDuration(
  * @param lastModified - Last-Modified header value
  * @param blobType - MIME type of the Blob
  * @param blobSize - Size of the Blob (bytes)
+ * @param wavUrl - Blob URL of the WAV re-encoding, preferred when downloading
  * @returns Voice message ID
  */
 export async function registerDownloadUrl(
@@ -270,7 +274,8 @@ export async function registerDownloadUrl(
   downloadUrl: string,
   lastModified: string | null = null,
   blobType: string | null = null,
-  blobSize: number | null = null
+  blobSize: number | null = null,
+  wavUrl: string | null = null
 ): Promise<string> {
   await hydrate(voiceMessages);
 
@@ -341,6 +346,9 @@ export async function registerDownloadUrl(
     if (blobSize) {
       matchingItem.blobSize = blobSize;
     }
+    if (wavUrl) {
+      matchingItem.wavUrl = wavUrl;
+    }
 
     // Log update diagnostic info
     const updateData = {
@@ -372,6 +380,7 @@ export async function registerDownloadUrl(
     element: null,
     durationMs,
     downloadUrl,
+    wavUrl,
     lastModified,
     blobType,
     blobSize,
@@ -430,6 +439,7 @@ export async function registerElement(
     element: null,
     durationMs,
     downloadUrl: null,
+    wavUrl: null,
     lastModified: null,
     timestamp: Date.now(),
     isPending: true,
@@ -542,9 +552,11 @@ export async function getDownloadUrlForElement(
       isPending: !!item.isPending,
     });
 
+    const selected = selectDownloadUrl(item);
     return {
-      downloadUrl: item.downloadUrl,
+      downloadUrl: selected.url,
       lastModified: item.lastModified || null,
+      isWav: selected.isWav,
     };
   }
 
@@ -586,9 +598,11 @@ export async function getDownloadUrlForElement(
           hasDownloadUrl: !!item.downloadUrl,
         });
 
+        const selected = selectDownloadUrl(item);
         return {
-          downloadUrl: item.downloadUrl,
+          downloadUrl: selected.url,
           lastModified: item.lastModified || null,
+          isWav: selected.isWav,
         };
       }
     }

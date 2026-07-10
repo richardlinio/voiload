@@ -34,10 +34,12 @@ jest.mock("../../../extension/scripts/utils/logger", () => ({
   },
 }));
 
+// Spread the real constants rather than hand-copying them: the extension names
+// are also read by the un-mocked download-url module, and a hand-written mock
+// silently yields `undefined` (and a filename ending in "undefined") the moment
+// a constant is renamed.
 jest.mock("../../../extension/scripts/utils/constants", () => ({
-  DOWNLOAD_CONSTANTS: {
-    SAVE_AS: true,
-  },
+  ...jest.requireActual("../../../extension/scripts/utils/constants"),
 }));
 
 // Mock Chrome APIs
@@ -445,6 +447,98 @@ describe("download-manager.ts", () => {
         expect.any(Function)
       );
     });
+
+    it("should produce a .wav filename when isWav is true", () => {
+      mockChrome.downloads.download.mockImplementation((options, callback) => {
+        callback(555);
+      });
+
+      downloadVoiceMessage(
+        "https://example.com/audio.wav",
+        "Wed, 19 Mar 2025 14:04:40 GMT",
+        "test-id",
+        true,
+        true
+      );
+
+      expect(mockChrome.downloads.download).toHaveBeenCalledWith(
+        {
+          url: "https://example.com/audio.wav",
+          filename: "voice-message-2025-03-19-14-04-40-test-id.wav",
+          saveAs: true,
+        },
+        expect.any(Function)
+      );
+    });
+
+    it("should name un-converted audio after its own container, not .wav", () => {
+      mockChrome.downloads.download.mockImplementation((options, callback) => {
+        callback(544);
+      });
+
+      // The blob path always records the blob's MIME type, so a voice message
+      // whose WAV conversion failed is downloaded as the opus it still is.
+      downloadVoiceMessage(
+        "blob:https://www.facebook.com/abc",
+        "Wed, 19 Mar 2025 14:04:40 GMT",
+        "test-id",
+        true,
+        false,
+        "audio/ogg"
+      );
+
+      expect(mockChrome.downloads.download).toHaveBeenCalledWith(
+        {
+          url: "blob:https://www.facebook.com/abc",
+          filename: "voice-message-2025-03-19-14-04-40-test-id.ogg",
+          saveAs: true,
+        },
+        expect.any(Function)
+      );
+    });
+
+    it("should fall back to .mp4 when the container is unknown", () => {
+      mockChrome.downloads.download.mockImplementation((options, callback) => {
+        callback(533);
+      });
+
+      // The webRequest path registers a CDN URL without reading the body, so no
+      // MIME type is known. Facebook serves that media as MP4.
+      downloadVoiceMessage(
+        "https://cdn.fbcdn.net/audio.mp4",
+        "Wed, 19 Mar 2025 14:04:40 GMT",
+        "test-id",
+        true,
+        false
+      );
+
+      expect(mockChrome.downloads.download).toHaveBeenCalledWith(
+        {
+          url: "https://cdn.fbcdn.net/audio.mp4",
+          filename: "voice-message-2025-03-19-14-04-40-test-id.mp4",
+          saveAs: true,
+        },
+        expect.any(Function)
+      );
+    });
+
+    it("should never name un-converted audio .wav when isWav is omitted", () => {
+      mockChrome.downloads.download.mockImplementation((options, callback) => {
+        callback(522);
+      });
+
+      // The default must be the safe direction: a mislabelled .wav opens in no
+      // player, while a WAV named after its source container still plays.
+      downloadVoiceMessage(
+        "blob:https://www.facebook.com/abc",
+        "Wed, 19 Mar 2025 14:04:40 GMT",
+        "test-id",
+        true
+      );
+
+      const call = mockChrome.downloads.download.mock.calls[0]![0];
+      expect(call.filename).not.toMatch(/\.wav$/);
+    });
   });
 
   describe("downloadAllVoiceMessages", () => {
@@ -620,7 +714,7 @@ describe("download-manager.ts", () => {
         }),
         expect.any(Function)
       );
-      
+
       expect(mockChrome.downloads.download).toHaveBeenCalledWith(
         expect.objectContaining({
           url: "https://example.com/audio2.mp4",
@@ -670,7 +764,7 @@ describe("download-manager.ts", () => {
         }),
         expect.any(Function)
       );
-      
+
       // Second file should have saveAs: false
       expect(mockChrome.downloads.download).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -709,6 +803,122 @@ describe("download-manager.ts", () => {
           url: "https://example.com/audio1.mp4",
           filename: "voice-message-2025-03-19-14-04-40-voice-msg-001.mp4",
           saveAs: true,
+        }),
+        expect.any(Function)
+      );
+    });
+
+    it("should prefer item.wavUrl over item.downloadUrl and produce a .wav filename", async () => {
+      const mockStore = createMockVoiceMessageStore();
+      mockStore.items.set("voice-msg-001", {
+        id: "voice-msg-001",
+        element: null,
+        durationMs: 5000,
+        downloadUrl: "https://example.com/audio1.mp4",
+        wavUrl: "https://example.com/audio1.wav",
+        lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
+        blobType: null,
+        blobSize: null,
+        timestamp: Date.now(),
+        isPending: false,
+      });
+
+      mockChrome.downloads.download.mockImplementation((options, callback) => {
+        callback(123);
+      });
+
+      const result = await downloadAllVoiceMessages(mockStore);
+
+      expect(result).toBe(1);
+      expect(mockChrome.downloads.download).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: "https://example.com/audio1.wav",
+          filename: "voice-message-2025-03-19-14-04-40-voice-msg-001.wav",
+          saveAs: false,
+        }),
+        expect.any(Function)
+      );
+    });
+
+    it("should fall back to item.downloadUrl with a .ogg filename when wavUrl is null and blobType is audio/ogg", async () => {
+      const mockStore = createMockVoiceMessageStore();
+      mockStore.items.set("voice-msg-001", {
+        id: "voice-msg-001",
+        element: null,
+        durationMs: 5000,
+        downloadUrl: "https://example.com/audio1.mp4",
+        wavUrl: null,
+        lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
+        blobType: "audio/ogg",
+        blobSize: null,
+        timestamp: Date.now(),
+        isPending: false,
+      });
+
+      mockChrome.downloads.download.mockImplementation((options, callback) => {
+        callback(123);
+      });
+
+      const result = await downloadAllVoiceMessages(mockStore);
+
+      expect(result).toBe(1);
+      expect(mockChrome.downloads.download).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: "https://example.com/audio1.mp4",
+          filename: "voice-message-2025-03-19-14-04-40-voice-msg-001.ogg",
+          saveAs: false,
+        }),
+        expect.any(Function)
+      );
+    });
+
+    it("should name a fallback item by its blobType, and .mp4 when blobType is unknown", async () => {
+      const mockStore = createMockVoiceMessageStore();
+      mockStore.items.set("voice-msg-ogg", {
+        id: "voice-msg-ogg",
+        element: null,
+        durationMs: 5000,
+        downloadUrl: "https://example.com/audio1.mp4",
+        wavUrl: null,
+        lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
+        blobType: "audio/ogg",
+        blobSize: null,
+        timestamp: Date.now(),
+        isPending: false,
+      });
+      mockStore.items.set("voice-msg-unknown", {
+        id: "voice-msg-unknown",
+        element: null,
+        durationMs: 5000,
+        downloadUrl: "https://example.com/audio2.mp4",
+        wavUrl: null,
+        lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
+        blobType: null,
+        blobSize: null,
+        timestamp: Date.now(),
+        isPending: false,
+      });
+
+      mockChrome.downloads.download.mockImplementation((options, callback) => {
+        callback(123);
+      });
+
+      const result = await downloadAllVoiceMessages(mockStore);
+
+      expect(result).toBe(2);
+      expect(mockChrome.downloads.download).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: "https://example.com/audio1.mp4",
+          filename: "voice-message-2025-03-19-14-04-40-voice-msg-ogg.ogg",
+          saveAs: false,
+        }),
+        expect.any(Function)
+      );
+      expect(mockChrome.downloads.download).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: "https://example.com/audio2.mp4",
+          filename: "voice-message-2025-03-19-14-04-40-voice-msg-unknown.mp4",
+          saveAs: false,
         }),
         expect.any(Function)
       );

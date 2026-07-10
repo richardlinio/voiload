@@ -290,6 +290,79 @@ describe("data-store.ts", () => {
       });
     });
 
+    describe("WAV re-encoding", () => {
+      it("should store wavUrl on a newly created item", async () => {
+        const id = await registerDownloadUrl(
+          mockStore,
+          5000,
+          "https://example.com/audio.ogg",
+          "Wed, 19 Mar 2025 14:04:40 GMT",
+          "audio/ogg",
+          1024000,
+          "blob:https://example.com/audio-reencoded.wav"
+        );
+
+        const item = mockStore.items.get(id);
+        expect(item?.wavUrl).toBe("blob:https://example.com/audio-reencoded.wav");
+      });
+
+      it("should update wavUrl on a matched item", async () => {
+        const existingItem: VoiceMessageItem = {
+          id: "existing-id",
+          element: null,
+          durationMs: 5000,
+          downloadUrl: "https://old-url.com/audio.ogg",
+          wavUrl: null,
+          timestamp: Date.now(),
+          isPending: true,
+        };
+        mockStore.items.set("existing-id", existingItem);
+
+        const id = await registerDownloadUrl(
+          mockStore,
+          5003, // Within tolerance of 5000
+          "https://new-url.com/audio.ogg",
+          null,
+          null,
+          null,
+          "blob:https://example.com/new-reencoded.wav"
+        );
+
+        expect(id).toBe("existing-id");
+        const updatedItem = mockStore.items.get("existing-id");
+        expect(updatedItem?.wavUrl).toBe("blob:https://example.com/new-reencoded.wav");
+      });
+
+      it("should leave an existing wavUrl untouched when called with wavUrl = null", async () => {
+        const existingItem: VoiceMessageItem = {
+          id: "existing-id",
+          element: null,
+          durationMs: 5000,
+          downloadUrl: "https://old-url.com/audio.ogg",
+          wavUrl: "blob:https://example.com/original-reencoded.wav",
+          timestamp: Date.now(),
+          isPending: true,
+        };
+        mockStore.items.set("existing-id", existingItem);
+
+        const id = await registerDownloadUrl(
+          mockStore,
+          5003, // Within tolerance of 5000
+          "https://new-url.com/audio.ogg",
+          null,
+          null,
+          null,
+          null
+        );
+
+        expect(id).toBe("existing-id");
+        const updatedItem = mockStore.items.get("existing-id");
+        expect(updatedItem?.wavUrl).toBe(
+          "blob:https://example.com/original-reencoded.wav"
+        );
+      });
+    });
+
     describe("Boundary Conditions", () => {
       it("should handle zero duration", async () => {
         const id = await registerDownloadUrl(
@@ -547,6 +620,7 @@ describe("data-store.ts", () => {
         expect(result).toEqual({
           downloadUrl: "https://example.com/audio.mp3",
           lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
+          isWav: false,
         });
       });
 
@@ -568,6 +642,7 @@ describe("data-store.ts", () => {
         expect(result).toEqual({
           downloadUrl: "https://example.com/audio.mp3",
           lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
+          isWav: false,
         });
       });
 
@@ -588,6 +663,53 @@ describe("data-store.ts", () => {
         expect(result).toEqual({
           downloadUrl: "https://example.com/audio.mp3",
           lastModified: null,
+          isWav: false,
+        });
+      });
+
+      it("should prefer wavUrl and mark isWav true when found by element ID", async () => {
+        const item: VoiceMessageItem = {
+          id: "test-id",
+          element: null,
+          durationMs: 5000,
+          downloadUrl: "https://example.com/audio.ogg",
+          wavUrl: "blob:https://example.com/audio-reencoded.wav",
+          lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
+          timestamp: Date.now(),
+          isPending: false,
+        };
+        mockStore.items.set("test-id", item);
+
+        const element = createMockElement("test-id");
+        const result = await getDownloadUrlForElement(mockStore, element);
+
+        expect(result).toEqual({
+          downloadUrl: "blob:https://example.com/audio-reencoded.wav",
+          lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
+          isWav: true,
+        });
+      });
+
+      it("should prefer wavUrl and mark isWav true when found by aria-valuemax duration", async () => {
+        const item: VoiceMessageItem = {
+          id: "test-id",
+          element: null,
+          durationMs: 5000,
+          downloadUrl: "https://example.com/audio.ogg",
+          wavUrl: "blob:https://example.com/audio-reencoded.wav",
+          lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
+          timestamp: Date.now(),
+          isPending: false,
+        };
+        mockStore.items.set("test-id", item);
+
+        const element = createMockElement(undefined, "5.0"); // 5 seconds
+        const result = await getDownloadUrlForElement(mockStore, element);
+
+        expect(result).toEqual({
+          downloadUrl: "blob:https://example.com/audio-reencoded.wav",
+          lastModified: "Wed, 19 Mar 2025 14:04:40 GMT",
+          isWav: true,
         });
       });
     });

@@ -16,6 +16,10 @@ export interface RightClickInfo {
   lastModified: string | null;
   tabId: number | undefined;
   durationMs: number | undefined;
+  /** True when downloadUrl points at a WAV re-encoding rather than the original audio. */
+  isWav?: boolean;
+  /** MIME type of the original audio, used to name the file when it was not re-encoded. */
+  blobType?: string | null;
 }
 
 /**

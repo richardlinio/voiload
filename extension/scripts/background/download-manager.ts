@@ -6,6 +6,10 @@
 import { generateVoiceMessageFilename } from "../utils/time-utils";
 import { Logger } from "../utils/logger";
 import { DOWNLOAD_CONSTANTS } from "../utils/constants";
+import {
+  selectDownloadUrl,
+  selectDownloadExtension,
+} from "../utils/download-url";
 import type { RightClickInfo } from "../types/download";
 
 import type { VoiceMessageStore } from "./data-store";
@@ -40,10 +44,15 @@ export function initDownloadManager(voiceMessagesStore?: VoiceMessageStore): voi
             logger.info("Starting individual voice message download", {
               url: lastRightClickedInfo.downloadUrl.substring(0, 50) + "...",
               lastModified: lastRightClickedInfo.lastModified,
+              isWav: lastRightClickedInfo.isWav,
             });
             downloadVoiceMessage(
               lastRightClickedInfo.downloadUrl,
-              lastRightClickedInfo.lastModified || undefined
+              lastRightClickedInfo.lastModified || undefined,
+              undefined,
+              undefined,
+              lastRightClickedInfo.isWav ?? false,
+              lastRightClickedInfo.blobType
             );
           } else {
             logger.info("No specific voice message URL found, triggering batch download with first dialog");
@@ -88,8 +97,13 @@ export function setLastRightClickedInfo(info: RightClickInfo): void {
  * @param lastModified - Last-Modified header value
  * @param uniqueIdentifier - Unique identifier to avoid filename conflicts (e.g., voice message ID or duration)
  * @param saveAs - Whether to show save dialog (defaults to DOWNLOAD_CONSTANTS.SAVE_AS)
+ * @param isWav - Whether url points at a WAV re-encoding rather than the original audio.
+ *   Defaults to false: labelling un-converted audio as .wav yields a file no player
+ *   can open, whereas the reverse merely names a WAV by its source container.
+ * @param sourceMimeType - MIME type of the original audio, used to name the file
+ *   when it was not re-encoded
  */
-export function downloadVoiceMessage(url: string, lastModified?: string, uniqueIdentifier?: string, saveAs?: boolean): void {
+export function downloadVoiceMessage(url: string, lastModified?: string, uniqueIdentifier?: string, saveAs?: boolean, isWav: boolean = false, sourceMimeType?: string | null): void {
   logger.debug("downloadVoiceMessage function called");
 
   if (!url) {
@@ -97,13 +111,17 @@ export function downloadVoiceMessage(url: string, lastModified?: string, uniqueI
     return;
   }
 
+  // Captured audio is re-encoded to WAV; un-converted audio keeps the extension
+  // of the container it was served in.
+  const extension = selectDownloadExtension(isWav, sourceMimeType);
+
   // Generate filename with unique identifier
   const baseFilename = generateVoiceMessageFilename(lastModified);
-  const filename = uniqueIdentifier 
-    ? `${baseFilename}-${uniqueIdentifier}.mp4`
-    : `${baseFilename}.mp4`;
-  
-  logger.debug("Generated filename", { filename, uniqueIdentifier });
+  const filename = uniqueIdentifier
+    ? `${baseFilename}-${uniqueIdentifier}${extension}`
+    : `${baseFilename}${extension}`;
+
+  logger.debug("Generated filename", { filename, uniqueIdentifier, isWav });
 
   // Use Chrome downloads API to download the file
   const useSaveAs = saveAs !== undefined ? saveAs : DOWNLOAD_CONSTANTS.SAVE_AS;
@@ -160,16 +178,20 @@ export async function downloadAllVoiceMessages(voiceMessagesStore: VoiceMessageS
       // Determine saveAs value: first file uses showFirstDialog, others use false
       const useSaveAs = isFirstFile && showFirstDialog;
 
+      // Prefer the WAV re-encoding, falling back to the original audio.
+      const { url, isWav } = selectDownloadUrl(item);
+
       logger.debug("Downloading voice message", {
         id,
         durationMs: item.durationMs,
-        url: item.downloadUrl.substring(0, 50) + "...",
+        url: url!.substring(0, 50) + "...",
         isFirstFile,
         useSaveAs,
+        isWav,
       });
 
       // Use voice message ID as unique identifier to prevent filename conflicts
-      downloadVoiceMessage(item.downloadUrl, item.lastModified || undefined, id, useSaveAs);
+      downloadVoiceMessage(url!, item.lastModified || undefined, id, useSaveAs, isWav, item.blobType);
       downloadCount++;
       isFirstFile = false; // Mark that we've processed the first file
     } else {

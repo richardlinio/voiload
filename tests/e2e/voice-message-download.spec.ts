@@ -67,24 +67,34 @@ async function waitForBlobs(page: Page, count: number): Promise<string[]> {
 }
 
 /**
- * Assert a download came from the duration match rather than the batch fallback.
+ * Assert a download came from the duration match rather than the batch fallback,
+ * and that it delivered the WAV re-encoding rather than the captured opus.
  *
  * When matching fails, background responds DOWNLOAD_ALL_VOICE_MESSAGES and
  * downloadAllVoiceMessages() re-downloads every stored item — which, on a page
  * holding a single voice message, downloads exactly the blob the test expected.
  * The two paths are told apart by the filename: the batch path appends the item
  * id as a uniqueIdentifier, the matched path does not.
+ *
+ * The extension re-encodes captured audio to WAV and publishes it under a fresh
+ * blob URL, so a correct download is a blob: URL that is NOT the page's own.
+ * Asserting only "some blob was downloaded" would pass on the un-converted opus.
+ *
+ * @param downloads - Recorded chrome.downloads.download calls
+ * @param originalBlobUrl - The blob URL the fixture page created for the opus
  */
 function expectMatchedDownload(
   downloads: Array<{ url: string; filename: string }>,
-  expectedUrl: string | undefined
+  originalBlobUrl: string | undefined
 ): void {
   expect(downloads).toHaveLength(1);
   const dl = downloads[0]!;
-  expect(dl.url).toBe(expectedUrl);
-  expect(dl.filename).toMatch(/^voice-message-[\d-]+\.mp4$/);
-  // The batch fallback would have produced `voice-message-<date>-voice-msg-<id>.mp4`.
+  expect(dl.filename).toMatch(/^voice-message-[\d-]+\.wav$/);
+  // The batch fallback would have produced `voice-message-<date>-voice-msg-<id>.wav`.
   expect(dl.filename).not.toContain("voice-msg-");
+  // The WAV is a second, distinct blob minted by the extension.
+  expect(dl.url).toMatch(/^blob:/);
+  expect(dl.url).not.toBe(originalBlobUrl);
 }
 
 test("blob path: captured createObjectURL blob is downloaded on menu click", async ({
@@ -140,9 +150,11 @@ test("blob path: captured createObjectURL blob is downloaded on menu click", asy
   expect(downloads.length).toBeGreaterThanOrEqual(1);
 
   const dl = downloads[downloads.length - 1]!;
-  // The blob path won: the download URL is exactly the page's blob: URL.
-  expect(dl.url).toBe(pageBlobUrl);
-  expect(dl.filename).toMatch(/^voice-message-.*\.mp4$/);
+  // The blob path won and the audio was re-encoded: the download is a blob: URL
+  // the extension minted for the WAV, not the page's own opus blob.
+  expect(dl.url).toMatch(/^blob:/);
+  expect(dl.url).not.toBe(pageBlobUrl);
+  expect(dl.filename).toMatch(/^voice-message-.*\.wav$/);
 });
 
 test("full pipeline: webRequest-detected audio is downloaded on menu click", async ({
@@ -186,11 +198,20 @@ test("full pipeline: webRequest-detected audio is downloaded on menu click", asy
 
   const dl = downloads[downloads.length - 1]!;
   // A valid audio URL is downloaded (blob: from createObjectURL or the fbcdn
-  // URL from the webRequest path — both are correct end states).
+  // URL from the webRequest path — both are correct end states). The WAV blob is
+  // minted inside the page, so it carries the page's origin like the source blob.
   expect(dl.url).toMatch(
     /^(blob:https:\/\/www\.facebook\.com\/|https:\/\/cdn\.fbcdn\.net\/)/
   );
-  expect(dl.filename).toMatch(/^voice-message-.*\.mp4$/);
+
+  // The extension is only allowed to claim .wav for audio it re-encoded. The
+  // blob path converts; the webRequest path hands over the CDN URL untouched.
+  // Pinning each path to its own extension catches a download mislabelled as a
+  // WAV, which would produce a file no player can open.
+  const expectedExtension = dl.url.startsWith("blob:") ? "wav" : "ogg";
+  expect(dl.filename).toMatch(
+    new RegExp(`^voice-message-.*\\.${expectedExtension}$`)
+  );
 });
 
 /**
