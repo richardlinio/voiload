@@ -50,6 +50,7 @@ The extension uses a multi-layer architecture:
 - **content.ts** - Bridge between page and background scripts, injects page context
 - **message-handler.ts** - Handles communication between layers
 - **context-menu-handler.ts** - Processes right-click menu interactions
+- **wav-request.ts** - Asks the page context to re-encode one voice message as WAV before download
 - **dom-utils.ts** - DOM manipulation utilities
 
 ### Page Context Scripts (`extension/scripts/page-context/`)

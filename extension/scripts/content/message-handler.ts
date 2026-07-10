@@ -98,6 +98,11 @@ export function initMessageHandler(): void {
           logger.info("Page context initialized");
           break;
 
+        case MESSAGE_ACTIONS.PREPARE_WAV_RESULT:
+          // Consumed by wav-request.ts's own listener; the background has no
+          // handler for it, so forwarding would only log an unhandled warning.
+          break;
+
         default:
           // Forward other messages to background script
           sendMessageToBackground(message);

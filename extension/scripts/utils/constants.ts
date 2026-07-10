@@ -27,7 +27,6 @@ export const MODULE_NAMES = {
   BLOB_HANDLER: "blob-handler",
   WAV_ENCODER: "wav-encoder",
   RIGHT_CLICK_HANDLER: "right-click-handler",
-  ELEMENT_REGISTRATION_HANDLER: "element-registration-handler",
   AUDIO_URL_REGISTRATION_HANDLER: "audio-url-registration-handler",
 } as const;
 

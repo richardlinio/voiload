@@ -287,10 +287,10 @@ export async function registerDownloadUrl(
 
   // Tier 1: a near-identical duration means the same audio was re-registered
   // (e.g. the page re-created the blob URL) — update that item in place.
-  // Tier 2: an element registered from the DOM carries an integer-second
-  // duration, so it sits up to ~1s away from the decoded blob duration; only
-  // items still without a download URL are eligible, to avoid clobbering a
-  // distinct message's URL.
+  // Tier 2: fall back to an item still lacking a download URL. Nothing writes
+  // url-less items anymore (the DOM element-registration path is gone), so this
+  // only matches leftovers in the session store from before that removal.
+  // Restricted to url-less items to avoid clobbering a distinct message's URL.
   const matchingItem =
     findNearestItemByDuration(
       voiceMessages,

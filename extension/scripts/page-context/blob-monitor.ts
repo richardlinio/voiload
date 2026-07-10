@@ -191,6 +191,9 @@ async function prepareWavUrl(durationMs: number): Promise<string | null> {
   }
 
   if (currentWavUrl) {
+    // Safe even if a download of this URL is still in flight: revoking removes
+    // only the URL->blob mapping, while a download Chrome has already accepted
+    // holds its own reference to the bytes.
     URL.revokeObjectURL(currentWavUrl);
   }
 

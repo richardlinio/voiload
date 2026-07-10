@@ -31,6 +31,10 @@ interface RightClickMessage {
   wavUrl?: string | null;
 }
 
+// Bumped on every right-click that reaches the background, so a WAV that
+// finishes encoding after a newer right-click cannot resurrect stale state.
+let rightClickSeq = 0;
+
 // ================================================
 // Context Menu Handler Functions
 // ================================================
@@ -77,6 +81,7 @@ function handleContextMenu(event: MouseEvent): void {
     });
     
     // Send right-click message with null values - download all will be triggered when user clicks context menu
+    rightClickSeq++;
     sendRightClickMessage(null, null, null, undefined);
     return;
   }
@@ -123,13 +128,24 @@ function handleContextMenu(event: MouseEvent): void {
       data: durationMs,
     });
 
+    // Populate the background's state right away: the menu item is clickable the
+    // moment it renders, and a click before the WAV is ready must download THIS
+    // message (as original audio), not whatever a previous right-click left.
+    const seq = ++rightClickSeq;
+    sendRightClickMessage(id, null, null, durationMs);
+
     // Re-encode this one message while the user reads the context menu, so the
-    // eventual download click stays instant. A failure sends wavUrl null and the
-    // original audio is downloaded.
+    // eventual download click stays instant. A failure keeps the provisional
+    // message above and the original audio is downloaded.
     void requestWavUrl(durationMs).then((wavUrl) => {
-      Logger.debug("Preparing to send right-click message", {
+      if (!wavUrl || seq !== rightClickSeq) {
+        // Nothing to upgrade with, or a newer right-click already owns the
+        // background's state — upgrading now would point it at the wrong message.
+        return;
+      }
+      Logger.debug("Upgrading right-click message with WAV", {
         module: MODULE_NAMES.CONTEXT_MENU,
-        data: { hasWavUrl: !!wavUrl },
+        data: { hasWavUrl: true },
       });
       sendRightClickMessage(id, null, null, durationMs, wavUrl);
     });
