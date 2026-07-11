@@ -7,7 +7,6 @@ import { Logger } from "../utils/logger";
 import { MESSAGE_ACTIONS, MODULE_NAMES } from "../utils/constants";
 
 import { handleRightClick } from "./handlers/right-click-handler";
-import { handleElementRegistration } from "./handlers/element-registration-handler";
 import { handleAudioUrlRegistration } from "./handlers/audio-url-registration-handler";
 import {
   handleBlobUrl,
@@ -39,9 +38,7 @@ export function initMessageHandler(voiceMessages?: VoiceMessageStore): void {
     voiceMessagesStore = createDataStore();
   }
 
-  logger.debug("voiceMessagesStore initialized", {
-    mapSize: voiceMessagesStore.items.size,
-  });
+  logger.debug("voiceMessagesStore initialized");
 
   // Listen for messages from the content script
   chrome.runtime.onMessage.addListener(
@@ -65,22 +62,6 @@ export function initMessageHandler(voiceMessages?: VoiceMessageStore): void {
             return false;
           }
           return handleRightClick(
-            voiceMessagesStore,
-            message,
-            sender,
-            sendResponse
-          );
-
-        case MESSAGE_ACTIONS.REGISTER_ELEMENT:
-          logger.debug("Handling voice message element registration message");
-          if (!voiceMessagesStore) {
-            sendResponse({
-              success: false,
-              error: "Voice message store not initialized",
-            });
-            return false;
-          }
-          return handleElementRegistration(
             voiceMessagesStore,
             message,
             sender,

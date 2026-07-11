@@ -14,6 +14,7 @@ export interface VoiceMessageItem {
   id: string;
   element: Element | null;
   durationMs: number;
+  /** Original captured audio (opus/ogg), or a CDN URL from the webRequest path. */
   downloadUrl: string | null;
   lastModified?: string | null;
   blobType?: string | null;
@@ -24,30 +25,24 @@ export interface VoiceMessageItem {
 
 /**
  * Voice message data store interface
+ *
+ * `items` is the in-memory cache in front of chrome.storage.session and may be
+ * stale before the first store call of a service-worker lifetime resolves.
+ * Read through `getAllItems()` rather than iterating `items` directly.
  */
 export interface VoiceMessageStore {
   items: Map<string, VoiceMessageItem>;
-  isDurationMatch: (
-    duration1Ms: number,
-    duration2Ms: number,
-    toleranceMs?: number
-  ) => boolean;
   registerDownloadUrl: (
     durationMs: number,
     downloadUrl: string,
     lastModified?: string | null,
     blobType?: string | null,
     blobSize?: number | null
-  ) => string;
-  findPendingItemByDuration: (durationMs: number) => VoiceMessageItem | null;
-  findItemByDuration: (durationMs: number) => VoiceMessageItem | null;
-  getDownloadUrlForElement: (element: Element) => DownloadUrlResult | null;
-}
-
-/**
- * Download URL lookup result interface
- */
-export interface DownloadUrlResult {
-  downloadUrl: string | null;
-  lastModified?: string | null;
+  ) => Promise<string>;
+  findItemByDuration: (durationMs: number) => Promise<VoiceMessageItem | null>;
+  getAllItems: () => Promise<VoiceMessageItem[]>;
+  updateItem: (
+    id: string,
+    patch: Partial<VoiceMessageItem>
+  ) => Promise<VoiceMessageItem | null>;
 }

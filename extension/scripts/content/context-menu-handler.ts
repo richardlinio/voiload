@@ -3,7 +3,7 @@
  * Responsible for handling context menu (right-click) events
  */
 
-import { secondsToMilliseconds } from "../utils/time-utils";
+import { domDurationToMilliseconds } from "../utils/time-utils";
 import { Logger } from "../utils/logger";
 import { MESSAGE_ACTIONS, MODULE_NAMES } from "../utils/constants";
 
@@ -114,16 +114,15 @@ function handleContextMenu(event: MouseEvent): void {
 
   if (durationSec !== null) {
     // Convert seconds to milliseconds
-    const durationMs = secondsToMilliseconds(durationSec);
+    const durationMs = domDurationToMilliseconds(durationSec);
     Logger.debug("Duration (milliseconds)", {
       module: MODULE_NAMES.CONTEXT_MENU,
       data: durationMs,
     });
 
-    // Send message to background script, including element ID and duration
-    Logger.debug("Preparing to send right-click message", {
-      module: MODULE_NAMES.CONTEXT_MENU,
-    });
+    // Identify the message only. The audio is re-encoded when the user actually
+    // clicks the download item, so a right-click costs nothing and no half-ready
+    // state can be observed in between.
     sendRightClickMessage(id, null, null, durationMs);
   } else {
     Logger.debug("Unable to get duration from slider", {

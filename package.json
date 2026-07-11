@@ -1,6 +1,6 @@
 {
   "name": "facebook-messenger-voice-message-download",
-  "version": "1.0.0",
+  "version": "1.1.2",
   "type": "module",
   "main": "index.js",
   "directories": {
@@ -10,6 +10,7 @@
   "scripts": {
     "test": "jest --silent",
     "test:e2e": "webpack --mode=production && playwright test",
+    "test:canary": "playwright test --config=playwright.canary.config.ts",
     "fix": "eslint . --ext .ts,.js --fix",
     "quality": "tsc --noEmit --pretty false && eslint . --ext .ts,.js --quiet",
     "check": "npm run test && npm run quality",

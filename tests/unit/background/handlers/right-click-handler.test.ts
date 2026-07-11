@@ -3,6 +3,8 @@
  * Unit tests for right-click-handler module
  */
 
+import { flushPromises } from "../../../helpers/flush-promises";
+
 // Mock modules first
 const mockSetLastRightClickedInfo = jest.fn();
 jest.mock("../../../../extension/scripts/background/download-manager", () => ({
@@ -12,9 +14,20 @@ jest.mock("../../../../extension/scripts/background/download-manager", () => ({
 jest.mock("../../../../extension/scripts/utils/constants", () => ({
   MODULE_NAMES: {
     RIGHT_CLICK_HANDLER: "right-click-handler",
+    DATA_STORE: "data-store",
   },
   MESSAGE_ACTIONS: {
     DOWNLOAD_ALL_VOICE_MESSAGES: "downloadAllVoiceMessages",
+  },
+  // Needed by the shared data-store search the handler delegates to
+  // (mirrors production values, pinned in constants.test.ts)
+  MATCHING_TOLERANCE: 1000,
+  EXACT_MATCHING_TOLERANCE: 5,
+  TIME_CONSTANTS: {
+    DATA_RETENTION_PERIOD: 7 * 24 * 60 * 60 * 1000,
+  },
+  STORAGE_KEYS: {
+    VOICE_MESSAGES: "voiceMessages",
   },
 }));
 
@@ -48,10 +61,14 @@ describe("right-click-handler.ts", () => {
       error: jest.fn(),
     };
 
-    // Create mock voice messages store
+    // Create mock voice messages store — `getAllItems` reads through the seeded
+    // Map so tests keep seeding `items` while the handler uses the async accessors
     mockVoiceMessagesStore = {
       items: new Map(),
       findItemByDuration: jest.fn(),
+      getAllItems: jest.fn(async () =>
+        Array.from(mockVoiceMessagesStore.items.values())
+      ),
     };
 
     // Create mock sender and response
@@ -73,7 +90,7 @@ describe("right-click-handler.ts", () => {
 
   describe("handleRightClick", () => {
     describe("Normal Cases", () => {
-      it("should handle right-click with valid download URL", () => {
+      it("should handle right-click with valid download URL", async () => {
         const message = {
           elementId: "element-123",
           downloadUrl: "https://example.com/audio.mp3",
@@ -87,6 +104,7 @@ describe("right-click-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockSetLastRightClickedInfo).toHaveBeenCalledWith({
@@ -95,6 +113,7 @@ describe("right-click-handler.ts", () => {
           lastModified: "Wed, 21 Oct 2015 07:28:00 GMT",
           tabId: 123,
           durationMs: 5000,
+          blobType: null,
         });
         expect(mockSendResponse).toHaveBeenCalledWith({
           success: true,
@@ -102,7 +121,7 @@ describe("right-click-handler.ts", () => {
         });
       });
 
-      it("should handle right-click without download URL but find match in store", () => {
+      it("should handle right-click without download URL but find match in store", async () => {
         // Mock store to have matching item
         const matchingItem = {
           id: "stored-item",
@@ -111,7 +130,7 @@ describe("right-click-handler.ts", () => {
           lastModified: "Wed, 21 Oct 2015 07:28:00 GMT",
         };
         mockVoiceMessagesStore.items.set("stored-item", matchingItem);
-        mockVoiceMessagesStore.findItemByDuration.mockReturnValue(matchingItem);
+        mockVoiceMessagesStore.findItemByDuration.mockResolvedValue(matchingItem);
 
         const message = {
           elementId: "element-123",
@@ -126,6 +145,7 @@ describe("right-click-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockVoiceMessagesStore.findItemByDuration).toHaveBeenCalledWith(
@@ -137,6 +157,7 @@ describe("right-click-handler.ts", () => {
           lastModified: "Wed, 21 Oct 2015 07:28:00 GMT",
           tabId: 123,
           durationMs: 5000,
+          blobType: null,
         });
         expect(mockSendResponse).toHaveBeenCalledWith({
           success: true,
@@ -144,42 +165,7 @@ describe("right-click-handler.ts", () => {
         });
       });
 
-      it("should handle right-click without download URL and fallback to iteration", () => {
-        // Mock findItemByDuration to return null, but add matching item to store
-        mockVoiceMessagesStore.findItemByDuration.mockReturnValue(null);
-        const matchingItem = {
-          id: "iteration-match",
-          durationMs: 5003, // Within 5ms tolerance
-          downloadUrl: "https://example.com/iteration.mp3",
-          lastModified: null,
-        };
-        mockVoiceMessagesStore.items.set("iteration-match", matchingItem);
-
-        const message = {
-          elementId: "element-123",
-          downloadUrl: null,
-          lastModified: null,
-          durationMs: 5000,
-        };
-
-        const result = rightClickHandler.handleRightClick(
-          mockVoiceMessagesStore,
-          message,
-          mockSender,
-          mockSendResponse
-        );
-
-        expect(result).toBe(true);
-        expect(mockSetLastRightClickedInfo).toHaveBeenCalledWith({
-          elementId: "element-123",
-          downloadUrl: "https://example.com/iteration.mp3",
-          lastModified: null,
-          tabId: 123,
-          durationMs: 5000,
-        });
-      });
-
-      it("should handle right-click without tab ID", () => {
+      it("should handle right-click without tab ID", async () => {
         const message = {
           elementId: "element-123",
           downloadUrl: "https://example.com/audio.mp3",
@@ -195,6 +181,7 @@ describe("right-click-handler.ts", () => {
           senderWithoutTab,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockSetLastRightClickedInfo).toHaveBeenCalledWith({
@@ -203,10 +190,11 @@ describe("right-click-handler.ts", () => {
           lastModified: null,
           tabId: undefined,
           durationMs: 5000,
+          blobType: null,
         });
       });
 
-      it("should record right-click info and suggest download all when no valid download URL", () => {
+      it("should record right-click info and suggest download all when no valid download URL", async () => {
         const message = {
           elementId: "element-123",
           downloadUrl: null,
@@ -215,7 +203,7 @@ describe("right-click-handler.ts", () => {
         };
 
         // No matching items in store
-        mockVoiceMessagesStore.findItemByDuration.mockReturnValue(null);
+        mockVoiceMessagesStore.findItemByDuration.mockResolvedValue(null);
 
         const result = rightClickHandler.handleRightClick(
           mockVoiceMessagesStore,
@@ -223,6 +211,7 @@ describe("right-click-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockSetLastRightClickedInfo).toHaveBeenCalledWith({
@@ -231,6 +220,7 @@ describe("right-click-handler.ts", () => {
           lastModified: null,
           tabId: 123,
           durationMs: 5000,
+          blobType: null,
         });
         expect(mockSendResponse).toHaveBeenCalledWith({
           success: true,
@@ -241,23 +231,24 @@ describe("right-click-handler.ts", () => {
     });
 
     describe("Duration Matching Logic", () => {
-      it("should match items within 5ms tolerance boundary", () => {
-        mockVoiceMessagesStore.findItemByDuration.mockReturnValue(null);
+      it("should match an integer-second DOM duration against a fractional blob duration", async () => {
+        // Delegates to the shared data-store search when the store has no
+        // findItemByDuration method (real runtime fixture: valuemax=61 ↔ 60547ms)
+        delete mockVoiceMessagesStore.findItemByDuration;
 
-        // Add item exactly 5ms different (boundary case)
-        const boundaryItem = {
-          id: "boundary-item",
-          durationMs: 5005, // Exactly 5ms difference
-          downloadUrl: "https://example.com/boundary.mp3",
+        const fixtureItem = {
+          id: "fixture-61s",
+          durationMs: 60547,
+          downloadUrl: "https://example.com/61s.mp3",
           lastModified: null,
         };
-        mockVoiceMessagesStore.items.set("boundary-item", boundaryItem);
+        mockVoiceMessagesStore.items.set("fixture-61s", fixtureItem);
 
         const message = {
           elementId: "element-123",
           downloadUrl: null,
           lastModified: null,
-          durationMs: 5000,
+          durationMs: 61000,
         };
 
         const result = rightClickHandler.handleRightClick(
@@ -266,24 +257,26 @@ describe("right-click-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockSetLastRightClickedInfo).toHaveBeenCalledWith({
           elementId: "element-123",
-          downloadUrl: "https://example.com/boundary.mp3",
+          downloadUrl: "https://example.com/61s.mp3",
           lastModified: null,
           tabId: 123,
-          durationMs: 5000,
+          durationMs: 61000,
+          blobType: null,
         });
       });
 
-      it("should not match items outside 5ms tolerance", () => {
-        mockVoiceMessagesStore.findItemByDuration.mockReturnValue(null);
+      it("should not match items outside the matching tolerance", async () => {
+        mockVoiceMessagesStore.findItemByDuration.mockResolvedValue(null);
 
-        // Add item outside tolerance (6ms difference)
+        // Add item outside tolerance (2s difference)
         const outsideToleranceItem = {
           id: "outside-item",
-          durationMs: 5006, // 6ms difference, outside tolerance
+          durationMs: 7000, // 2000ms difference, outside tolerance
           downloadUrl: "https://example.com/outside.mp3",
           lastModified: null,
         };
@@ -302,6 +295,7 @@ describe("right-click-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockSetLastRightClickedInfo).toHaveBeenCalledWith({
@@ -310,6 +304,7 @@ describe("right-click-handler.ts", () => {
           lastModified: null,
           tabId: 123,
           durationMs: 5000,
+          blobType: null,
         });
         expect(mockSendResponse).toHaveBeenCalledWith({
           success: true,
@@ -318,8 +313,8 @@ describe("right-click-handler.ts", () => {
         });
       });
 
-      it("should not match items without download URL", () => {
-        mockVoiceMessagesStore.findItemByDuration.mockReturnValue(null);
+      it("should not match items without download URL", async () => {
+        mockVoiceMessagesStore.findItemByDuration.mockResolvedValue(null);
 
         // Add item without download URL
         const noUrlItem = {
@@ -343,6 +338,7 @@ describe("right-click-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockSendResponse).toHaveBeenCalledWith({
@@ -352,8 +348,8 @@ describe("right-click-handler.ts", () => {
         });
       });
 
-      it("should not match items without durationMs", () => {
-        mockVoiceMessagesStore.findItemByDuration.mockReturnValue(null);
+      it("should not match items without durationMs", async () => {
+        mockVoiceMessagesStore.findItemByDuration.mockResolvedValue(null);
 
         // Add item without durationMs
         const noDurationItem = {
@@ -377,6 +373,7 @@ describe("right-click-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockSendResponse).toHaveBeenCalledWith({
@@ -386,25 +383,25 @@ describe("right-click-handler.ts", () => {
         });
       });
 
-      it("should return first matching item when multiple matches exist", () => {
-        mockVoiceMessagesStore.findItemByDuration.mockReturnValue(null);
+      it("should return the nearest item when multiple matches exist", async () => {
+        delete mockVoiceMessagesStore.findItemByDuration;
 
         // Add multiple matching items
-        const firstMatch = {
-          id: "first-match",
-          durationMs: 5002,
-          downloadUrl: "https://example.com/first.mp3",
+        const fartherMatch = {
+          id: "farther-match",
+          durationMs: 5202,
+          downloadUrl: "https://example.com/farther.mp3",
           lastModified: null,
         };
-        const secondMatch = {
-          id: "second-match",
-          durationMs: 5001,
-          downloadUrl: "https://example.com/second.mp3",
+        const nearerMatch = {
+          id: "nearer-match",
+          durationMs: 5101,
+          downloadUrl: "https://example.com/nearer.mp3",
           lastModified: null,
         };
 
-        mockVoiceMessagesStore.items.set("first-match", firstMatch);
-        mockVoiceMessagesStore.items.set("second-match", secondMatch);
+        mockVoiceMessagesStore.items.set("farther-match", fartherMatch);
+        mockVoiceMessagesStore.items.set("nearer-match", nearerMatch);
 
         const message = {
           elementId: "element-123",
@@ -419,21 +416,102 @@ describe("right-click-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
-        // Should match the first one in iteration order
+        // Should match the item with the smallest duration difference
         expect(mockSetLastRightClickedInfo).toHaveBeenCalledWith({
           elementId: "element-123",
-          downloadUrl: "https://example.com/first.mp3",
+          downloadUrl: "https://example.com/nearer.mp3",
           lastModified: null,
           tabId: 123,
           durationMs: 5000,
+          blobType: null,
         });
       });
     });
 
+    describe("WAV re-encoding deferral", () => {
+      it("should record only the original audio, leaving re-encoding to the download click", async () => {
+        // A right-click no longer converts anything. Recording a WAV blob URL
+        // here would go stale: the page revokes it on the next conversion.
+        const matchingItem = {
+          id: "no-wav-item",
+          durationMs: 5002,
+          downloadUrl: "https://example.com/original.ogg",
+          // Carried through so a download that cannot be re-encoded is named
+          // after the container the audio is actually in.
+          blobType: "audio/ogg",
+          lastModified: "Wed, 21 Oct 2015 07:28:00 GMT",
+        };
+        mockVoiceMessagesStore.items.set("no-wav-item", matchingItem);
+        mockVoiceMessagesStore.findItemByDuration.mockResolvedValue(matchingItem);
+
+        const message = {
+          elementId: "element-123",
+          downloadUrl: null,
+          lastModified: null,
+          durationMs: 5000,
+        };
+
+        const result = rightClickHandler.handleRightClick(
+          mockVoiceMessagesStore,
+          message,
+          mockSender,
+          mockSendResponse
+        );
+        await flushPromises();
+
+        expect(result).toBe(true);
+        expect(mockSetLastRightClickedInfo).toHaveBeenCalledWith({
+          elementId: "element-123",
+          downloadUrl: "https://example.com/original.ogg",
+          lastModified: "Wed, 21 Oct 2015 07:28:00 GMT",
+          tabId: 123,
+          // durationMs is what lets the download click ask the page to
+          // re-encode this exact message.
+          durationMs: 5000,
+          blobType: "audio/ogg",
+        });
+      });
+
+      it("should ignore a wavUrl smuggled in on the message", async () => {
+        const matchingItem = {
+          id: "wav-item",
+          durationMs: 5002,
+          downloadUrl: "https://example.com/original.ogg",
+          lastModified: "Wed, 21 Oct 2015 07:28:00 GMT",
+        };
+        mockVoiceMessagesStore.items.set("wav-item", matchingItem);
+        mockVoiceMessagesStore.findItemByDuration.mockResolvedValue(matchingItem);
+
+        const message = {
+          elementId: "element-123",
+          downloadUrl: null,
+          lastModified: null,
+          durationMs: 5000,
+          wavUrl: "blob:https://example.com/wav-reencoded",
+        };
+
+        const result = rightClickHandler.handleRightClick(
+          mockVoiceMessagesStore,
+          message,
+          mockSender,
+          mockSendResponse
+        );
+        await flushPromises();
+
+        expect(result).toBe(true);
+        expect(mockSetLastRightClickedInfo).toHaveBeenCalledWith(
+          expect.objectContaining({
+            downloadUrl: "https://example.com/original.ogg",
+          })
+        );
+      });
+    });
+
     describe("Store Method Fallback", () => {
-      it("should fallback to iteration when findItemByDuration is not available", () => {
+      it("should fallback to iteration when findItemByDuration is not available", async () => {
         // Remove findItemByDuration method
         delete mockVoiceMessagesStore.findItemByDuration;
 
@@ -458,6 +536,7 @@ describe("right-click-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockSetLastRightClickedInfo).toHaveBeenCalledWith({
@@ -466,19 +545,22 @@ describe("right-click-handler.ts", () => {
           lastModified: null,
           tabId: 123,
           durationMs: 5000,
+          blobType: null,
         });
       });
 
-      it("should try both methods when findItemByDuration returns null", () => {
-        mockVoiceMessagesStore.findItemByDuration.mockReturnValue(null);
+      it("should trust the store method's null result and fall back to download-all", async () => {
+        // The store method owns the matching semantics (including the
+        // ambiguity refusal), so its null must not be second-guessed
+        mockVoiceMessagesStore.findItemByDuration.mockResolvedValue(null);
 
-        const iterationMatch = {
-          id: "iteration-match",
+        const nearbyItem = {
+          id: "nearby-item",
           durationMs: 5001,
-          downloadUrl: "https://example.com/iteration-match.mp3",
+          downloadUrl: "https://example.com/nearby.mp3",
           lastModified: null,
         };
-        mockVoiceMessagesStore.items.set("iteration-match", iterationMatch);
+        mockVoiceMessagesStore.items.set("nearby-item", nearbyItem);
 
         const message = {
           elementId: "element-123",
@@ -493,23 +575,22 @@ describe("right-click-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockVoiceMessagesStore.findItemByDuration).toHaveBeenCalledWith(
           5000
         );
-        expect(mockSetLastRightClickedInfo).toHaveBeenCalledWith({
-          elementId: "element-123",
-          downloadUrl: "https://example.com/iteration-match.mp3",
-          lastModified: null,
-          tabId: 123,
-          durationMs: 5000,
+        expect(mockSendResponse).toHaveBeenCalledWith({
+          success: true,
+          action: "downloadAllVoiceMessages",
+          message: "No matching voice message found, ready to download all available voice messages",
         });
       });
     });
 
     describe("Validation and Error Handling", () => {
-      it("should handle null voiceMessagesStore", () => {
+      it("should handle null voiceMessagesStore", async () => {
         const message = {
           elementId: "element-123",
           downloadUrl: "https://example.com/audio.mp3",
@@ -523,6 +604,7 @@ describe("right-click-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -535,7 +617,7 @@ describe("right-click-handler.ts", () => {
         expect(mockSetLastRightClickedInfo).not.toHaveBeenCalled();
       });
 
-      it("should handle message without durationMs when searching store", () => {
+      it("should handle message without durationMs when searching store", async () => {
         const message = {
           elementId: "element-123",
           downloadUrl: null,
@@ -549,6 +631,7 @@ describe("right-click-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockSetLastRightClickedInfo).toHaveBeenCalledWith({
@@ -557,6 +640,7 @@ describe("right-click-handler.ts", () => {
           lastModified: null,
           tabId: 123,
           durationMs: undefined,
+          blobType: null,
         });
         expect(mockSendResponse).toHaveBeenCalledWith({
           success: true,
@@ -565,7 +649,7 @@ describe("right-click-handler.ts", () => {
         });
       });
 
-      it("should handle empty elementId", () => {
+      it("should handle empty elementId", async () => {
         const message = {
           elementId: "",
           downloadUrl: "https://example.com/audio.mp3",
@@ -579,6 +663,7 @@ describe("right-click-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockSetLastRightClickedInfo).toHaveBeenCalledWith({
@@ -587,12 +672,13 @@ describe("right-click-handler.ts", () => {
           lastModified: null,
           tabId: 123,
           durationMs: 5000,
+          blobType: null,
         });
       });
     });
 
     describe("Integration Tests", () => {
-      it("should work with realistic right-click workflow", () => {
+      it("should work with realistic right-click workflow", async () => {
         // Step 1: Right-click without URL, no match in store
         const message1 = {
           elementId: "element-123",
@@ -601,7 +687,7 @@ describe("right-click-handler.ts", () => {
           durationMs: 5000,
         };
 
-        mockVoiceMessagesStore.findItemByDuration.mockReturnValue(null);
+        mockVoiceMessagesStore.findItemByDuration.mockResolvedValue(null);
 
         let result = rightClickHandler.handleRightClick(
           mockVoiceMessagesStore,
@@ -609,6 +695,7 @@ describe("right-click-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockSendResponse).toHaveBeenLastCalledWith({
@@ -626,7 +713,7 @@ describe("right-click-handler.ts", () => {
           lastModified: "Wed, 21 Oct 2015 07:28:00 GMT",
         };
         mockVoiceMessagesStore.items.set("late-arrival", matchingItem);
-        mockVoiceMessagesStore.findItemByDuration.mockReturnValue(matchingItem);
+        mockVoiceMessagesStore.findItemByDuration.mockResolvedValue(matchingItem);
 
         // Step 3: Right-click again, should find match
         const message2 = {
@@ -642,6 +729,7 @@ describe("right-click-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockSetLastRightClickedInfo).toHaveBeenLastCalledWith({
@@ -650,6 +738,7 @@ describe("right-click-handler.ts", () => {
           lastModified: "Wed, 21 Oct 2015 07:28:00 GMT",
           tabId: 123,
           durationMs: 5000,
+          blobType: null,
         });
         expect(mockSendResponse).toHaveBeenCalledWith({
           success: true,
@@ -657,7 +746,7 @@ describe("right-click-handler.ts", () => {
         });
       });
 
-      it("should prefer provided download URL over store lookup", () => {
+      it("should prefer provided download URL over store lookup", async () => {
         // Add matching item to store
         const storeItem = {
           id: "store-item",
@@ -666,7 +755,7 @@ describe("right-click-handler.ts", () => {
           lastModified: null,
         };
         mockVoiceMessagesStore.items.set("store-item", storeItem);
-        mockVoiceMessagesStore.findItemByDuration.mockReturnValue(storeItem);
+        mockVoiceMessagesStore.findItemByDuration.mockResolvedValue(storeItem);
 
         // Message with its own download URL
         const message = {
@@ -682,6 +771,7 @@ describe("right-click-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         // Should use URL from message, not from store
@@ -691,6 +781,7 @@ describe("right-click-handler.ts", () => {
           lastModified: "Wed, 21 Oct 2015 07:28:00 GMT",
           tabId: 123,
           durationMs: 5000,
+          blobType: null,
         });
         // Should not call store lookup methods
         expect(
@@ -698,7 +789,7 @@ describe("right-click-handler.ts", () => {
         ).not.toHaveBeenCalled();
       });
 
-      it("should suggest download all when no download URL found", () => {
+      it("should suggest download all when no download URL found", async () => {
         // Mock store with some items but no matching duration
         mockVoiceMessagesStore.items.set("item1", {
           id: "item1",
@@ -714,7 +805,7 @@ describe("right-click-handler.ts", () => {
           lastModified: null,
         });
 
-        mockVoiceMessagesStore.findItemByDuration.mockReturnValue(null);
+        mockVoiceMessagesStore.findItemByDuration.mockResolvedValue(null);
 
         const message = {
           elementId: "element-123",
@@ -729,6 +820,7 @@ describe("right-click-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockSendResponse).toHaveBeenCalledWith({
@@ -738,8 +830,8 @@ describe("right-click-handler.ts", () => {
         });
       });
 
-      it("should suggest download all even when no items in store", () => {
-        mockVoiceMessagesStore.findItemByDuration.mockReturnValue(null);
+      it("should suggest download all even when no items in store", async () => {
+        mockVoiceMessagesStore.findItemByDuration.mockResolvedValue(null);
 
         const message = {
           elementId: "element-123",
@@ -754,6 +846,7 @@ describe("right-click-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockSendResponse).toHaveBeenCalledWith({

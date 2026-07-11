@@ -10,6 +10,7 @@ import {
   MESSAGE_ACTIONS,
   TIME_CONSTANTS,
   MATCHING_TOLERANCE,
+  EXACT_MATCHING_TOLERANCE,
   UI_CONSTANTS,
   DOM_CONSTANTS,
   LOG_LEVELS,
@@ -218,7 +219,6 @@ describe("Constants", () => {
   describe("MESSAGE_ACTIONS", () => {
     it("should contain expected message actions", () => {
       expect(MESSAGE_ACTIONS).toHaveProperty("RIGHT_CLICK");
-      expect(MESSAGE_ACTIONS).toHaveProperty("REGISTER_ELEMENT");
       expect(MESSAGE_ACTIONS).toHaveProperty("REGISTER_AUDIO_URL");
       expect(MESSAGE_ACTIONS).toHaveProperty("BLOB_DETECTED");
     });
@@ -253,10 +253,15 @@ describe("Constants", () => {
   });
 
   describe("MATCHING_TOLERANCE", () => {
-    it("should be a small positive number", () => {
-      expect(MATCHING_TOLERANCE).toBeGreaterThan(0);
-      expect(MATCHING_TOLERANCE).toBeLessThan(100);
+    it("should cover the integer-second aria-valuemax rounding gap", () => {
+      // aria-valuemax is integer seconds, so DOM vs blob duration gaps approach 1s
+      expect(MATCHING_TOLERANCE).toBe(1000);
       expect(Number.isInteger(MATCHING_TOLERANCE)).toBe(true);
+    });
+
+    it("should keep a small tolerance for identical-audio detection", () => {
+      expect(EXACT_MATCHING_TOLERANCE).toBe(5);
+      expect(EXACT_MATCHING_TOLERANCE).toBeLessThan(MATCHING_TOLERANCE);
     });
   });
 
@@ -360,7 +365,7 @@ describe("Constants", () => {
 
   describe("Computed Values", () => {
     it("should calculate audio sizes correctly", () => {
-      expect(BLOB_MONITOR_CONSTANTS.MIN_VALID_AUDIO_SIZE).toBe(20 * 1024); // 20KB
+      expect(BLOB_MONITOR_CONSTANTS.MIN_VALID_AUDIO_SIZE).toBe(2 * 1024); // 2KB
       expect(BLOB_MONITOR_CONSTANTS.MAX_VALID_AUDIO_SIZE).toBe(
         200 * 1024 * 1024
       ); // 200MB

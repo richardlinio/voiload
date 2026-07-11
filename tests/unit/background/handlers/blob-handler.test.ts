@@ -3,6 +3,8 @@
  * Unit tests for blob-handler module
  */
 
+import { flushPromises } from "../../../helpers/flush-promises";
+
 // Chrome APIs are already mocked in setup.js
 
 // Mock modules
@@ -74,9 +76,9 @@ describe("blob-handler.ts", () => {
 
   describe("handleBlobUrl", () => {
     describe("Normal Cases", () => {
-      it("should successfully register blob URL with all parameters", () => {
+      it("should successfully register blob URL with all parameters", async () => {
         const mockId = "blob-id-123";
-        mockVoiceMessagesStore.registerDownloadUrl.mockReturnValue(mockId);
+        mockVoiceMessagesStore.registerDownloadUrl.mockResolvedValue(mockId);
 
         const message = {
           blobUrl:
@@ -93,6 +95,7 @@ describe("blob-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockVoiceMessagesStore.registerDownloadUrl).toHaveBeenCalledWith(
@@ -112,9 +115,9 @@ describe("blob-handler.ts", () => {
         });
       });
 
-      it("should register blob URL without optional parameters", () => {
+      it("should register blob URL without optional parameters", async () => {
         const mockId = "blob-id-456";
-        mockVoiceMessagesStore.registerDownloadUrl.mockReturnValue(mockId);
+        mockVoiceMessagesStore.registerDownloadUrl.mockResolvedValue(mockId);
 
         const message = {
           blobUrl:
@@ -129,6 +132,7 @@ describe("blob-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockVoiceMessagesStore.registerDownloadUrl).toHaveBeenCalledWith(
@@ -145,9 +149,9 @@ describe("blob-handler.ts", () => {
         });
       });
 
-      it("should log debug information with truncated blob URL", () => {
+      it("should log debug information with truncated blob URL", async () => {
         const mockId = "blob-id-789";
-        mockVoiceMessagesStore.registerDownloadUrl.mockReturnValue(mockId);
+        mockVoiceMessagesStore.registerDownloadUrl.mockResolvedValue(mockId);
 
         const message = {
           blobUrl:
@@ -164,6 +168,7 @@ describe("blob-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.debug).toHaveBeenCalledWith(
@@ -178,9 +183,9 @@ describe("blob-handler.ts", () => {
         );
       });
 
-      it("should log current store state after registration", () => {
+      it("should log current store state after registration", async () => {
         const mockId = "blob-id-state";
-        mockVoiceMessagesStore.registerDownloadUrl.mockReturnValue(mockId);
+        mockVoiceMessagesStore.registerDownloadUrl.mockResolvedValue(mockId);
 
         // Add some items to simulate store size
         mockVoiceMessagesStore.items.set("item1", { id: "item1" });
@@ -198,6 +203,7 @@ describe("blob-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.debug).toHaveBeenCalledWith(
@@ -205,10 +211,43 @@ describe("blob-handler.ts", () => {
           { itemsCount: 2 }
         );
       });
+
+      it("should register only the original audio, never a wavUrl", async () => {
+        const mockId = "blob-id-wav";
+        mockVoiceMessagesStore.registerDownloadUrl.mockResolvedValue(mockId);
+
+        const message = {
+          blobUrl: "blob:https://facebook.com/wav-test",
+          blobType: "audio/ogg",
+          blobSize: 32000,
+          durationMs: 6000,
+          timestamp: "2023-10-21T14:00:00.000Z",
+        };
+
+        const result = blobHandler.handleBlobUrl(
+          mockVoiceMessagesStore,
+          message,
+          mockSender,
+          mockSendResponse
+        );
+        await flushPromises();
+
+        expect(result).toBe(true);
+
+        // The page mints a WAV blob URL only when a download is requested and
+        // revokes it on the next conversion, so the store must never hold one.
+        expect(mockVoiceMessagesStore.registerDownloadUrl).toHaveBeenCalledWith(
+          6000,
+          "blob:https://facebook.com/wav-test",
+          null,
+          "audio/ogg",
+          32000
+        );
+      });
     });
 
     describe("Validation and Error Handling", () => {
-      it("should handle null voiceMessagesStore", () => {
+      it("should handle null voiceMessagesStore", async () => {
         const message = {
           blobUrl: "blob:https://facebook.com/test",
           durationMs: 5000,
@@ -221,6 +260,7 @@ describe("blob-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -235,7 +275,7 @@ describe("blob-handler.ts", () => {
         ).not.toHaveBeenCalled();
       });
 
-      it("should handle missing blobUrl", () => {
+      it("should handle missing blobUrl", async () => {
         const message = {
           blobUrl: "",
           durationMs: 5000,
@@ -248,6 +288,7 @@ describe("blob-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -259,7 +300,7 @@ describe("blob-handler.ts", () => {
         });
       });
 
-      it("should handle null blobUrl", () => {
+      it("should handle null blobUrl", async () => {
         const message = {
           blobUrl: null,
           durationMs: 5000,
@@ -272,6 +313,7 @@ describe("blob-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -283,7 +325,7 @@ describe("blob-handler.ts", () => {
         });
       });
 
-      it("should handle missing durationMs", () => {
+      it("should handle missing durationMs", async () => {
         const message = {
           blobUrl: "blob:https://facebook.com/test",
           durationMs: null,
@@ -296,6 +338,7 @@ describe("blob-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -307,7 +350,7 @@ describe("blob-handler.ts", () => {
         });
       });
 
-      it("should handle zero durationMs", () => {
+      it("should handle zero durationMs", async () => {
         const message = {
           blobUrl: "blob:https://facebook.com/test",
           durationMs: 0,
@@ -320,6 +363,7 @@ describe("blob-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -331,7 +375,7 @@ describe("blob-handler.ts", () => {
         });
       });
 
-      it("should handle registration error from voiceMessagesStore", () => {
+      it("should handle registration error from voiceMessagesStore", async () => {
         const errorMessage = "Registration failed";
         mockVoiceMessagesStore.registerDownloadUrl.mockImplementation(() => {
           throw new Error(errorMessage);
@@ -349,6 +393,7 @@ describe("blob-handler.ts", () => {
           mockSender,
           mockSendResponse
         );
+        await flushPromises();
 
         expect(result).toBe(true);
         expect(mockLogger.error).toHaveBeenCalledWith(
@@ -368,7 +413,7 @@ describe("blob-handler.ts", () => {
 
   describe("handleBlobDetection", () => {
     describe("Normal Cases", () => {
-      it("should handle blob detection message with all information", () => {
+      it("should handle blob detection message with all information", async () => {
         const message = {
           url: "https://facebook.com/test",
           type: "audio",
@@ -402,7 +447,7 @@ describe("blob-handler.ts", () => {
         });
       });
 
-      it("should handle blob detection message without optional fields", () => {
+      it("should handle blob detection message without optional fields", async () => {
         const message = {
           url: "https://facebook.com/minimal",
           type: "audio",
@@ -432,7 +477,7 @@ describe("blob-handler.ts", () => {
         });
       });
 
-      it("should handle blob detection message with error", () => {
+      it("should handle blob detection message with error", async () => {
         const message = {
           url: "https://facebook.com/error-case",
           type: "audio",
@@ -464,364 +509,6 @@ describe("blob-handler.ts", () => {
         expect(mockSendResponse).toHaveBeenCalledWith({
           success: true,
           message: "Blob URL detection info logged",
-        });
-      });
-    });
-  });
-
-  describe("handleBlobContent", () => {
-    describe("Normal Cases", () => {
-      it("should successfully download blob content with MP3 type", () => {
-        const mockDownloadId = 12345;
-        (global.chrome as any).downloads.download.mockImplementation(
-          (options: any, callback: any) => {
-            callback(mockDownloadId);
-          }
-        );
-
-        const base64Data =
-          "SUQzAwAAAAABUEZUIT0AAAA4AAAAL/////8AAABJRCMBAAAAAElEMwMAAAEAAAA=";
-        const message = {
-          blobUrl: "blob:https://facebook.com/content-test",
-          blobType: "audio/mpeg",
-          base64data: base64Data,
-          requestId: "req-123",
-          timestamp: "2023-10-21T10:00:00.000Z",
-        };
-
-        const result = blobHandler.handleBlobContent(
-          message,
-          mockSender,
-          mockSendResponse
-        );
-
-        expect(result).toBe(true);
-        expect((global.chrome as any).downloads.download).toHaveBeenCalledWith(
-          {
-            url: `data:audio/mpeg;base64,${base64Data}`,
-            filename: "voice-message-2023-10-21T10-00-00.mp3",
-            saveAs: false,
-          },
-          expect.any(Function)
-        );
-        expect(mockLogger.info).toHaveBeenCalledWith("Started file download", {
-          downloadId: mockDownloadId,
-          filename: "voice-message-2023-10-21T10-00-00.mp3",
-          blobType: "audio/mpeg",
-        });
-        expect(mockSendResponse).toHaveBeenCalledWith({
-          success: true,
-          message: "File download started",
-          downloadId: mockDownloadId,
-          filename: "voice-message-2023-10-21T10-00-00.mp3",
-        });
-      });
-
-      it("should generate correct filename for different audio types", () => {
-        const mockDownloadId = 67890;
-        (global.chrome as any).downloads.download.mockImplementation(
-          (options: any, callback: any) => {
-            callback(mockDownloadId);
-          }
-        );
-
-        const testCases = [
-          { blobType: "audio/wav", expectedExt: ".wav" },
-          { blobType: "audio/mp4", expectedExt: ".mp4" },
-          { blobType: "video/mp4", expectedExt: ".mp4" },
-          { blobType: "audio/ogg", expectedExt: ".ogg" },
-          { blobType: "audio/aac", expectedExt: ".aac" },
-          { blobType: "unknown/type", expectedExt: ".bin" },
-        ];
-
-        testCases.forEach((testCase, _index) => {
-          (global.chrome as any).downloads.download.mockClear();
-          mockSendResponse.mockClear();
-
-          const message = {
-            blobType: testCase.blobType,
-            base64data: "dGVzdGRhdGE=",
-            timestamp: "2023-10-21T15:30:45.123Z",
-          };
-
-          const result = blobHandler.handleBlobContent(
-            message,
-            mockSender,
-            mockSendResponse
-          );
-
-          expect(result).toBe(true);
-          expect(
-            (global.chrome as any).downloads.download
-          ).toHaveBeenCalledWith(
-            expect.objectContaining({
-              filename: `voice-message-2023-10-21T15-30-45${testCase.expectedExt}`,
-            }),
-            expect.any(Function)
-          );
-        });
-      });
-
-      it("should handle blob content without timestamp", () => {
-        const mockDownloadId = 11111;
-        (global.chrome as any).downloads.download.mockImplementation(
-          (options: any, callback: any) => {
-            callback(mockDownloadId);
-          }
-        );
-
-        const mockTimestamp = 1698753600000; // Mock Date.now()
-        jest.spyOn(Date, "now").mockReturnValue(mockTimestamp);
-        jest
-          .spyOn(Date.prototype, "toISOString")
-          .mockReturnValue("2023-10-31T12-00-00.000Z");
-
-        const message = {
-          blobType: "audio/mpeg",
-          base64data: "bW9ja2RhdGE=",
-        };
-
-        const result = blobHandler.handleBlobContent(
-          message,
-          mockSender,
-          mockSendResponse
-        );
-
-        expect(result).toBe(true);
-        expect((global.chrome as any).downloads.download).toHaveBeenCalledWith(
-          expect.objectContaining({
-            filename: "voice-message-2023-10-31T12-00-00.mp3",
-          }),
-          expect.any(Function)
-        );
-
-        jest.restoreAllMocks();
-      });
-    });
-
-    describe("Validation and Error Handling", () => {
-      it("should handle missing base64data", () => {
-        const message = {
-          blobType: "audio/mpeg",
-          base64data: "",
-          timestamp: "2023-10-21T10:00:00.000Z",
-        };
-
-        const result = blobHandler.handleBlobContent(
-          message,
-          mockSender,
-          mockSendResponse
-        );
-
-        expect(result).toBe(true);
-        expect(mockLogger.error).toHaveBeenCalledWith(
-          "Missing required parameters"
-        );
-        expect(mockSendResponse).toHaveBeenCalledWith({
-          success: false,
-          error: "Missing required parameters",
-        });
-        expect(
-          (global.chrome as any).downloads.download
-        ).not.toHaveBeenCalled();
-      });
-
-      it("should handle missing blobType", () => {
-        const message = {
-          blobType: "",
-          base64data: "dGVzdGRhdGE=",
-          timestamp: "2023-10-21T10:00:00.000Z",
-        };
-
-        const result = blobHandler.handleBlobContent(
-          message,
-          mockSender,
-          mockSendResponse
-        );
-
-        expect(result).toBe(true);
-        expect(mockLogger.error).toHaveBeenCalledWith(
-          "Missing required parameters"
-        );
-        expect(mockSendResponse).toHaveBeenCalledWith({
-          success: false,
-          error: "Missing required parameters",
-        });
-      });
-
-      it("should handle download API error", () => {
-        const errorMessage = "Download failed";
-        (global.chrome as any).runtime.lastError = { message: errorMessage };
-        (global.chrome as any).downloads.download.mockImplementation(
-          (options: any, callback: any) => {
-            callback(null);
-          }
-        );
-
-        const message = {
-          blobType: "audio/mpeg",
-          base64data: "ZXJyb3J0ZXN0",
-          timestamp: "2023-10-21T10:00:00.000Z",
-        };
-
-        const result = blobHandler.handleBlobContent(
-          message,
-          mockSender,
-          mockSendResponse
-        );
-
-        expect(result).toBe(true);
-        expect(mockLogger.error).toHaveBeenCalledWith(
-          "Error occurred while downloading file",
-          { error: (global.chrome as any).runtime.lastError }
-        );
-        expect(mockSendResponse).toHaveBeenCalledWith({
-          success: false,
-          error: errorMessage,
-        });
-      });
-
-      it("should handle exception during blob content processing", () => {
-        // Mock Date constructor to throw error
-        const originalDate = Date;
-        global.Date = jest.fn(() => {
-          throw new Error("Date construction failed");
-        }) as any;
-        global.Date.now = originalDate.now;
-
-        const message = {
-          blobType: "audio/mpeg",
-          base64data: "ZXhjZXB0aW9udGVzdA==",
-          timestamp: "2023-10-21T10:00:00.000Z",
-        };
-
-        const result = blobHandler.handleBlobContent(
-          message,
-          mockSender,
-          mockSendResponse
-        );
-
-        expect(result).toBe(true);
-        expect(mockLogger.error).toHaveBeenCalledWith(
-          "Error occurred while handling blob content download",
-          {
-            error: "Date construction failed",
-            stack: expect.any(String),
-          }
-        );
-        expect(mockSendResponse).toHaveBeenCalledWith({
-          success: false,
-          error: "Date construction failed",
-        });
-
-        // Restore Date
-        global.Date = originalDate;
-      });
-    });
-
-    describe("File Extension Logic", () => {
-      it("should correctly map MIME types to file extensions", () => {
-        const mockDownloadId = 99999;
-        (global.chrome as any).downloads.download.mockImplementation(
-          (options: any, callback: any) => {
-            callback(mockDownloadId);
-          }
-        );
-
-        const mimeTypeTests = [
-          { input: "audio/mpeg", expected: ".mp3" },
-          { input: "audio/mp3", expected: ".mp3" },
-          { input: "audio/mp4", expected: ".mp4" },
-          { input: "video/mp4", expected: ".mp4" },
-          { input: "audio/wav", expected: ".wav" },
-          { input: "audio/ogg", expected: ".ogg" },
-          { input: "audio/aac", expected: ".aac" },
-          { input: "application/octet-stream", expected: ".bin" },
-          { input: "unknown", expected: ".bin" },
-        ];
-
-        mimeTypeTests.forEach((test) => {
-          (global.chrome as any).downloads.download.mockClear();
-
-          const message = {
-            blobType: test.input,
-            base64data: "dGVzdA==",
-            timestamp: "2023-10-21T10:00:00.000Z",
-          };
-
-          blobHandler.handleBlobContent(message, mockSender, mockSendResponse);
-
-          expect(
-            (global.chrome as any).downloads.download
-          ).toHaveBeenCalledWith(
-            expect.objectContaining({
-              filename: expect.stringContaining(test.expected),
-            }),
-            expect.any(Function)
-          );
-        });
-      });
-    });
-
-    describe("Integration Tests", () => {
-      it("should work with realistic blob content download workflow", () => {
-        const mockDownloadId1 = 11111;
-        const mockDownloadId2 = 22222;
-
-        (global.chrome as any).downloads.download
-          .mockImplementationOnce((options: any, callback: any) =>
-            callback(mockDownloadId1)
-          )
-          .mockImplementationOnce((options: any, callback: any) =>
-            callback(mockDownloadId2)
-          );
-
-        // First download
-        const message1 = {
-          blobType: "audio/mpeg",
-          base64data: "Zmlyc3R0ZXN0ZGF0YQ==",
-          requestId: "req-1",
-          timestamp: "2023-10-21T09:00:00.000Z",
-        };
-
-        let result = blobHandler.handleBlobContent(
-          message1,
-          mockSender,
-          mockSendResponse
-        );
-
-        expect(result).toBe(true);
-        expect(mockSendResponse).toHaveBeenLastCalledWith({
-          success: true,
-          message: "File download started",
-          downloadId: mockDownloadId1,
-          filename: "voice-message-2023-10-21T09-00-00.mp3",
-        });
-
-        // Second download with different type
-        mockSendResponse.mockClear();
-        const message2 = {
-          blobType: "audio/wav",
-          base64data: "c2Vjb25kdGVzdGRhdGE=",
-          requestId: "req-2",
-          timestamp: "2023-10-21T10:30:15.456Z",
-        };
-
-        result = blobHandler.handleBlobContent(
-          message2,
-          mockSender,
-          mockSendResponse
-        );
-
-        expect(result).toBe(true);
-        expect((global.chrome as any).downloads.download).toHaveBeenCalledTimes(
-          2
-        );
-        expect(mockSendResponse).toHaveBeenCalledWith({
-          success: true,
-          message: "File download started",
-          downloadId: mockDownloadId2,
-          filename: "voice-message-2023-10-21T10-30-15.wav",
         });
       });
     });

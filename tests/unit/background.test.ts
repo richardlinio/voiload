@@ -63,7 +63,7 @@ describe("background.ts", () => {
     mockInitMessageHandler = jest.fn();
     mockInitWebRequestInterceptor = jest.fn();
     mockCreateDataStore = jest.fn(() => new Map());
-    mockCleanupOldItems = jest.fn();
+    mockCleanupOldItems = jest.fn().mockResolvedValue(undefined);
     mockCheckOnboardingStatus = jest.fn();
     mockMarkOnboardingShown = jest.fn();
 
@@ -368,6 +368,22 @@ describe("background.ts", () => {
       intervalCallback();
 
       expect(mockCleanupOldItems).toHaveBeenCalledWith(expect.any(Map));
+    });
+
+    it("should log rather than reject when cleanup fails", async () => {
+      const error = new Error("storage unavailable");
+      mockCleanupOldItems.mockRejectedValueOnce(error);
+      require("../../extension/scripts/background");
+
+      const intervalCallback = (setInterval as jest.Mock).mock.calls[0][0];
+      intervalCallback();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        "Error during periodic cleanup",
+        { error }
+      );
     });
   });
 });

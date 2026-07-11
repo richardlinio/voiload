@@ -58,9 +58,26 @@ export function handleAudioUrlRegistration(
     return true;
   }
 
+  void registerAndRespond(voiceMessagesStore, audioUrl, durationMs, sendResponse);
+
+  return true; // Keep the connection open for async response
+}
+
+/**
+ * Persist the Audio URL and respond once session storage settles.
+ */
+async function registerAndRespond(
+  voiceMessagesStore: VoiceMessageStore,
+  audioUrl: string,
+  durationMs: number,
+  sendResponse: (response?: any) => void
+): Promise<void> {
   try {
     // Use registerDownloadUrl to register the Audio URL in voiceMessagesStore
-    const id = voiceMessagesStore.registerDownloadUrl(durationMs, audioUrl);
+    const id = await voiceMessagesStore.registerDownloadUrl(
+      durationMs,
+      audioUrl
+    );
 
     logger.info(
       `Successfully registered Audio URL, ID: ${id}, duration: ${durationMs}ms`
@@ -86,6 +103,4 @@ export function handleAudioUrlRegistration(
       message: `Error occurred while registering Audio URL: ${error.message}`,
     });
   }
-
-  return true; // Keep the connection open for async response
 }

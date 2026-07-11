@@ -6,7 +6,11 @@
 import { setLastRightClickedInfo } from "../download-manager";
 import { Logger } from "../../utils/logger";
 import { MODULE_NAMES, MESSAGE_ACTIONS } from "../../utils/constants";
-import { type VoiceMessageStore, type VoiceMessageItem } from "../data-store";
+import {
+  findItemByDuration as findItemByDurationInStore,
+  type VoiceMessageStore,
+  type VoiceMessageItem,
+} from "../data-store";
 import type { RightClickMessage } from "../../types/messages";
 
 // Create a module-specific logger
@@ -14,6 +18,10 @@ const logger = Logger.createModuleLogger(MODULE_NAMES.RIGHT_CLICK_HANDLER);
 
 /**
  * Handle right-click message
+ *
+ * The store is backed by chrome.storage.session, so the lookup is async while the
+ * listener contract stays synchronous: `true` is returned immediately to keep the
+ * message port open, and sendResponse fires once the lookup settles.
  *
  * @param voiceMessagesStore - Voice message data store
  * @param message - Message object
@@ -45,102 +53,130 @@ export function handleRightClick(
     return true;
   }
 
-  logger.debug("voiceMessagesStore Map size", {
-    mapSize: voiceMessagesStore.items.size,
-  });
+  void resolveAndRespond(voiceMessagesStore, message, sender, sendResponse);
 
-  // Output all items' durations and download URL status for debugging
-  logStoreItems(voiceMessagesStore);
+  return true; // Keep the connection open for async response
+}
 
-  // If no download URL is provided but duration exists, try to find from voiceMessagesStore
-  let finalDownloadUrl = downloadUrl;
-  let finalLastModified = lastModified;
+/**
+ * Resolve the download URL for the right-clicked element and respond.
+ */
+async function resolveAndRespond(
+  voiceMessagesStore: VoiceMessageStore,
+  message: RightClickMessage,
+  sender: chrome.runtime.MessageSender,
+  sendResponse: (response?: any) => void
+): Promise<void> {
+  const { elementId, downloadUrl, lastModified, durationMs } = message;
 
-  if (!downloadUrl && durationMs) {
-    logger.debug("Trying to find download URL from data store", {
+  try {
+    // Output all items' durations and download URL status for debugging
+    await logStoreItems(voiceMessagesStore);
+
+    // If no download URL is provided but duration exists, try to find from voiceMessagesStore
+    let finalDownloadUrl = downloadUrl;
+    let finalLastModified = lastModified;
+    // Names the file when the audio cannot be re-encoded; unknown for a URL that
+    // arrived on the message rather than from a stored item.
+    let blobType: string | null = null;
+
+    if (!downloadUrl && durationMs) {
+      logger.debug("Trying to find download URL from data store", {
+        durationMs,
+      });
+
+      logger.debug("Start matching process", {
+        phase: "start",
+        targetDuration: durationMs,
+        timestamp: new Date().toISOString(),
+      });
+
+      const matchingItem = await findItemByDuration(
+        voiceMessagesStore,
+        durationMs
+      );
+
+      if (matchingItem && matchingItem.downloadUrl) {
+        // Only the original audio is recorded. The WAV is produced on demand when
+        // the download item is clicked, so storing one here would go stale.
+        logger.debug("Found matching download URL in data store", {
+          id: matchingItem.id,
+          durationMs: matchingItem.durationMs,
+          downloadUrl: matchingItem.downloadUrl.substring(0, 30) + "...",
+        });
+        finalDownloadUrl = matchingItem.downloadUrl;
+        finalLastModified = matchingItem.lastModified || lastModified;
+        blobType = matchingItem.blobType ?? null;
+      } else {
+        logger.warn("No matching download URL found in data store");
+        await logAllDurations(voiceMessagesStore);
+      }
+    }
+
+    if (!finalDownloadUrl) {
+      logger.warn(
+        "Download URL is invalid, but still recording right-click info"
+      );
+      // Even if there is no download URL, record the right-click info for later use when the URL is captured
+      setLastRightClickedInfo({
+        elementId,
+        downloadUrl: null,
+        lastModified: null,
+        tabId: sender.tab?.id || undefined,
+        durationMs: durationMs || undefined,
+        blobType: null,
+      });
+
+      // Suggest downloading all available voice messages as fallback
+      logger.info(
+        "No matching voice message found, suggesting download all as fallback"
+      );
+      sendResponse({
+        success: true,
+        action: MESSAGE_ACTIONS.DOWNLOAD_ALL_VOICE_MESSAGES,
+        message:
+          "No matching voice message found, ready to download all available voice messages",
+      });
+      return;
+    }
+
+    // Set the last right-clicked info
+    logger.debug("Setting last right-clicked info", {
+      elementId,
+      downloadUrl: finalDownloadUrl.substring(0, 30) + "...",
+      hasLastModified: !!finalLastModified,
+      tabId: sender.tab?.id,
       durationMs,
     });
 
-    // Log target duration
-    const targetDuration = durationMs;
-
-    logger.debug("Start matching process", {
-      phase: "start",
-      targetDuration,
-      timestamp: new Date().toISOString(),
-      itemsCount: voiceMessagesStore.items.size,
-    });
-
-    const matchingItem = findItemByDuration(voiceMessagesStore, durationMs);
-
-    if (matchingItem && matchingItem.downloadUrl) {
-      logger.debug("Found matching download URL in data store", {
-        id: matchingItem.id,
-        durationMs: matchingItem.durationMs,
-        downloadUrl: matchingItem.downloadUrl
-          ? matchingItem.downloadUrl.substring(0, 30) + "..."
-          : null,
-      });
-      finalDownloadUrl = matchingItem.downloadUrl;
-      finalLastModified = matchingItem.lastModified || lastModified;
-    } else {
-      logger.warn("No matching download URL found in data store");
-      logAllDurations(voiceMessagesStore);
-    }
-  }
-
-  if (!finalDownloadUrl) {
-    logger.warn(
-      "Download URL is invalid, but still recording right-click info"
-    );
-    // Even if there is no download URL, record the right-click info for later use when the URL is captured
     setLastRightClickedInfo({
       elementId,
-      downloadUrl: null,
-      lastModified: null,
+      downloadUrl: finalDownloadUrl,
+      lastModified: finalLastModified || null,
       tabId: sender.tab?.id || undefined,
       durationMs: durationMs || undefined,
+      blobType,
     });
 
-    // Suggest downloading all available voice messages as fallback
-    logger.info("No matching voice message found, suggesting download all as fallback");
-    sendResponse({
+    // Respond to content script
+    const response = {
       success: true,
-      action: MESSAGE_ACTIONS.DOWNLOAD_ALL_VOICE_MESSAGES,
-      message: "No matching voice message found, ready to download all available voice messages",
+      message: "Ready to download voice message",
+    };
+    logger.debug("Responding to content script", { response });
+    sendResponse(response);
+
+    logger.debug("Right-click message handling complete");
+  } catch (error: any) {
+    logger.error("Error occurred while handling right-click message", {
+      error: error?.message,
+      stack: error?.stack,
     });
-    return true;
+    sendResponse({
+      success: false,
+      message: `Error occurred while handling right-click message: ${error?.message}`,
+    });
   }
-
-  // Set the last right-clicked info
-  logger.debug("Setting last right-clicked info", {
-    elementId,
-    downloadUrl: finalDownloadUrl
-      ? finalDownloadUrl.substring(0, 30) + "..."
-      : null,
-    hasLastModified: !!finalLastModified,
-    tabId: sender.tab?.id,
-    durationMs,
-  });
-
-  setLastRightClickedInfo({
-    elementId,
-    downloadUrl: finalDownloadUrl,
-    lastModified: finalLastModified || null,
-    tabId: sender.tab?.id || undefined,
-    durationMs: durationMs || undefined,
-  });
-
-  // Respond to content script
-  const response = {
-    success: true,
-    message: "Ready to download voice message",
-  };
-  logger.debug("Responding to content script", { response });
-  sendResponse(response);
-
-  logger.debug("Right-click message handling complete");
-  return true; // Keep the connection open for async response
 }
 
 /**
@@ -150,84 +186,37 @@ export function handleRightClick(
  * @param durationMs - Target duration (ms)
  * @returns Matching item or null
  */
-function findItemByDuration(
+async function findItemByDuration(
   voiceMessagesStore: VoiceMessageStore,
   durationMs: number
-): VoiceMessageItem | null {
-  // Method 1: Use findItemByDuration function if available
-  let matchingItem = null;
-  if (typeof voiceMessagesStore.findItemByDuration === "function") {
-    logger.debug("Using findItemByDuration function to search");
-    matchingItem = voiceMessagesStore.findItemByDuration(durationMs);
-    logger.debug("findItemByDuration result", {
-      found: !!matchingItem,
-    });
+): Promise<VoiceMessageItem | null> {
+  // Prefer the store's own method; fall back to the shared data-store search
+  // so both paths use the same nearest-neighbour matching semantics
+  const matchingItem =
+    typeof voiceMessagesStore.findItemByDuration === "function"
+      ? await voiceMessagesStore.findItemByDuration(durationMs)
+      : await findItemByDurationInStore(voiceMessagesStore, durationMs);
 
-    if (matchingItem) {
-      logger.debug("Match found", {
-        phase: "findItemByDuration",
-        result: "success",
-        itemId: matchingItem.id,
-        itemDuration: matchingItem.durationMs,
-        targetDuration: durationMs,
-        difference: Math.abs(matchingItem.durationMs - durationMs),
-        hasUrl: !!matchingItem.downloadUrl,
-        isPending: !!matchingItem.isPending,
-        timestamp: new Date().toISOString(),
-      });
-      return matchingItem;
-    } else {
-      logger.debug("No match found", {
-        phase: "findItemByDuration",
-        result: "failure",
-        targetDuration: durationMs,
-        timestamp: new Date().toISOString(),
-      });
-    }
-  }
-
-  // Method 2: Directly iterate items collection
-  logger.debug("Directly iterating items collection to search");
-  const tolerance = 5; // Tolerance (ms)
-  let attemptCount = 0;
-  const matchStartTime = Date.now();
-
-  for (const [id, item] of voiceMessagesStore.items.entries()) {
-    attemptCount++;
-    const difference = Math.abs(item.durationMs - durationMs);
-
-    // Log each matching attempt
-    logger.debug("Matching attempt details", {
-      phase: "iteration",
-      attemptNumber: attemptCount,
-      itemId: id,
-      itemDuration: item.durationMs,
+  if (matchingItem) {
+    logger.debug("Match found", {
+      phase: "findItemByDuration",
+      result: "success",
+      itemId: matchingItem.id,
+      itemDuration: matchingItem.durationMs,
       targetDuration: durationMs,
-      difference: difference,
-      withinTolerance: difference <= tolerance,
-      hasUrl: !!item.downloadUrl,
-      isPending: !!item.isPending,
+      difference: Math.abs(matchingItem.durationMs - durationMs),
+      hasUrl: !!matchingItem.downloadUrl,
+      isPending: !!matchingItem.isPending,
       timestamp: new Date().toISOString(),
     });
-
-    if (item.durationMs && difference <= tolerance) {
-      logger.debug("Found matching item", {
-        durationMs: item.durationMs,
-        hasDownloadUrl: !!item.downloadUrl,
-      });
-      matchingItem = item;
-      break;
-    }
+  } else {
+    logger.debug("No match found", {
+      phase: "findItemByDuration",
+      result: "failure",
+      targetDuration: durationMs,
+      timestamp: new Date().toISOString(),
+    });
   }
-
-  // Log iteration result
-  logger.debug("Iteration complete", {
-    phase: "iterationComplete",
-    result: matchingItem ? "success" : "failure",
-    attemptCount: attemptCount,
-    elapsedMs: Date.now() - matchStartTime,
-    timestamp: new Date().toISOString(),
-  });
 
   return matchingItem;
 }
@@ -237,11 +226,14 @@ function findItemByDuration(
  *
  * @param voiceMessagesStore - Voice message data store
  */
-function logStoreItems(voiceMessagesStore: VoiceMessageStore): void {
+async function logStoreItems(
+  voiceMessagesStore: VoiceMessageStore
+): Promise<void> {
   logger.debug("All items' durations and download URL status");
-  for (const [id, item] of voiceMessagesStore.items.entries()) {
+  const items = await voiceMessagesStore.getAllItems();
+  for (const item of items) {
     logger.debug(`Item status`, {
-      id,
+      id: item.id,
       durationMs: item.durationMs,
       hasUrl: !!item.downloadUrl,
       isPending: !!item.isPending,
@@ -254,19 +246,21 @@ function logStoreItems(voiceMessagesStore: VoiceMessageStore): void {
  *
  * @param voiceMessagesStore - Voice message data store
  */
-function logAllDurations(voiceMessagesStore: VoiceMessageStore): void {
+async function logAllDurations(
+  voiceMessagesStore: VoiceMessageStore
+): Promise<void> {
+  const items = await voiceMessagesStore.getAllItems();
+
   // Output data store status for debugging
   logger.debug("Number of items in data store", {
-    itemsCount: voiceMessagesStore.items.size,
+    itemsCount: items.length,
   });
 
   // Output all items' durations for comparison
-  const allDurations = [];
-  for (const [, item] of voiceMessagesStore.items.entries()) {
-    if (item.durationMs) {
-      allDurations.push(item.durationMs);
-    }
-  }
+  const allDurations = items
+    .filter((item) => item.durationMs)
+    .map((item) => item.durationMs);
+
   logger.debug("All durations in data store", {
     durations: allDurations,
   });

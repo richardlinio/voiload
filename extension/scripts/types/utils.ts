@@ -32,7 +32,6 @@ export type ModuleName =
   | "blob-monitor"
   | "blob-handler"
   | "right-click-handler"
-  | "element-registration-handler"
   | "audio-url-registration-handler"
   | string; // allow custom module names
 

@@ -42,7 +42,7 @@ The extension uses a multi-layer architecture:
 - **handlers/** - Message processing handlers
   - **audio-url-registration-handler.ts** - Handles audio URL registration
   - **blob-handler.ts** - Processes blob URL registration and downloads
-  - **element-registration-handler.ts** - Manages voice message element registration
+  - **download-all-handler.ts** - Downloads every captured voice message in one action
   - **right-click-handler.ts** - Handles right-click context menu interactions
 
 ### Content Scripts (`extension/scripts/content/`)
@@ -50,6 +50,7 @@ The extension uses a multi-layer architecture:
 - **content.ts** - Bridge between page and background scripts, injects page context
 - **message-handler.ts** - Handles communication between layers
 - **context-menu-handler.ts** - Processes right-click menu interactions
+- **wav-request.ts** - Asks the page context to re-encode one voice message as WAV before download
 - **dom-utils.ts** - DOM manipulation utilities
 
 ### Page Context Scripts (`extension/scripts/page-context/`)
@@ -58,6 +59,7 @@ The extension uses a multi-layer architecture:
 - **blob-monitor.ts** - Monitors blob URL creation to capture audio
 - **audio-analyzer.ts** - Analyzes audio characteristics and duration
 - **blob-analyzer.ts** - Processes blob data for voice message detection
+- **wav-encoder.ts** - Re-encodes captured opus/ogg audio as PCM WAV before download
 
 ### Utilities (`extension/scripts/utils/`)
 
@@ -65,6 +67,7 @@ The extension uses a multi-layer architecture:
 - **constants.ts** - Application constants and configuration
 - **id-generator.ts** - Generates unique identifiers
 - **time-utils.ts** - Time-related utility functions
+- **download-url.ts** - Selects the download URL and file extension for a stored voice message
 
 ### TypeScript Types (`extension/scripts/types/`)
 
@@ -154,7 +157,7 @@ The extension uses a multi-layer architecture:
   - `tests/unit/background/` - Background script tests
   - `tests/unit/background/handlers/` - Message handler tests
   - `tests/unit/utils/` - Utility function tests
-- **Test Coverage**: 368 comprehensive unit tests across 14 test suites
+- **Test Coverage**: Comprehensive unit tests mirroring the `extension/` tree (run `pnpm test` for the current count)
 - **Chrome API Mocking**: Comprehensive mocks for chrome.storage, chrome.downloads, chrome.tabs, chrome.contextMenus, chrome.webRequest
 - **Key Testing Patterns**:
   - Module isolation with jest.mock()

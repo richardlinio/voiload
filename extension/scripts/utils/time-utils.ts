@@ -89,3 +89,25 @@ export function secondsToMilliseconds(seconds: number): number {
 
   return Math.round(seconds * 1000);
 }
+
+// Voice messages cap at 20 minutes (see BLOB_MONITOR_CONSTANTS.MAX_VALID_DURATION),
+// so a DOM duration value above this cannot be seconds.
+const MAX_PLAUSIBLE_DURATION_SECONDS = 1200;
+
+/**
+ * Converts a duration read from the DOM (e.g. aria-valuemax) to milliseconds.
+ * The attribute is seconds on every Facebook UI observed so far, but values too
+ * large to be seconds are treated as already-milliseconds in case Facebook
+ * changes the format.
+ */
+export function domDurationToMilliseconds(value: number): number {
+  if (typeof value !== "number" || isNaN(value)) {
+    return 0;
+  }
+
+  if (value > MAX_PLAUSIBLE_DURATION_SECONDS) {
+    return Math.round(value);
+  }
+
+  return secondsToMilliseconds(value);
+}

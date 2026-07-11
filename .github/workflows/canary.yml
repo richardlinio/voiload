@@ -1,0 +1,219 @@
+name: Canary (messenger.com drift)
+
+# Synthetic monitor against the real messenger.com. Deliberately separate from
+# CI: it needs a live Facebook session, it talks to a third party, and it must
+# never gate a push. CI stays hermetic; this watches for Facebook shipping a
+# change that silently breaks voice-message detection.
+
+on:
+  schedule:
+    # 02:15 UTC daily. Off the hour to dodge the cron stampede GitHub warns about.
+    - cron: "15 2 * * *"
+  workflow_dispatch:
+
+# Never let two canary runs race the issue de-duplication.
+concurrency:
+  group: canary
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  drift:
+    name: Voice-message detection drift
+    runs-on: ubuntu-latest
+    # The job's own failure is reported as an issue, not as a red workflow that
+    # nobody sees. `continue-on-error` would also hide it from the run list, so
+    # the step is allowed to fail and the outcome is read from its `outcome`.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Materialise storageState
+        env:
+          FB_CANARY_STORAGE_STATE: ${{ secrets.FB_CANARY_STORAGE_STATE }}
+        run: |
+          if [ -z "$FB_CANARY_STORAGE_STATE" ]; then
+            echo "::error::FB_CANARY_STORAGE_STATE secret is unset. The canary cannot sign in."
+            exit 1
+          fi
+          # Written outside the workspace so no step can archive it into an
+          # artifact. Playwright reads it by path; it never reaches a log.
+          printf '%s' "$FB_CANARY_STORAGE_STATE" > "$RUNNER_TEMP/storage-state.json"
+          # Validate shape before spending five minutes finding out it is garbage.
+          if ! jq -e '.cookies' "$RUNNER_TEMP/storage-state.json" > /dev/null 2>&1; then
+            echo "::error::FB_CANARY_STORAGE_STATE is not a valid Playwright storageState JSON (no .cookies array)."
+            exit 1
+          fi
+          echo "storageState materialised ($(jq '.cookies | length' "$RUNNER_TEMP/storage-state.json") cookies)"
+
+      - name: Run canary
+        id: canary
+        continue-on-error: true
+        env:
+          FB_CANARY_STORAGE_STATE_PATH: ${{ runner.temp }}/storage-state.json
+          FB_CANARY_THREAD_URL: ${{ vars.FB_CANARY_THREAD_URL }}
+        run: pnpm test:canary 2>&1 | tee "$RUNNER_TEMP/canary-output.txt"
+
+      - name: Redact storageState
+        if: always()
+        run: rm -f "$RUNNER_TEMP/storage-state.json"
+
+      - name: Upload Playwright trace
+        if: steps.canary.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: canary-trace-${{ github.run_id }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Classify failure
+        id: classify
+        if: steps.canary.outcome == 'failure'
+        run: |
+          OUT="$RUNNER_TEMP/canary-output.txt"
+          # The spec prefixes each assertion message with a VERDICT line. Read the
+          # most severe one present: an expired session explains every downstream
+          # failure, so it wins over any drift verdict in the same run.
+          if grep -q "VERDICT: misconfigured" "$OUT"; then
+            echo "verdict=misconfigured" >> "$GITHUB_OUTPUT"
+            echo "title=Canary: misconfigured — it is watching nothing" >> "$GITHUB_OUTPUT"
+          elif grep -q "VERDICT: session-expired" "$OUT"; then
+            echo "verdict=session-expired" >> "$GITHUB_OUTPUT"
+            echo "title=Canary: messenger.com session expired (not a Facebook change)" >> "$GITHUB_OUTPUT"
+          elif grep -q "VERDICT: dom-drift" "$OUT"; then
+            echo "verdict=dom-drift" >> "$GITHUB_OUTPUT"
+            echo "title=Canary: voice-message detection is broken on messenger.com" >> "$GITHUB_OUTPUT"
+          elif grep -q "VERDICT: dictionary-drift" "$OUT"; then
+            echo "verdict=dictionary-drift" >> "$GITHUB_OUTPUT"
+            echo "title=Canary: aria-label dictionary has drifted" >> "$GITHUB_OUTPUT"
+          else
+            echo "verdict=unknown" >> "$GITHUB_OUTPUT"
+            echo "title=Canary: run failed without a verdict" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open or update canary issue
+        if: steps.canary.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERDICT: ${{ steps.classify.outputs.verdict }}
+          TITLE: ${{ steps.classify.outputs.title }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          gh label create canary \
+            --description "Automated messenger.com drift monitor" \
+            --color FBCA04 2>/dev/null || true
+
+          # The Playwright output can contain the thread URL but never the
+          # session cookie -- storageState is passed by path, not inlined.
+          # Still, only the tail is quoted, and only from the failure section.
+          DETAIL="$(tail -n 60 "$RUNNER_TEMP/canary-output.txt" || echo '(no output captured)')"
+
+          BODY_FILE="$RUNNER_TEMP/issue-body.md"
+          {
+            echo "**Verdict:** \`$VERDICT\`"
+            echo
+            case "$VERDICT" in
+              misconfigured)
+                echo "The canary ran but had nothing to watch — the \`FB_CANARY_THREAD_URL\` repository"
+                echo "variable is unset. **Detection is not being monitored at all.**"
+                echo
+                echo "**Fix:** point it at a messenger.com thread that contains at least one voice message:"
+                echo
+                echo '```'
+                echo "gh variable set FB_CANARY_THREAD_URL --body 'https://www.messenger.com/t/<thread-id>'"
+                echo '```'
+                ;;
+              session-expired)
+                echo "The canary could not sign in to messenger.com. **This is not a Facebook redesign.**"
+                echo "The \`FB_CANARY_STORAGE_STATE\` secret has gone stale."
+                echo
+                echo "**Fix:** re-run Playwright codegen against messenger.com while signed in, then update the"
+                echo "\`FB_CANARY_STORAGE_STATE\` repository secret with the new storageState JSON."
+                echo
+                echo "Detection itself is untested this run — the canary never reached the DOM assertions."
+                ;;
+              dom-drift)
+                echo "The canary is signed in, but a DOM signal that voice-message detection depends on is gone."
+                echo "**Downloads are likely broken for users right now.**"
+                echo
+                echo "Check \`extension/scripts/utils/constants.ts\` (\`DOM_CONSTANTS\`) and"
+                echo "\`extension/scripts/content/dom-utils.ts\` against the trace artifact below."
+                ;;
+              dictionary-drift)
+                echo "The slider's \`aria-label\` is no longer in the 18-language dictionary."
+                echo
+                echo "**Downloads still work** — detection has been language-independent since w4 and never"
+                echo "consults this dictionary. But the dictionary has gone stale as a confidence signal."
+                ;;
+              *)
+                echo "The canary failed without emitting a verdict — likely an infrastructure error"
+                echo "(install, browser launch, network) rather than a Facebook change."
+                ;;
+            esac
+            echo
+            echo "[Workflow run]($RUN_URL) · trace + screenshots attached as \`canary-trace-${{ github.run_id }}\`"
+            echo
+            echo "<details><summary>Canary output (last 60 lines)</summary>"
+            echo
+            echo '```'
+            echo "$DETAIL"
+            echo '```'
+            echo
+            echo "</details>"
+          } > "$BODY_FILE"
+
+          # De-duplicate: one open canary issue at a time. A recurring failure
+          # comments on the existing issue rather than filing a new one each day.
+          EXISTING="$(gh issue list --state open --label canary --limit 1 --json number --jq '.[0].number // empty')"
+
+          if [ -n "$EXISTING" ]; then
+            echo "Updating existing canary issue #$EXISTING"
+            gh issue comment "$EXISTING" --body-file "$BODY_FILE"
+          else
+            echo "Opening a new canary issue"
+            gh issue create \
+              --title "$TITLE" \
+              --label canary \
+              --body-file "$BODY_FILE"
+          fi
+
+      - name: Close the canary issue on recovery
+        if: steps.canary.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          EXISTING="$(gh issue list --state open --label canary --limit 1 --json number --jq '.[0].number // empty')"
+          if [ -n "$EXISTING" ]; then
+            gh issue close "$EXISTING" \
+              --comment "Canary is green again as of [this run]($RUN_URL). Closing."
+          fi
+          # A green run is otherwise silent, by design.
+
+      - name: Fail the job when the canary failed
+        if: steps.canary.outcome == 'failure'
+        run: |
+          echo "::error::Canary failed — see the canary-labelled issue."
+          exit 1

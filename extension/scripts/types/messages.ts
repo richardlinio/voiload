@@ -31,18 +31,6 @@ export interface RightClickMessage extends BaseMessage {
   durationMs?: number;
 }
 
-// ================================================
-// Element Registration Related Messages
-// ================================================
-
-/**
- * Element registration message interface
- */
-export interface ElementRegistrationMessage extends BaseMessage {
-  elementId: string;
-  durationMs: number;
-}
-
 /**
  * Audio URL registration message interface - unified version
  */
@@ -63,16 +51,6 @@ export interface BlobUrlMessage extends BaseMessage {
   blobType?: string;
   blobSize?: number;
   durationMs: number;
-}
-
-/**
- * Blob content message interface
- */
-export interface BlobContentMessage extends BaseMessage {
-  blobUrl: string;
-  blobType: string;
-  base64data: string;
-  requestId?: string;
 }
 
 /**
@@ -152,3 +130,20 @@ export interface SendToContentMessage extends BaseMessage {
   blobSize: number;
   durationMs: number;
 }
+
+/**
+ * Page's answer to a WAV re-encoding request from the content script.
+ */
+export interface PrepareWavResultMessage extends BaseMessage {
+  /** Correlates the answer with the request that asked for it. */
+  requestId: string;
+  /** Blob URL of the WAV, or null when the audio could not be re-encoded. */
+  wavUrl: string | null;
+}
+
+/**
+ * Any message the page context may hand to the content script.
+ */
+export type PageToContentMessage =
+  | SendToContentMessage
+  | PrepareWavResultMessage;

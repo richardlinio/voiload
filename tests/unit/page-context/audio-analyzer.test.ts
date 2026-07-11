@@ -41,7 +41,7 @@ jest.mock("../../../extension/scripts/utils/constants", () => ({
     ],
   },
   BLOB_MONITOR_CONSTANTS: {
-    MIN_VALID_AUDIO_SIZE: 1024,
+    MIN_VALID_AUDIO_SIZE: 2 * 1024, // Mirrors production value (pinned in constants.test.ts)
     MAX_VALID_AUDIO_SIZE: 10485760,
   },
   WEB_REQUEST_CONSTANTS: {
@@ -162,6 +162,24 @@ describe("audio-analyzer", () => {
         }
       );
       expect(result).toBe(false);
+    });
+
+    it("should accept real short voice message sizes (measured e2ee values)", () => {
+      // Sizes captured at runtime: 7s = 3,323 bytes, 3s = 10,543 bytes, 61s = 192,713 bytes
+      const measuredSizes = ["3323", "10543", "192713"];
+
+      measuredSizes.forEach((contentLength) => {
+        const result = audioAnalyzer.isLikelyVoiceMessage(
+          "https://scontent.fbcdn.net/audio.mp3",
+          "GET",
+          200,
+          {
+            contentType: "audio/mpeg",
+            contentLength,
+          }
+        );
+        expect(result).toBe(true);
+      });
     });
 
     it("should return false for files too large", () => {

@@ -87,10 +87,20 @@ describe("content.ts", () => {
       },
       MESSAGE_SOURCES: {
         PAGE_CONTEXT: "PAGE_CONTEXT",
+        CONTENT_SCRIPT: "CONTENT_SCRIPT",
         BACKGROUND_SCRIPT: "BACKGROUND_SCRIPT",
+      },
+      MESSAGE_ACTIONS: {
+        REQUEST_WAV: "requestWav",
+        PREPARE_WAV: "prepareWav",
+        PREPARE_WAV_RESULT: "prepareWavResult",
       },
       MODULE_NAMES: {
         CONTENT_SCRIPT: "content-script",
+        CONTENT_WAV_REQUEST: "content-wav-request",
+      },
+      WAV_REQUEST_CONSTANTS: {
+        TIMEOUT_MS: 2000,
       },
     }));
 

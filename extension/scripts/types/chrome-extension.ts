@@ -35,10 +35,10 @@ export interface BackgroundScriptMessageEvent extends ExtensionMessageEvent {
 // Window global interface extension (migrated from blob-monitor.ts)
 // ================================================
 
-import type { SendToContentMessage } from "./messages";
+import type { PageToContentMessage } from "./messages";
 
 declare global {
   interface Window {
-    sendToContent?: (message: SendToContentMessage) => void;
+    sendToContent?: (message: PageToContentMessage) => void;
   }
 }
