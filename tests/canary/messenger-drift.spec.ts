@@ -88,9 +88,9 @@ test.describe("messenger.com drift canary", () => {
           "FB_CANARY_THREAD_URL is not set, so the canary has no thread to open",
           "and is watching nothing.",
           "",
-          "Fix: set the FB_CANARY_THREAD_URL repository variable to a messenger.com",
+          "Fix: set the FB_CANARY_THREAD_URL repository secret to a messenger.com",
           "thread URL containing at least one voice message, e.g.",
-          "  gh variable set FB_CANARY_THREAD_URL --body 'https://www.messenger.com/t/<thread-id>'",
+          "  gh secret set FB_CANARY_THREAD_URL --body 'https://www.messenger.com/t/<thread-id>'",
         ].join("\n")
       );
     }

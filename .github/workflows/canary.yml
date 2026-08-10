@@ -45,11 +45,16 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Materialise storageState
+        id: storage_state
+        continue-on-error: true
         env:
           FB_CANARY_STORAGE_STATE: ${{ secrets.FB_CANARY_STORAGE_STATE }}
         run: |
+          OUT="$RUNNER_TEMP/canary-output.txt"
+          : > "$OUT"
           if [ -z "$FB_CANARY_STORAGE_STATE" ]; then
             echo "::error::FB_CANARY_STORAGE_STATE secret is unset. The canary cannot sign in."
+            echo "VERDICT: storage-state-misconfigured — FB_CANARY_STORAGE_STATE is unset" >> "$OUT"
             exit 1
           fi
           # Written outside the workspace so no step can archive it into an
@@ -58,16 +63,21 @@ jobs:
           # Validate shape before spending five minutes finding out it is garbage.
           if ! jq -e '.cookies' "$RUNNER_TEMP/storage-state.json" > /dev/null 2>&1; then
             echo "::error::FB_CANARY_STORAGE_STATE is not a valid Playwright storageState JSON (no .cookies array)."
+            echo "VERDICT: storage-state-misconfigured — FB_CANARY_STORAGE_STATE is invalid" >> "$OUT"
             exit 1
           fi
           echo "storageState materialised ($(jq '.cookies | length' "$RUNNER_TEMP/storage-state.json") cookies)"
 
       - name: Run canary
         id: canary
+        if: steps.storage_state.outcome == 'success'
         continue-on-error: true
+        shell: bash
         env:
           FB_CANARY_STORAGE_STATE_PATH: ${{ runner.temp }}/storage-state.json
-          FB_CANARY_THREAD_URL: ${{ vars.FB_CANARY_THREAD_URL }}
+          # The repository is public. Keep the private thread identifier masked
+          # in logs by storing its full URL as a secret rather than a variable.
+          FB_CANARY_THREAD_URL: ${{ secrets.FB_CANARY_THREAD_URL }}
         run: pnpm test:canary 2>&1 | tee "$RUNNER_TEMP/canary-output.txt"
 
       - name: Redact storageState
@@ -87,13 +97,18 @@ jobs:
 
       - name: Classify failure
         id: classify
-        if: steps.canary.outcome == 'failure'
+        if: always() && (steps.storage_state.outcome == 'failure' || steps.canary.outcome == 'failure')
+        env:
+          STORAGE_STATE_OUTCOME: ${{ steps.storage_state.outcome }}
         run: |
           OUT="$RUNNER_TEMP/canary-output.txt"
           # The spec prefixes each assertion message with a VERDICT line. Read the
           # most severe one present: an expired session explains every downstream
           # failure, so it wins over any drift verdict in the same run.
-          if grep -q "VERDICT: misconfigured" "$OUT"; then
+          if [ "$STORAGE_STATE_OUTCOME" = "failure" ]; then
+            echo "verdict=storage-state-misconfigured" >> "$GITHUB_OUTPUT"
+            echo "title=Canary: Facebook login state is missing or invalid" >> "$GITHUB_OUTPUT"
+          elif grep -q "VERDICT: misconfigured" "$OUT"; then
             echo "verdict=misconfigured" >> "$GITHUB_OUTPUT"
             echo "title=Canary: misconfigured — it is watching nothing" >> "$GITHUB_OUTPUT"
           elif grep -q "VERDICT: session-expired" "$OUT"; then
@@ -111,7 +126,7 @@ jobs:
           fi
 
       - name: Open or update canary issue
-        if: steps.canary.outcome == 'failure'
+        if: always() && (steps.storage_state.outcome == 'failure' || steps.canary.outcome == 'failure')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERDICT: ${{ steps.classify.outputs.verdict }}
@@ -134,14 +149,24 @@ jobs:
             echo "**Verdict:** \`$VERDICT\`"
             echo
             case "$VERDICT" in
+              storage-state-misconfigured)
+                echo "The canary could not materialise its Facebook login state."
+                echo "The \`FB_CANARY_STORAGE_STATE\` repository secret is missing or is not valid"
+                echo "Playwright storageState JSON."
+                echo
+                echo "**Fix:** capture a fresh signed-in messenger.com storageState and update the"
+                echo "\`FB_CANARY_STORAGE_STATE\` repository secret."
+                echo
+                echo "Detection itself was not run because the canary could not sign in."
+                ;;
               misconfigured)
                 echo "The canary ran but had nothing to watch — the \`FB_CANARY_THREAD_URL\` repository"
-                echo "variable is unset. **Detection is not being monitored at all.**"
+                echo "secret is unset. **Detection is not being monitored at all.**"
                 echo
                 echo "**Fix:** point it at a messenger.com thread that contains at least one voice message:"
                 echo
                 echo '```'
-                echo "gh variable set FB_CANARY_THREAD_URL --body 'https://www.messenger.com/t/<thread-id>'"
+                echo "gh secret set FB_CANARY_THREAD_URL --body 'https://www.messenger.com/t/<thread-id>'"
                 echo '```'
                 ;;
               session-expired)
@@ -199,7 +224,7 @@ jobs:
           fi
 
       - name: Close the canary issue on recovery
-        if: steps.canary.outcome == 'success'
+        if: steps.storage_state.outcome == 'success' && steps.canary.outcome == 'success'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -213,7 +238,7 @@ jobs:
           # A green run is otherwise silent, by design.
 
       - name: Fail the job when the canary failed
-        if: steps.canary.outcome == 'failure'
+        if: always() && (steps.storage_state.outcome == 'failure' || steps.canary.outcome == 'failure')
         run: |
           echo "::error::Canary failed — see the canary-labelled issue."
           exit 1
