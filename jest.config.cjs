@@ -9,7 +9,7 @@ module.exports = {
   ],
   
   // 在每個測試檔案之前運行的設置文件
-  setupFiles: ['./tests/setup.js'],
+  setupFiles: ['./tests/setup.ts'],
   
   // 忽略的目錄
   testPathIgnorePatterns: [
@@ -26,8 +26,5 @@ module.exports = {
   },
   
   // 模組檔案擴展名
-  moduleFileExtensions: ['js', 'ts', 'json'],
-  
-  // 顯示每個測試的詳細信息
-  verbose: true
+  moduleFileExtensions: ['js', 'ts', 'json']
 };

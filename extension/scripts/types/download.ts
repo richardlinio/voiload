@@ -1,25 +1,29 @@
 /**
  * download.ts
- * 下載相關類型定義
+ * Download related type definitions
  */
 
 // ================================================
-// 下載相關介面
+// Download related interfaces
 // ================================================
 
 /**
- * 右鍵點擊資訊介面
+ * Right click info interface
  */
 export interface RightClickInfo {
   elementId: string | null;
+  /** Original captured audio. The WAV is produced when the download is clicked. */
   downloadUrl: string | null;
   lastModified: string | null;
   tabId: number | undefined;
+  /** Identifies which retained blob the page should re-encode on download. */
   durationMs: number | undefined;
+  /** MIME type of the original audio, used to name the file when it was not re-encoded. */
+  blobType?: string | null;
 }
 
 /**
- * 下載訊息介面 (Blob 內容下載)
+ * Download message interface (Blob content download)
  */
 export interface DownloadMessage {
   base64data: string;

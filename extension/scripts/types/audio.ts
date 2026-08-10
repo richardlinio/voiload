@@ -1,14 +1,14 @@
 /**
  * audio.ts
- * 音訊分析相關類型定義
+ * Audio analysis related type definitions
  */
 
 // ================================================
-// 音訊分析相關介面
+// Audio analysis related interfaces
 // ================================================
 
 /**
- * 請求元數據介面
+ * Request metadata interface
  */
 export interface RequestMetadata {
   contentType?: string;

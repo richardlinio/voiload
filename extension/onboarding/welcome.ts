@@ -1,49 +1,49 @@
 /**
  * welcome.ts
- * 處理 onboarding 頁面的邏輯
+ * Handles onboarding page logic
  */
 
 import { Logger } from "../scripts/utils/logger";
 
 // ================================================
-// 類型定義
+// Type Definitions
 // ================================================
 
 /**
- * Chrome Storage 本地存儲數據介面
+ * Chrome Storage local data interface
  */
 interface OnboardingStorageData {
   onboardingCompleted?: boolean;
   completedAt?: number;
 }
 
-// 創建模組特定的日誌記錄器
+// Create a module-specific logger
 const logger = Logger.createModuleLogger("onboarding");
 
-// 頁面載入時執行
+// Execute when the page loads
 document.addEventListener("DOMContentLoaded", async (): Promise<void> => {
   logger.info("Onboarding page loaded");
 
-  // 檢查是否已經完成過 onboarding
+  // Check if onboarding has already been completed
   const result: OnboardingStorageData = await chrome.storage.local.get([
     "onboardingCompleted",
   ]);
 
   if (result.onboardingCompleted) {
     logger.info("User has already completed onboarding");
-    // 可以顯示不同的內容或添加"已完成"標記
+    // You can show different content or add a "completed" mark
     showCompletedMessage();
   }
 
-  // 設置完成按鈕事件
+  // Set up the complete button event
   setupCompleteButton();
 
-  // 添加動畫效果
+  // Add animation effects
   addAnimations();
 });
 
 /**
- * 設置完成按鈕的事件處理
+ * Set up the complete button event handler
  */
 function setupCompleteButton(): void {
   const completeButton = document.getElementById(
@@ -54,12 +54,12 @@ function setupCompleteButton(): void {
     completeButton.addEventListener("click", async (): Promise<void> => {
       logger.info("User clicked complete button");
 
-      // 添加載入狀態
+      // Add loading state
       completeButton.disabled = true;
       completeButton.textContent = "Loading...";
 
       try {
-        // 標記 onboarding 已完成
+        // Mark onboarding as completed
         await chrome.storage.local.set({
           onboardingCompleted: true,
           completedAt: Date.now(),
@@ -67,13 +67,13 @@ function setupCompleteButton(): void {
 
         logger.info("Onboarding status updated");
 
-        // 檢查是否有已開啟的 Messenger 標籤
+        // Check if there are any open Messenger tabs
         const tabs: chrome.tabs.Tab[] = await chrome.tabs.query({
           url: ["*://*.messenger.com/*", "*://*.facebook.com/*"],
         });
 
         if (tabs.length > 0) {
-          // 如果有已開啟的標籤，切換到第一個並重新整理
+          // If there are open tabs, switch to the first one and reload it
           logger.info("Found open Facebook/Messenger tab");
           const firstTab = tabs[0];
 
@@ -82,22 +82,22 @@ function setupCompleteButton(): void {
             await chrome.tabs.reload(firstTab.id);
           }
 
-          // 顯示成功訊息
+          // Show success message
           showSuccessMessage();
 
-          // 3秒後關閉 onboarding 頁面
+          // Close onboarding page after 3 seconds
           setTimeout(() => {
             window.close();
           }, 3000);
         } else {
-          // 如果沒有，開啟新的 Messenger 標籤
+          // If not, open a new Messenger tab
           logger.info("Opening new Messenger tab");
           await chrome.tabs.create({
             url: "https://www.messenger.com",
             active: true,
           });
 
-          // 關閉 onboarding 頁面
+          // Close onboarding page
           window.close();
         }
       } catch (error: any) {
@@ -111,7 +111,7 @@ function setupCompleteButton(): void {
 }
 
 /**
- * 顯示已完成訊息
+ * Show completed message
  */
 function showCompletedMessage(): void {
   const container = document.querySelector(".container") as HTMLElement;
@@ -130,7 +130,7 @@ function showCompletedMessage(): void {
 }
 
 /**
- * 顯示成功訊息
+ * Show success message
  */
 function showSuccessMessage(): void {
   const button = document.getElementById(
@@ -155,7 +155,7 @@ function showSuccessMessage(): void {
 }
 
 /**
- * 顯示錯誤訊息
+ * Show error message
  */
 function showErrorMessage(): void {
   const footer = document.querySelector("footer") as HTMLElement;
@@ -170,7 +170,7 @@ function showErrorMessage(): void {
 
     footer.appendChild(errorMsg);
 
-    // 3秒後移除錯誤訊息
+    // Remove error message after 3 seconds
     setTimeout(() => {
       errorMsg.remove();
     }, 3000);
@@ -178,10 +178,10 @@ function showErrorMessage(): void {
 }
 
 /**
- * 添加動畫效果
+ * Add animation effects
  */
 function addAnimations(): void {
-  // 當元素進入視窗時觸發動畫
+  // Trigger animation when elements enter the viewport
   const observerOptions: IntersectionObserverInit = {
     threshold: 0.1,
     rootMargin: "0px 0px -50px 0px",
@@ -198,7 +198,7 @@ function addAnimations(): void {
     observerOptions
   );
 
-  // 觀察所有動畫元素
+  // Observe all animated elements
   const animatedElements: NodeListOf<Element> =
     document.querySelectorAll(".step, .feature");
   animatedElements.forEach((el: Element) => {
@@ -206,9 +206,9 @@ function addAnimations(): void {
   });
 }
 
-// 監聽鍵盤事件
+// Listen for keyboard events
 document.addEventListener("keydown", (event: KeyboardEvent): void => {
-  // 按下 Enter 鍵時觸發完成按鈕
+  // Trigger the complete button when Enter is pressed
   if (event.key === "Enter") {
     const completeButton = document.getElementById(
       "complete-onboarding"

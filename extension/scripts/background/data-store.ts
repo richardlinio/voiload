@@ -1,54 +1,140 @@
 /**
  * data-store.ts
- * 提供統一的資料結構來管理語音訊息元素和下載 URL 的對應關係
- * 使用單例模式確保整個擴充功能中只有一個 voiceMessages 實例
+ * Provides a unified data structure to manage the mapping between voice message elements and download URLs.
+ * Uses the singleton pattern to ensure only one instance of voiceMessages exists throughout the extension.
+ *
+ * The in-memory Map is a cache in front of chrome.storage.session: an MV3 service
+ * worker is evicted after ~30s idle, so anything kept only in module scope is gone
+ * by the time the user right-clicks. Every mutation is written through to session
+ * storage, and every read hydrates the cache first.
  */
 
 import { generateVoiceMessageId } from "../utils/id-generator";
-import { secondsToMilliseconds } from "../utils/time-utils";
 import { Logger } from "../utils/logger";
-import { MODULE_NAMES } from "../utils/constants";
+import {
+  MODULE_NAMES,
+  MATCHING_TOLERANCE,
+  EXACT_MATCHING_TOLERANCE,
+  TIME_CONSTANTS,
+  STORAGE_KEYS,
+} from "../utils/constants";
 import type {
   VoiceMessageItem,
   VoiceMessageStore,
-  DownloadUrlResult,
 } from "../types/voice-message";
 
-// 重新導出類型以保持向後相容性
-export type { VoiceMessageItem, VoiceMessageStore, DownloadUrlResult };
+// Re-export types for backward compatibility
+export type { VoiceMessageItem, VoiceMessageStore };
 
-// 創建模組特定的日誌記錄器
+// Create a module-specific logger
 const logger = Logger.createModuleLogger(MODULE_NAMES.DATA_STORE);
 
-// 全域單例實例
+// Global singleton instance
 let voiceMessagesInstance: VoiceMessageStore | null = null;
 
+// Resolves once the in-memory cache has been filled from session storage.
+// Kept per service-worker lifetime: a fresh worker starts with a null promise
+// and hydrates on the first store access.
+let hydrationPromise: Promise<void> | null = null;
+
 /**
- * 創建語音訊息資料存儲（單例模式）
- * 提供單一資料結構來管理語音訊息元素和下載 URL 的對應關係
+ * Read the persisted items into the in-memory cache.
+ * Runs at most once per service-worker lifetime; concurrent callers share the
+ * same promise so the storage read is not duplicated.
  *
- * @returns 語音訊息資料存儲
+ * @param voiceMessages - Voice message data store
+ */
+export function hydrate(voiceMessages: VoiceMessageStore): Promise<void> {
+  if (hydrationPromise) {
+    return hydrationPromise;
+  }
+
+  hydrationPromise = (async () => {
+    try {
+      const stored = await chrome.storage.session.get(STORAGE_KEYS.VOICE_MESSAGES);
+      const persisted = stored?.[STORAGE_KEYS.VOICE_MESSAGES];
+
+      if (!Array.isArray(persisted)) {
+        logger.debug("No persisted voice messages found");
+        return;
+      }
+
+      for (const item of persisted) {
+        if (item && typeof item.id === "string") {
+          voiceMessages.items.set(item.id, item as VoiceMessageItem);
+        }
+      }
+
+      logger.info("Hydrated voice messages from session storage", {
+        itemCount: voiceMessages.items.size,
+      });
+    } catch (error: any) {
+      // A failed hydrate degrades to an empty cache rather than breaking the
+      // worker: the user loses history, not the ability to download.
+      logger.error("Failed to hydrate voice messages from session storage", {
+        error: error?.message,
+      });
+    }
+  })();
+
+  return hydrationPromise;
+}
+
+/**
+ * Write the in-memory cache back to session storage.
+ * Session storage is JSON-serialised, so the Map is flattened to an array of items.
+ *
+ * @param voiceMessages - Voice message data store
+ */
+async function persist(voiceMessages: VoiceMessageStore): Promise<void> {
+  try {
+    await chrome.storage.session.set({
+      [STORAGE_KEYS.VOICE_MESSAGES]: Array.from(voiceMessages.items.values()),
+    });
+  } catch (error: any) {
+    // Losing a write means the item survives only until the worker is evicted;
+    // the current request still succeeds, so this is logged rather than thrown.
+    logger.error("Failed to persist voice messages to session storage", {
+      error: error?.message,
+      itemCount: voiceMessages.items.size,
+    });
+  }
+}
+
+/**
+ * Reset the hydration state. Exported for tests, which simulate a service-worker
+ * restart by discarding the module-scope cache while session storage survives.
+ */
+export function resetHydrationState(): void {
+  hydrationPromise = null;
+  voiceMessagesInstance = null;
+}
+
+/**
+ * Create the voice message data store (singleton pattern)
+ * Provides a single data structure to manage the mapping between voice message elements and download URLs
+ *
+ * Construction is synchronous so the background script can register its event
+ * listeners in the first turn of the event loop, as MV3 requires; the store
+ * hydrates lazily on first access.
+ *
+ * @returns Voice message data store
  */
 export function createDataStore(): VoiceMessageStore {
-  // 如果實例已存在，直接返回
+  // If the instance already exists, return it directly
   if (voiceMessagesInstance) {
-    logger.debug("返回現有的 voiceMessages 實例");
+    logger.debug("Returning existing voiceMessages instance");
     return voiceMessagesInstance;
   }
 
-  logger.info("創建新的 voiceMessages 實例");
+  logger.info("Creating new voiceMessages instance");
 
-  // 主要資料結構
+  // Main data structure
   voiceMessagesInstance = {
-    // 以 ID 為鍵的 Map，儲存完整語音訊息資料
+    // Map with ID as key, caching the persisted voice message data
     items: new Map<string, VoiceMessageItem>(),
 
-    // 輔助函數
-    isDurationMatch: (
-      duration1Ms: number,
-      duration2Ms: number,
-      toleranceMs: number = 5
-    ) => isDurationMatch(duration1Ms, duration2Ms, toleranceMs),
+    // Helper functions
     registerDownloadUrl: (
       durationMs: number,
       downloadUrl: string,
@@ -64,29 +150,28 @@ export function createDataStore(): VoiceMessageStore {
         blobType,
         blobSize
       ),
-    findPendingItemByDuration: (durationMs: number) =>
-      findPendingItemByDuration(voiceMessagesInstance!, durationMs),
     findItemByDuration: (durationMs: number) =>
       findItemByDuration(voiceMessagesInstance!, durationMs),
-    getDownloadUrlForElement: (element: Element) =>
-      getDownloadUrlForElement(voiceMessagesInstance!, element),
+    getAllItems: () => getAllItems(voiceMessagesInstance!),
+    updateItem: (id: string, patch: Partial<VoiceMessageItem>) =>
+      updateItem(voiceMessagesInstance!, id, patch),
   };
 
   return voiceMessagesInstance;
 }
 
 /**
- * 判斷兩個持續時間是否在容忍度範圍內匹配
+ * Determines whether two durations match within a given tolerance
  *
- * @param duration1Ms - 第一個持續時間（毫秒）
- * @param duration2Ms - 第二個持續時間（毫秒）
- * @param toleranceMs - 容忍度（毫秒）
- * @returns 如果兩個持續時間匹配則返回 true
+ * @param duration1Ms - First duration (milliseconds)
+ * @param duration2Ms - Second duration (milliseconds)
+ * @param toleranceMs - Tolerance (milliseconds)
+ * @returns True if the two durations match
  */
 export function isDurationMatch(
   duration1Ms: number,
   duration2Ms: number,
-  toleranceMs: number = 5
+  toleranceMs: number = MATCHING_TOLERANCE
 ): boolean {
   if (typeof duration1Ms !== "number" || typeof duration2Ms !== "number") {
     return false;
@@ -96,27 +181,89 @@ export function isDurationMatch(
 }
 
 /**
- * 註冊下載 URL
+ * Find the item whose duration is nearest to the target, within MATCHING_TOLERANCE.
+ * When several candidates fall inside the band the nearest wins with a warning;
+ * when the two nearest are equally distant the match is refused (returning null)
+ * rather than guessing, so callers fall through to their fallback path.
  *
- * @param voiceMessages - 語音訊息資料存儲
- * @param durationMs - 持續時間（毫秒）
- * @param downloadUrl - 下載 URL
- * @param lastModified - Last-Modified 標頭值
- * @param blobType - Blob 的 MIME 類型
- * @param blobSize - Blob 的大小（位元）
- * @returns 語音訊息 ID
+ * Operates on the already-hydrated cache; callers are responsible for awaiting
+ * hydrate() first.
+ *
+ * @param voiceMessages - Voice message data store
+ * @param durationMs - Target duration (milliseconds)
+ * @param filter - Optional additional predicate on candidate items
+ * @param context - Caller name, included in ambiguity warnings
+ * @returns Nearest item, or null when nothing (or nothing unambiguous) matches
  */
-export function registerDownloadUrl(
+function findNearestItemByDuration(
+  voiceMessages: VoiceMessageStore,
+  durationMs: number,
+  filter: (item: VoiceMessageItem) => boolean = () => true,
+  context: string = "findNearestItemByDuration"
+): VoiceMessageItem | null {
+  const candidates = Array.from(voiceMessages.items.values())
+    .filter((item) => typeof item.durationMs === "number" && filter(item))
+    .map((item) => ({
+      item,
+      diffMs: Math.abs(item.durationMs - durationMs),
+    }))
+    .filter(({ diffMs }) => diffMs <= MATCHING_TOLERANCE)
+    .sort((a, b) => a.diffMs - b.diffMs);
+
+  const nearest = candidates[0];
+  if (!nearest) {
+    return null;
+  }
+
+  const runnerUp = candidates[1];
+  if (runnerUp) {
+    const summary = candidates.map(({ item, diffMs }) => ({
+      id: item.id,
+      durationMs: item.durationMs,
+      diffMs,
+    }));
+
+    if (nearest.diffMs === runnerUp.diffMs) {
+      logger.warn(
+        "Ambiguous duration match: nearest candidates are equally distant, refusing to guess",
+        { context, durationMs, candidates: summary }
+      );
+      return null;
+    }
+
+    logger.warn(
+      "Multiple items within matching tolerance, choosing the nearest",
+      { context, durationMs, candidates: summary }
+    );
+  }
+
+  return nearest.item;
+}
+
+/**
+ * Register a download URL
+ *
+ * @param voiceMessages - Voice message data store
+ * @param durationMs - Duration (milliseconds)
+ * @param downloadUrl - Download URL
+ * @param lastModified - Last-Modified header value
+ * @param blobType - MIME type of the Blob
+ * @param blobSize - Size of the Blob (bytes)
+ * @returns Voice message ID
+ */
+export async function registerDownloadUrl(
   voiceMessages: VoiceMessageStore,
   durationMs: number,
   downloadUrl: string,
   lastModified: string | null = null,
   blobType: string | null = null,
   blobSize: number | null = null
-): string {
+): Promise<string> {
+  await hydrate(voiceMessages);
+
   const blobSizeKB = blobSize ? (blobSize / 1024).toFixed(2) : "N/A";
 
-  logger.debug("註冊下載 URL", {
+  logger.debug("Registering download URL", {
     durationMs,
     downloadUrl: downloadUrl ? downloadUrl.substring(0, 50) + "..." : null,
     lastModified,
@@ -125,7 +272,7 @@ export function registerDownloadUrl(
     mapSize: voiceMessages.items.size,
   });
 
-  // 記錄詳細診斷資訊
+  // Log detailed diagnostic info
   const registerData = {
     durationMs,
     blobType,
@@ -138,56 +285,77 @@ export function registerDownloadUrl(
 
   logger.debug("DATASTORE-REGISTER", registerData);
 
-  // 檢查是否有匹配此持續時間的元素
-  for (const [id, item] of voiceMessages.items.entries()) {
-    if (isDurationMatch(item.durationMs, durationMs)) {
-      // 如果有匹配元素，更新它的屬性
-      logger.debug("找到匹配項目，更新資訊", {
-        id,
-        oldUrl: item.downloadUrl
-          ? item.downloadUrl.substring(0, 30) + "..."
-          : null,
-        newUrl: downloadUrl ? downloadUrl.substring(0, 30) + "..." : null,
-      });
+  // Tier 1: a near-identical duration means the same audio was re-registered
+  // (e.g. the page re-created the blob URL) — update that item in place.
+  // Tier 2: fall back to an item still lacking a download URL. Nothing writes
+  // url-less items anymore (the DOM element-registration path is gone), so this
+  // only matches leftovers in the session store from before that removal.
+  // Restricted to url-less items to avoid clobbering a distinct message's URL.
+  const matchingItem =
+    findNearestItemByDuration(
+      voiceMessages,
+      durationMs,
+      (item) => isDurationMatch(item.durationMs, durationMs, EXACT_MATCHING_TOLERANCE),
+      "registerDownloadUrl(exact)"
+    ) ??
+    findNearestItemByDuration(
+      voiceMessages,
+      durationMs,
+      (item) => !item.downloadUrl,
+      "registerDownloadUrl(pending-element)"
+    );
 
-      // 更新屬性
-      item.downloadUrl = downloadUrl;
+  if (matchingItem) {
+    const id = matchingItem.id;
+    logger.debug("Found matching item, updating info", {
+      id,
+      oldUrl: matchingItem.downloadUrl
+        ? matchingItem.downloadUrl.substring(0, 30) + "..."
+        : null,
+      newUrl: downloadUrl ? downloadUrl.substring(0, 30) + "..." : null,
+    });
 
-      // 更新其他屬性（如果提供了）
-      if (lastModified) {
-        item.lastModified = lastModified;
-      }
-      if (blobType) {
-        item.blobType = blobType;
-      }
-      if (blobSize) {
-        item.blobSize = blobSize;
-      }
+    // downloadUrl and blobType describe the same source, so they move together.
+    // The webRequest path re-registers with a CDN url and a null blobType; letting
+    // it overwrite the url while a stale blobType survived would name that download
+    // by the wrong container (e.g. a CDN url stamped .wav from an earlier blob
+    // registration), producing a file no player can open.
+    matchingItem.downloadUrl = downloadUrl;
+    matchingItem.blobType = blobType;
 
-      // 記錄更新診斷資訊
-      const updateData = {
-        itemId: id,
-        durationMs: item.durationMs,
-        blobType: item.blobType,
-        blobSize: item.blobSize,
-        timestamp: new Date().toISOString(),
-      };
-
-      logger.debug("DATASTORE-UPDATE", updateData);
-
-      return id;
+    // Update other properties if provided
+    if (lastModified) {
+      matchingItem.lastModified = lastModified;
     }
+    if (blobSize) {
+      matchingItem.blobSize = blobSize;
+    }
+
+    // Log update diagnostic info
+    const updateData = {
+      itemId: id,
+      durationMs: matchingItem.durationMs,
+      blobType: matchingItem.blobType,
+      blobSize: matchingItem.blobSize,
+      timestamp: new Date().toISOString(),
+    };
+
+    logger.debug("DATASTORE-UPDATE", updateData);
+
+    await persist(voiceMessages);
+
+    return id;
   }
 
-  // 如果沒有匹配元素，創建一個待處理項目
+  // If no matching element, create a pending item
   const id = generateVoiceMessageId();
-  logger.debug("未找到匹配項目，創建新項目", {
+  logger.debug("No matching item found, creating new item", {
     id,
     durationMs,
     isPending: true,
   });
 
-  // 在 voiceMessages.items 中建立新項目
+  // Create new item in voiceMessages.items
   const newItem: VoiceMessageItem = {
     id,
     element: null,
@@ -197,13 +365,13 @@ export function registerDownloadUrl(
     blobType,
     blobSize,
     timestamp: Date.now(),
-    isPending: true, // 使用屬性標記狀態
+    isPending: true, // Use property to mark status
   };
 
   voiceMessages.items.set(id, newItem);
 
-  logger.debug("新項目已添加", { mapSize: voiceMessages.items.size });
-  logger.debug("新項目詳情", {
+  logger.debug("New item added", { mapSize: voiceMessages.items.size });
+  logger.debug("New item details", {
     id,
     durationMs,
     hasDownloadUrl: !!downloadUrl,
@@ -213,7 +381,7 @@ export function registerDownloadUrl(
     isPending: newItem.isPending,
   });
 
-  // 記錄新項目診斷資訊
+  // Log new item diagnostic info
   const newItemData = {
     itemId: id,
     durationMs,
@@ -226,155 +394,96 @@ export function registerDownloadUrl(
 
   logger.debug("DATASTORE-NEW", newItemData);
 
+  await persist(voiceMessages);
+
   return id;
 }
 
 /**
- * 尋找指定持續時間的待處理項目
+ * Apply a partial update to a stored item and persist the result.
  *
- * @param voiceMessages - 語音訊息資料存儲
- * @param durationMs - 持續時間（毫秒）
- * @returns 待處理項目，如果找不到則返回 null
+ * @param voiceMessages - Voice message data store
+ * @param id - Item ID
+ * @param patch - Fields to overwrite
+ * @returns The updated item, or null when no item carries that ID
  */
-export function findPendingItemByDuration(
+export async function updateItem(
   voiceMessages: VoiceMessageStore,
-  durationMs: number
-): VoiceMessageItem | null {
-  for (const item of voiceMessages.items.values()) {
-    if (item.isPending && isDurationMatch(item.durationMs, durationMs)) {
-      return item;
-    }
-  }
+  id: string,
+  patch: Partial<VoiceMessageItem>
+): Promise<VoiceMessageItem | null> {
+  await hydrate(voiceMessages);
 
-  return null;
-}
-
-/**
- * 根據元素查找對應的下載 URL
- *
- * @param voiceMessages - 語音訊息資料存儲
- * @param element - 語音訊息元素
- * @returns 包含 downloadUrl 和 lastModified 的物件，如果找不到則返回 null
- */
-export function getDownloadUrlForElement(
-  voiceMessages: VoiceMessageStore,
-  element: Element
-): DownloadUrlResult | null {
-  if (!element) {
-    logger.debug("getDownloadUrlForElement: 元素為 null");
+  const item = voiceMessages.items.get(id);
+  if (!item) {
+    logger.error("Cannot find item to update", { id });
     return null;
   }
 
-  logger.debug("查找元素對應的下載 URL");
-  logger.debug("voiceMessages Map 大小", { size: voiceMessages.items.size });
+  Object.assign(item, patch);
+  await persist(voiceMessages);
 
-  // 檢查元素是否有 data-voice-message-id 屬性
-  const id = element.getAttribute("data-voice-message-id");
-  logger.debug("元素 ID", { id });
-
-  if (id && voiceMessages.items.has(id)) {
-    // 如果有 ID 且在 items 中存在，直接返回
-    const item = voiceMessages.items.get(id);
-    if (!item) {
-      logger.debug("未找到指定 ID 的項目", { id });
-      return null;
-    }
-
-    logger.debug("找到匹配項目", {
-      id,
-      hasDownloadUrl: !!item.downloadUrl,
-      hasElement: !!item.element,
-      isPending: !!item.isPending,
-    });
-
-    return {
-      downloadUrl: item.downloadUrl,
-      lastModified: item.lastModified || null,
-    };
-  }
-
-  // 如果沒有 ID 或 ID 不存在，嘗試通過持續時間查找
-  if (element.hasAttribute("aria-valuemax")) {
-    const ariaValuemax = element.getAttribute("aria-valuemax");
-    if (!ariaValuemax) {
-      return null;
-    }
-    const durationSec = parseFloat(ariaValuemax);
-    if (!isNaN(durationSec)) {
-      const durationMs = secondsToMilliseconds(durationSec);
-      logger.debug("嘗試通過持續時間查找", { durationMs });
-
-      // 輸出所有項目的持續時間，用於調試
-      logger.debug("所有項目的持續時間");
-
-      // 將所有項目的持續時間收集到一個數組中
-      const itemsInfo = Array.from(voiceMessages.items.entries()).map(
-        ([itemId, item]) => ({
-          id: itemId,
-          durationMs: item.durationMs,
-          hasUrl: !!item.downloadUrl,
-        })
-      );
-
-      logger.debug("項目持續時間詳情", { items: itemsInfo });
-
-      const item = findItemByDuration(voiceMessages, durationMs);
-      if (item && item.downloadUrl) {
-        logger.debug("通過持續時間找到匹配項目", {
-          id: item.id,
-          durationMs: item.durationMs,
-          hasDownloadUrl: !!item.downloadUrl,
-        });
-
-        return {
-          downloadUrl: item.downloadUrl,
-          lastModified: item.lastModified || null,
-        };
-      }
-    }
-  }
-
-  // 如果沒有 ID 或 ID 不存在，返回 null
-  logger.debug("未找到匹配的下載 URL");
-  return null;
+  return item;
 }
 
 /**
- * 根據持續時間查找項目（包括已處理和待處理的項目）
+ * Return every stored item, hydrating from session storage first.
  *
- * @param voiceMessages - 語音訊息資料存儲
- * @param durationMs - 持續時間（毫秒）
- * @returns 找到的項目，如果找不到則返回 null
+ * @param voiceMessages - Voice message data store
+ * @returns All stored items
  */
-export function findItemByDuration(
+export async function getAllItems(
+  voiceMessages: VoiceMessageStore
+): Promise<VoiceMessageItem[]> {
+  await hydrate(voiceMessages);
+  return Array.from(voiceMessages.items.values());
+}
+
+/**
+ * Find an item by duration (including both processed and pending items)
+ *
+ * @param voiceMessages - Voice message data store
+ * @param durationMs - Duration (milliseconds)
+ * @returns Found item, or null if not found
+ */
+export async function findItemByDuration(
   voiceMessages: VoiceMessageStore,
   durationMs: number
-): VoiceMessageItem | null {
-  for (const item of voiceMessages.items.values()) {
-    if (isDurationMatch(item.durationMs, durationMs)) {
-      return item;
-    }
-  }
+): Promise<VoiceMessageItem | null> {
+  await hydrate(voiceMessages);
 
-  return null;
+  return findNearestItemByDuration(
+    voiceMessages,
+    durationMs,
+    undefined,
+    "findItemByDuration"
+  );
 }
 
 /**
- * 清理過期的語音訊息項目
+ * Clean up expired voice message items
  *
- * @param voiceMessages - 語音訊息資料存儲
- * @param maxAgeMs - 最大存活時間（毫秒），默認為 1 小時
+ * @param voiceMessages - Voice message data store
+ * @param maxAgeMs - Maximum lifetime (milliseconds), default is 7 days
  */
-export function cleanupOldItems(
+export async function cleanupOldItems(
   voiceMessages: VoiceMessageStore,
-  maxAgeMs: number = 3600000
-): void {
+  maxAgeMs: number = TIME_CONSTANTS.DATA_RETENTION_PERIOD
+): Promise<void> {
+  await hydrate(voiceMessages);
+
   const now = Date.now();
+  let removed = 0;
 
   for (const [id, item] of voiceMessages.items.entries()) {
-    // 檢查項目是否過期
+    // Check if the item is expired
     if (now - item.timestamp > maxAgeMs) {
       voiceMessages.items.delete(id);
+      removed++;
     }
+  }
+
+  if (removed > 0) {
+    await persist(voiceMessages);
   }
 }

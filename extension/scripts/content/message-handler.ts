@@ -1,6 +1,6 @@
 /**
  * message-handler.ts
- * 負責處理來自背景腳本的訊息並路由到正確的處理器
+ * Responsible for handling messages from the background script and routing them to the correct handler
  */
 
 import { Logger } from "../utils/logger";
@@ -10,17 +10,16 @@ import {
   MODULE_NAMES,
 } from "../utils/constants";
 import { handleGetAudioDurationRequest } from "../page-context/audio-analyzer";
-import { handleExtractBlobRequest } from "../page-context/blob-monitor";
 
-// 創建模組特定的日誌記錄器
+// Create a module-specific logger
 const logger = Logger.createModuleLogger(MODULE_NAMES.CONTENT_MESSAGE_HANDLER);
 
 // ================================================
-// 類型定義
+// Type Definitions
 // ================================================
 
 /**
- * 頁面上下文訊息事件介面
+ * Page context message event interface
  */
 interface PageContextMessageEvent extends MessageEvent {
   data: {
@@ -30,7 +29,7 @@ interface PageContextMessageEvent extends MessageEvent {
 }
 
 /**
- * 背景腳本訊息事件介面
+ * Background script message event interface
  */
 interface BackgroundScriptMessageEvent extends MessageEvent {
   data: {
@@ -40,7 +39,7 @@ interface BackgroundScriptMessageEvent extends MessageEvent {
 }
 
 /**
- * 音訊 URL 註冊訊息介面
+ * Audio URL registration message interface
  */
 interface AudioUrlRegistrationMessage {
   action: string;
@@ -50,150 +49,143 @@ interface AudioUrlRegistrationMessage {
 }
 
 /**
- * 獲取音訊持續時間請求訊息介面
+ * Get audio duration request message interface
  */
 interface GetAudioDurationMessage {
   action: string;
   url: string;
 }
 
-/**
- * 下載 Blob 請求訊息介面
- */
-interface DownloadBlobMessage {
-  action: string;
-  blobUrl: string;
-  blobType?: string;
-  requestId?: string;
-}
 
 // ================================================
-// 訊息處理函數
+// Message Handling Functions
 // ================================================
 
 /**
- * 初始化訊息處理器
- * 設置訊息監聽器，處理來自背景腳本的訊息
+ * Initialize the message handler
+ * Sets up message listeners to handle messages from the background script
  */
 export function initMessageHandler(): void {
-  logger.debug("初始化內容腳本訊息處理器");
+  logger.debug("Initializing content script message handler");
 
-  // 設置訊息監聽器，處理來自頁面上下文的訊息
+  // Set up message listener to handle messages from the page context
   window.addEventListener("message", async function (event: MessageEvent) {
-    // 確保訊息來自同一個頁面
-    if (event.source !== window) {return;}
+    // Ensure the message is from the same window
+    if (event.source !== window) {
+      return;
+    }
 
-    // 處理來自頁面上下文的訊息
+    // Handle messages from the page context
     if (event.data.type && event.data.type === MESSAGE_SOURCES.PAGE_CONTEXT) {
       const pageEvent = event as PageContextMessageEvent;
       const message = pageEvent.data.message;
-      logger.debug("收到頁面上下文訊息", { message });
+      logger.debug("Received page context message", { message });
 
-      // 處理特定類型的訊息
+      // Handle specific types of messages
       switch (message.action) {
         case MESSAGE_ACTIONS.REGISTER_BLOB_URL:
-          // 處理 Blob URL 註冊訊息 - 轉發到背景腳本
+          // Handle Blob URL registration message - forward to background script
           sendMessageToBackground(message);
           break;
 
         case MESSAGE_ACTIONS.BLOB_DETECTED:
-          // 處理 Blob 偵測到的訊息 - 轉發到背景腳本
+          // Handle Blob detected message - forward to background script
           sendMessageToBackground(message);
           break;
 
         case "pageContextInitialized":
-          // 處理頁面上下文初始化訊息
-          logger.info("頁面上下文已初始化");
+          // Handle page context initialized message
+          logger.info("Page context initialized");
+          break;
+
+        case MESSAGE_ACTIONS.PREPARE_WAV_RESULT:
+          // Consumed by wav-request.ts's own listener; the background has no
+          // handler for it, so forwarding would only log an unhandled warning.
           break;
 
         default:
-          // 其他訊息轉發到背景腳本
+          // Forward other messages to background script
           sendMessageToBackground(message);
           break;
       }
     }
 
-    // 處理來自背景腳本的訊息
+    // Handle messages from the background script
     if (
       event.data.type &&
       event.data.type === MESSAGE_SOURCES.BACKGROUND_SCRIPT
     ) {
       const backgroundEvent = event as BackgroundScriptMessageEvent;
       const message = backgroundEvent.data.message;
-      logger.debug("收到背景腳本訊息", { message });
+      logger.debug("Received background script message", { message });
 
-      // 根據訊息動作路由到對應的處理器
+      // Route to the appropriate handler based on message action
       await handleMessage(message);
     }
   });
 
-  logger.info("內容腳本訊息處理器已初始化");
+  logger.info("Content script message handler initialized");
 }
 
 /**
- * 將訊息發送到背景腳本
- * @param message - 要發送的訊息
+ * Send a message to the background script
+ * @param message - The message to send
  */
 function sendMessageToBackground(message: any): void {
   try {
-    logger.debug("準備將訊息發送到背景腳本", { message });
+    logger.debug("Preparing to send message to background script", { message });
 
     chrome.runtime.sendMessage(message, function (response) {
-      logger.debug("背景腳本回應", { response });
+      logger.debug("Background script responded", { response });
     });
 
-    logger.debug("訊息已發送到背景腳本");
+    logger.debug("Message sent to background script");
   } catch (error) {
-    logger.error("發送訊息到背景腳本時發生錯誤", { error });
+    logger.error("Error sending message to background script", { error });
   }
 }
 
 /**
- * 根據訊息類型路由到對應的處理器
- * @param message - 接收到的訊息
+ * Route to the appropriate handler based on message type
+ * @param message - The received message
  */
 async function handleMessage(message: any): Promise<void> {
-  logger.debug("開始處理訊息", { action: message.action });
+  logger.debug("Start handling message", { action: message.action });
 
   switch (message.action) {
     case MESSAGE_ACTIONS.GET_AUDIO_DURATION:
-      logger.debug("處理獲取音訊時長請求");
+      logger.debug("Handling get audio duration request");
       const durationMessage = message as GetAudioDurationMessage;
       const durationMs = await handleGetAudioDurationRequest(durationMessage);
 
-      // 只有在成功獲得持續時間後才註冊
+      // Only register if duration was successfully obtained
       if (durationMs !== undefined && durationMs !== null) {
         registerAudioUrlWithBackend(durationMessage.url, durationMs);
       } else {
-        logger.debug("獲取的音訊持續時間無效", { url: durationMessage.url });
+        logger.debug("Invalid audio duration obtained", {
+          url: durationMessage.url,
+        });
       }
       break;
 
-    case MESSAGE_ACTIONS.DOWNLOAD_BLOB:
-      logger.debug("處理提取 Blob 內容請求");
-      const blobMessage = message as DownloadBlobMessage;
-      await handleExtractBlobRequest(blobMessage, (response) => {
-        logger.debug("提取 Blob 內容回應", { response });
-      });
-      break;
 
-    // 可以添加更多訊息類型的處理...
+    // Add more message type handlers as needed...
 
     default:
-      logger.warn("未處理的訊息類型", {
-        action: message.action || "無動作",
+      logger.warn("Unhandled message type", {
+        action: message.action || "no action",
       });
       break;
   }
 }
 
 /**
- * 向背景腳本註冊 Audio URL
- * @param url - 音訊 URL
- * @param durationMs - 音訊持續時間（毫秒）
+ * Register Audio URL with the background script
+ * @param url - Audio URL
+ * @param durationMs - Audio duration (milliseconds)
  */
 function registerAudioUrlWithBackend(url: string, durationMs: number): void {
-  // 建立要發送的訊息
+  // Build the message to send
   const message: AudioUrlRegistrationMessage = {
     action: MESSAGE_ACTIONS.REGISTER_AUDIO_URL,
     audioUrl: url,
@@ -201,11 +193,11 @@ function registerAudioUrlWithBackend(url: string, durationMs: number): void {
     timestamp: new Date().toISOString(),
   };
 
-  // 發送訊息到背景腳本
+  // Send the message to the background script
   sendMessageToBackground(message);
 
-  // 記錄詳細資訊
-  logger.debug("向背景腳本發送 Audio URL 註冊資訊", {
+  // Log details
+  logger.debug("Sent Audio URL registration info to background script", {
     audioUrl: url.substring(0, 50),
     durationMs: durationMs,
   });

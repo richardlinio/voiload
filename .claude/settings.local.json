@@ -20,7 +20,15 @@
       "Bash(npx tsc:*)",
       "Bash(mkdir:*)",
       "Bash(pnpm lint:*)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "Bash(pnpm dev:*)",
+      "Bash(pnpm webpack:*)",
+      "Bash(sed:*)",
+      "Bash(tree:*)",
+      "Bash(git checkout:*)",
+      "Bash(pnpm typecheck:*)",
+      "Bash(pnpm quality:*)",
+      "Bash(pnpm run lint:*)"
     ],
     "deny": []
   }

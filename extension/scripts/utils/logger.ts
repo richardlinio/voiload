@@ -1,38 +1,44 @@
 /**
  * logger.ts
- * 提供擴充功能的統一日誌記錄系統
+ * Provides a unified logging system for the extension
  */
 
 import type { LoggerConfig, ModuleLogger } from "../types/utils";
 
 import { LOG_LEVELS, type LogLevel, type ModuleName } from "./constants";
 
-// 預設配置
-let config: LoggerConfig = {
-  // 當前日誌級別，可透過設置調整
-  level: LOG_LEVELS.DEBUG,
+// Declare build-time injected environment variable
+declare const __IS_PRODUCTION__: boolean;
 
-  // 是否顯示時間戳
+// Set default log level based on environment
+const defaultLogLevel = __IS_PRODUCTION__ ? LOG_LEVELS.WARN : LOG_LEVELS.DEBUG;
+
+// Default configuration
+let config: LoggerConfig = {
+  // Current log level, auto-adjusted by environment
+  level: defaultLogLevel,
+
+  // Whether to show timestamp
   showTimestamp: true,
 
-  // 是否顯示日誌級別
+  // Whether to show log level
   showLevel: true,
 
-  // 是否顯示日誌模組
+  // Whether to show module name
   showModule: true,
 
-  // 是否顯示在開發人員控制台
+  // Whether to output to developer console
   consoleOutput: true,
 
-  // 模組級別的日誌控制
+  // Per-module log level control
   moduleConfig: {
-    // 為特定模組設置不同的日誌級別
+    // Set different log levels for specific modules
     // 'MODULE_NAME': LogLevel.XXX
   },
 };
 
 /**
- * 格式化日誌訊息
+ * Format log message
  */
 function formatLogMessage(
   level: string,
@@ -41,31 +47,31 @@ function formatLogMessage(
 ): string {
   const parts: string[] = [];
 
-  // 添加時間戳
+  // Add timestamp
   if (config.showTimestamp) {
     const now = new Date();
-    const timeStr = now.toISOString().slice(11, 23); // 格式：HH:MM:SS.sss
+    const timeStr = now.toISOString().slice(11, 23); // Format: HH:MM:SS.sss
     parts.push(`[${timeStr}]`);
   }
 
-  // 添加日誌級別
+  // Add log level
   if (config.showLevel) {
     parts.push(`[${level}]`);
   }
 
-  // 添加模組名稱
+  // Add module name
   if (config.showModule && module) {
     parts.push(`[${module}]`);
   }
 
-  // 組合基本訊息
+  // Combine base message
   const result = parts.join(" ") + " " + message;
 
   return result;
 }
 
 /**
- * 獲取模組的日誌級別
+ * Get log level for a module
  */
 function getModuleLogLevel(module: string | null): LogLevel {
   if (module && config.moduleConfig[module] !== undefined) {
@@ -75,7 +81,7 @@ function getModuleLogLevel(module: string | null): LogLevel {
 }
 
 /**
- * 輸出日誌
+ * Output log
  */
 function log(
   level: string,
@@ -84,16 +90,16 @@ function log(
   message: string,
   data?: any
 ): void {
-  // 檢查是否應該記錄此日誌
+  // Check if this log should be recorded
   const moduleLevel = getModuleLogLevel(module);
   if (levelValue < moduleLevel) {
     return;
   }
 
-  // 格式化日誌訊息
+  // Format log message
   const formattedMessage = formatLogMessage(level, module, message);
 
-  // 輸出到控制台
+  // Output to console
   if (config.consoleOutput) {
     switch (levelValue) {
       case LOG_LEVELS.DEBUG:
@@ -129,33 +135,33 @@ function log(
 }
 
 /**
- * 創建模組特定的日誌記錄器
+ * Create a module-specific logger
  */
 function createModuleLogger(module: ModuleName | string): ModuleLogger {
   return {
     /**
-     * 記錄調試級別日誌
+     * Log debug level message
      */
     debug: (message: string, data?: any) => {
       log("DEBUG", LOG_LEVELS.DEBUG, module, message, data);
     },
 
     /**
-     * 記錄信息級別日誌
+     * Log info level message
      */
     info: (message: string, data?: any) => {
       log("INFO", LOG_LEVELS.INFO, module, message, data);
     },
 
     /**
-     * 記錄警告級別日誌
+     * Log warning level message
      */
     warn: (message: string, data?: any) => {
       log("WARN", LOG_LEVELS.WARN, module, message, data);
     },
 
     /**
-     * 記錄錯誤級別日誌
+     * Log error level message
      */
     error: (message: string, data?: any) => {
       log("ERROR", LOG_LEVELS.ERROR, module, message, data);
@@ -164,26 +170,26 @@ function createModuleLogger(module: ModuleName | string): ModuleLogger {
 }
 
 /**
- * 配置日誌系統
+ * Configure the logging system
  */
 function configure(newConfig: Partial<LoggerConfig>): void {
   config = { ...config, ...newConfig };
 
-  // 如果用戶只提供了部分moduleConfig，則合併而不是替換
+  // If user only provides partial moduleConfig, merge instead of replace
   if (newConfig.moduleConfig) {
     config.moduleConfig = { ...config.moduleConfig, ...newConfig.moduleConfig };
   }
 }
 
 /**
- * 設置全局日誌級別
+ * Set global log level
  */
 function setLevel(level: LogLevel): void {
   config.level = level;
 }
 
 /**
- * 設置特定模組的日誌級別
+ * Set log level for a specific module
  */
 function setModuleLevel(module: string, level: LogLevel): void {
   if (!config.moduleConfig) {
@@ -192,7 +198,7 @@ function setModuleLevel(module: string, level: LogLevel): void {
   config.moduleConfig[module] = level;
 }
 
-// 導出日誌系統
+// Export the logging system
 export const Logger = {
   LogLevel: LOG_LEVELS,
   createModuleLogger,
@@ -200,7 +206,7 @@ export const Logger = {
   setLevel,
   setModuleLevel,
 
-  // 全局日誌方法
+  // Global log methods
   debug: (message: string, data?: any) =>
     log("DEBUG", LOG_LEVELS.DEBUG, null, message, data),
   info: (message: string, data?: any) =>
@@ -211,5 +217,5 @@ export const Logger = {
     log("ERROR", LOG_LEVELS.ERROR, null, message, data),
 };
 
-// 為了方便使用，提供預設導出
+// For convenience, provide default export
 export default Logger;

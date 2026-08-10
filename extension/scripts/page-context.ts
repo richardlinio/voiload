@@ -1,7 +1,7 @@
 /**
  * page-context.ts
- * 在頁面上下文中運行的腳本，負責執行需要頁面環境的功能
- * 這個檔案會以 ES6 模組的方式載入，可以使用 import/export 語法
+ * Script running in the page context, responsible for executing functions that require the page environment.
+ * This file is loaded as an ES6 module, allowing the use of import/export syntax.
  */
 
 import { Logger } from "./utils/logger";
@@ -9,11 +9,11 @@ import { MESSAGE_SOURCES, MODULE_NAMES } from "./utils/constants";
 import { initBlobMonitor } from "./page-context/blob-monitor";
 
 // ================================================
-// 類型定義
+// Type Definitions
 // ================================================
 
 /**
- * 頁面上下文訊息介面
+ * Page context message interface
  */
 interface PageContextMessage {
   action: string;
@@ -21,37 +21,37 @@ interface PageContextMessage {
   hostname?: string;
 }
 
-// Window 介面擴展已在 blob-monitor.ts 中定義
+// Window interface extension is defined in blob-monitor.ts
 
-// 創建模組特定的日誌記錄器 - 使用新的模組名稱
+// Create a module-specific logger - using the new module name
 const logger = Logger.createModuleLogger(MODULE_NAMES.PAGE_CONTEXT);
 
 /**
- * 主要初始化函數
+ * Main initialization function
  */
 function initialize(): void {
-  logger.info("初始化頁面上下文模組");
+  logger.info("Initializing page context module");
 
-  // 檢查是否在支援的網站上
+  // Check if on a supported site
   const isSupportedSite =
     window.location.hostname.includes("facebook.com") ||
     window.location.hostname.includes("messenger.com");
 
   if (!isSupportedSite) {
-    logger.debug("不支援的網站，擴充功能不會啟動");
+    logger.debug("Unsupported site, extension will not start");
     return;
   }
 
   try {
-    // 初始化 Blob 監控模組
-    logger.debug("準備初始化 Blob 監控模組");
+    // Initialize Blob monitoring module
+    logger.debug("Preparing to initialize Blob monitoring module");
     initBlobMonitor();
-    logger.debug("Blob 監控模組初始化完成");
+    logger.debug("Blob monitoring module initialized successfully");
   } catch (error: any) {
-    logger.error("初始化 Blob 監控模組時出錯", { error });
+    logger.error("Error initializing Blob monitoring module", { error });
   }
 
-  // 通知內容腳本頁面上下文已初始化
+  // Notify content script that the page context has been initialized
   const initMessage: PageContextMessage = {
     action: "pageContextInitialized",
     url: window.location.href,
@@ -66,12 +66,12 @@ function initialize(): void {
     "*"
   );
 
-  // 定義向內容腳本發送訊息的輔助函數
+  // Define a helper function to send messages to the content script
   window.sendToContent = function (message: any): void {
     try {
-      logger.debug("準備發送訊息到內容腳本", { message });
+      logger.debug("Preparing to send message to content script", { message });
 
-      // 使用 postMessage 發送訊息
+      // Use postMessage to send the message
       window.postMessage(
         {
           type: MESSAGE_SOURCES.PAGE_CONTEXT,
@@ -80,16 +80,16 @@ function initialize(): void {
         "*"
       );
 
-      logger.debug("訊息已發送到內容腳本");
+      logger.debug("Message sent to content script");
     } catch (error: any) {
-      logger.error("發送訊息到內容腳本時發生錯誤", { error });
+      logger.error("Error sending message to content script", { error });
     }
   };
 
-  logger.info("頁面上下文模組已啟動");
+  logger.info("Page context module has started");
 }
 
-// 當 DOM 完全載入後初始化
+// Initialize when the DOM is fully loaded
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", initialize);
 } else {

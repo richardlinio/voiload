@@ -14,12 +14,17 @@ This is a Chrome browser extension called "VoiLoad" that enables downloading voi
 - `pnpm build` - Create production build
 - `pnpm package` - Package the extension for distribution
 
-### Type Checking & Testing
+### Quality Assurance & Testing
 
-- `pnpm type-check` - Run TypeScript type checking
-- `pnpm test` - Run Jest tests
-- Tests are located in `tests/` directory with setup in `tests/setup.js`
-- Test environment is configured for jsdom
+- `pnpm test` - Run Jest tests in silent mode (shows only failures)
+- `pnpm fix` - Run ESLint auto-fix with visible output
+- `pnpm quality` - Run TypeScript check + ESLint in silent mode
+- `pnpm check` - Run both test and quality checks (ideal for CI)
+- `pnpm quality-strict` - Run quality checks with full output (shows all warnings)
+- `pnpm typecheck` - Run standalone TypeScript type checking
+- `pnpm lint` - Run standalone ESLint in quiet mode
+
+**IMPORTANT**: After making any code changes, always run `pnpm test` and `pnpm quality` to ensure code quality and prevent regressions. These commands are optimized for silent output to save LLM token usage while maintaining comprehensive error reporting.
 
 ## Architecture Overview
 
@@ -33,12 +38,19 @@ The extension uses a multi-layer architecture:
 - **menu-manager.ts** - Manages right-click context menus
 - **message-handler.ts** - Processes messages from content scripts
 - **web-request-interceptor.ts** - Monitors network requests for audio
+- **onboarding-utils.ts** - Manages user onboarding workflow and Chrome storage
+- **handlers/** - Message processing handlers
+  - **audio-url-registration-handler.ts** - Handles audio URL registration
+  - **blob-handler.ts** - Processes blob URL registration and downloads
+  - **download-all-handler.ts** - Downloads every captured voice message in one action
+  - **right-click-handler.ts** - Handles right-click context menu interactions
 
 ### Content Scripts (`extension/scripts/content/`)
 
 - **content.ts** - Bridge between page and background scripts, injects page context
 - **message-handler.ts** - Handles communication between layers
 - **context-menu-handler.ts** - Processes right-click menu interactions
+- **wav-request.ts** - Asks the page context to re-encode one voice message as WAV before download
 - **dom-utils.ts** - DOM manipulation utilities
 
 ### Page Context Scripts (`extension/scripts/page-context/`)
@@ -47,6 +59,7 @@ The extension uses a multi-layer architecture:
 - **blob-monitor.ts** - Monitors blob URL creation to capture audio
 - **audio-analyzer.ts** - Analyzes audio characteristics and duration
 - **blob-analyzer.ts** - Processes blob data for voice message detection
+- **wav-encoder.ts** - Re-encodes captured opus/ogg audio as PCM WAV before download
 
 ### Utilities (`extension/scripts/utils/`)
 
@@ -54,6 +67,7 @@ The extension uses a multi-layer architecture:
 - **constants.ts** - Application constants and configuration
 - **id-generator.ts** - Generates unique identifiers
 - **time-utils.ts** - Time-related utility functions
+- **download-url.ts** - Selects the download URL and file extension for a stored voice message
 
 ### TypeScript Types (`extension/scripts/types/`)
 
@@ -137,8 +151,19 @@ The extension uses a multi-layer architecture:
 ### Testing Approach
 
 - Jest with jsdom environment for DOM testing
-- Setup file configures test environment
-- Test files follow `*.test.js` pattern in `tests/` directory
+- Setup file configures test environment at `tests/setup.ts`
+- Test files follow `*.test.{js,ts}` pattern in `tests/unit/` directory
+- **Test Structure**: Organized to mirror the `/extension` directory structure
+  - `tests/unit/background/` - Background script tests
+  - `tests/unit/background/handlers/` - Message handler tests
+  - `tests/unit/utils/` - Utility function tests
+- **Test Coverage**: Comprehensive unit tests mirroring the `extension/` tree (run `pnpm test` for the current count)
+- **Chrome API Mocking**: Comprehensive mocks for chrome.storage, chrome.downloads, chrome.tabs, chrome.contextMenus, chrome.webRequest
+- **Key Testing Patterns**:
+  - Module isolation with jest.mock()
+  - Chrome API simulation and error handling
+  - Async function testing with proper cleanup
+  - Edge case and integration testing
 
 ### Extension Development
 
@@ -148,5 +173,5 @@ The extension uses a multi-layer architecture:
 
 ## Claude Memory
 
-- Use traditional chinese to write comments
 - Use ripgrep (rg) when you need grep
+- **Referenced Project**: @/Users/linporu/Documents/world-of-code/evoprompt/test-god.md

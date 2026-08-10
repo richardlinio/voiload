@@ -1,19 +1,20 @@
 /**
  * voice-message.ts
- * 語音訊息相關資料結構 - 核心資料模型
+ * Voice message related data structures - Core data model
  */
 
 // ================================================
-// 語音訊息核心資料結構
+// Core data structure for voice messages
 // ================================================
 
 /**
- * 語音訊息項目介面
+ * Voice message item interface
  */
 export interface VoiceMessageItem {
   id: string;
   element: Element | null;
   durationMs: number;
+  /** Original captured audio (opus/ogg), or a CDN URL from the webRequest path. */
   downloadUrl: string | null;
   lastModified?: string | null;
   blobType?: string | null;
@@ -23,31 +24,25 @@ export interface VoiceMessageItem {
 }
 
 /**
- * 語音訊息資料存儲介面
+ * Voice message data store interface
+ *
+ * `items` is the in-memory cache in front of chrome.storage.session and may be
+ * stale before the first store call of a service-worker lifetime resolves.
+ * Read through `getAllItems()` rather than iterating `items` directly.
  */
 export interface VoiceMessageStore {
   items: Map<string, VoiceMessageItem>;
-  isDurationMatch: (
-    duration1Ms: number,
-    duration2Ms: number,
-    toleranceMs?: number
-  ) => boolean;
   registerDownloadUrl: (
     durationMs: number,
     downloadUrl: string,
     lastModified?: string | null,
     blobType?: string | null,
     blobSize?: number | null
-  ) => string;
-  findPendingItemByDuration: (durationMs: number) => VoiceMessageItem | null;
-  findItemByDuration: (durationMs: number) => VoiceMessageItem | null;
-  getDownloadUrlForElement: (element: Element) => DownloadUrlResult | null;
-}
-
-/**
- * 下載 URL 查找結果介面
- */
-export interface DownloadUrlResult {
-  downloadUrl: string | null;
-  lastModified?: string | null;
+  ) => Promise<string>;
+  findItemByDuration: (durationMs: number) => Promise<VoiceMessageItem | null>;
+  getAllItems: () => Promise<VoiceMessageItem[]>;
+  updateItem: (
+    id: string,
+    patch: Partial<VoiceMessageItem>
+  ) => Promise<VoiceMessageItem | null>;
 }

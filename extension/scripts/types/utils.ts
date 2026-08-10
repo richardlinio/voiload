@@ -1,23 +1,23 @@
 /**
  * utils.ts
- * 工具類型定義 - Logger 和 Constants 相關類型
+ * Utility type definitions - Logger and Constants related types
  */
 
 // ================================================
-// Logger 相關類型
+// Logger related types
 // ================================================
 
 /**
- * 日誌級別類型
+ * Log level type
  */
 export type LogLevel = 0 | 1 | 2 | 3; // DEBUG | INFO | WARN | ERROR
 
 /**
- * 模組名稱類型 - 基於 constants.ts 中的 MODULE_NAMES
+ * Module name type - based on MODULE_NAMES in constants.ts
  */
-export type ModuleName = 
+export type ModuleName =
   | "background"
-  | "content-script" 
+  | "content-script"
   | "page-context"
   | "menu-manager"
   | "message-handler"
@@ -32,12 +32,11 @@ export type ModuleName =
   | "blob-monitor"
   | "blob-handler"
   | "right-click-handler"
-  | "element-registration-handler"
   | "audio-url-registration-handler"
-  | string; // 允許自定義模組名稱
+  | string; // allow custom module names
 
 /**
- * Logger 配置介面
+ * Logger configuration interface
  */
 export interface LoggerConfig {
   level: LogLevel;
@@ -49,7 +48,7 @@ export interface LoggerConfig {
 }
 
 /**
- * 模組 Logger 介面
+ * Module Logger interface
  */
 export interface ModuleLogger {
   debug: (message: string, data?: any) => void;
@@ -59,25 +58,25 @@ export interface ModuleLogger {
 }
 
 // ================================================
-// Constants 相關類型
+// Constants related types
 // ================================================
 
 /**
- * 音訊內容類型
+ * Audio content type
  */
-export type AudioContentType = 
+export type AudioContentType =
   | "audio/wav"
-  | "audio/x-wav" 
+  | "audio/x-wav"
   | "audio/mp4"
   | "video/mp4"
   | "application/octet-stream";
 
 /**
- * 支援的音訊檔案類型
+ * Supported audio file types
  */
 export type AudioFileType = "audio" | "video/mp4" | "mp4" | "mp3" | "mpeg";
 
 /**
- * HTTP 成功狀態碼
+ * HTTP success status codes
  */
 export type SuccessStatusCode = 200 | 206;

@@ -1,8 +1,13 @@
 const path = require("path");
 const CopyPlugin = require("copy-webpack-plugin");
+const webpack = require("webpack");
 
-module.exports = {
-  mode: "development", // 開發模式，可以改為 'production' 用於生產環境
+module.exports = (env, argv) => {
+  const isProduction = argv.mode === 'production';
+  
+  return {
+    mode: argv.mode || "development",
+    devtool: false, // 禁用 eval，避免 CSP 問題
 
   entry: {
     // 背景腳本
@@ -43,6 +48,9 @@ module.exports = {
   },
 
   plugins: [
+    new webpack.DefinePlugin({
+      '__IS_PRODUCTION__': JSON.stringify(isProduction)
+    }),
     new CopyPlugin({
       patterns: [
         {
@@ -70,4 +78,5 @@ module.exports = {
   resolve: {
     extensions: [".js", ".ts"], // 自動解析的擴展名
   },
+  };
 };

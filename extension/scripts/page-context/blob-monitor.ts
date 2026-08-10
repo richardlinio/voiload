@@ -1,47 +1,113 @@
 /**
  * blob-monitor.ts
- * 負責監控和處理 Blob URL，以檢測和處理可能的音訊檔案
+ * Responsible for monitoring and handling Blob URLs to detect and process possible audio files
  */
 
 import { Logger } from "../utils/logger";
 import {
   MESSAGE_ACTIONS,
+  MESSAGE_SOURCES,
   MODULE_NAMES,
   BLOB_MONITOR_CONSTANTS,
+  SOURCE_BLOB_CONSTANTS,
+  MATCHING_TOLERANCE,
 } from "../utils/constants";
-import type {
-  BlobQueueItem,
-  ExtractBlobRequestMessage,
-} from "../types/messages";
+import type { BlobQueueItem } from "../types/messages";
 
-import { isLikelyVoiceMessageBlob, extractBlobContent } from "./blob-analyzer";
+import { isLikelyVoiceMessageBlob } from "./blob-analyzer";
 import { getAudioDuration } from "./audio-analyzer";
+import { convertBlobToWav } from "./wav-encoder";
 
-// 創建模組特定的日誌記錄器
+// Create a module-specific logger
 const logger = Logger.createModuleLogger(MODULE_NAMES.BLOB_MONITOR);
+
+// The unpatched URL.createObjectURL, captured when the monitor is installed.
+// Converted WAV blobs must be published through this rather than the patched
+// function: a WAV blob passes isLikelyVoiceMessageBlob (audio MIME, plausible
+// size), so routing it through the patch would re-enqueue it, decode it, and
+// convert it again, without end.
+let originalCreateObjectURL: typeof URL.createObjectURL = URL.createObjectURL;
+
+// The patch currently installed on URL.createObjectURL, if it is ours. Compared
+// against the live function rather than tracked with a boolean: a second install
+// would otherwise capture the patch as the original and delegate to itself.
+let installedPatch: typeof URL.createObjectURL | null = null;
+
+// Whether the page is already answering conversion requests.
+let isWavListenerInstalled = false;
+
+/**
+ * Captured opus blobs, newest last, keyed by the duration measured from them.
+ *
+ * Retained rather than re-fetched at conversion time because the blob URL belongs
+ * to Facebook: it revokes the URL when the message row unmounts, which would
+ * leave an older message with no recoverable audio.
+ */
+const sourceBlobs = new Map<number, Blob>();
+
+// The single live WAV blob URL, revoked when the next conversion supersedes it.
+let currentWavUrl: string | null = null;
+
+/**
+ * Retain a captured blob for later on-demand conversion, dropping the oldest
+ * once the cap is reached.
+ */
+function retainSourceBlob(durationMs: number, blob: Blob): void {
+  sourceBlobs.set(durationMs, blob);
+
+  while (sourceBlobs.size > SOURCE_BLOB_CONSTANTS.MAX_RETAINED) {
+    const oldest = sourceBlobs.keys().next();
+    if (oldest.done) {
+      break;
+    }
+    sourceBlobs.delete(oldest.value);
+  }
+}
+
+/**
+ * Find the retained blob whose duration is nearest the requested one.
+ *
+ * The caller's duration comes from the DOM (integer seconds), while the retained
+ * key was decoded from the audio (precise milliseconds), so an equality check
+ * would never hit. Mirrors the tolerance the background store matches on.
+ */
+function findSourceBlob(durationMs: number): Blob | null {
+  let best: Blob | null = null;
+  let bestDiff = Infinity;
+
+  for (const [retainedMs, blob] of sourceBlobs) {
+    const diff = Math.abs(retainedMs - durationMs);
+    if (diff <= MATCHING_TOLERANCE && diff < bestDiff) {
+      best = blob;
+      bestDiff = diff;
+    }
+  }
+
+  return best;
+}
 
 /**
  * Blob processing queue object
  */
 const BlobProcessingQueue = {
-  // 處理佇列和狀態
+  // Processing queue and state
   processingQueue: [] as BlobQueueItem[],
   isProcessing: false,
 
-  // 追蹤已處理過的 blob
+  // Track processed blobs
   processedBlobs: new WeakMap<Blob, boolean>(),
 
-  // 檢查是否應該處理這個 blob
+  // Check if this blob should be processed
   shouldProcess(blob: Blob): boolean {
-    // 基本檢查 - blob 必須存在且有類型
+    // Basic check - blob must exist and have a type
     if (!blob || !blob.type) {
       return false;
     }
-    // 檢查是否已處理過此 blob
+    // Check if this blob has already been processed
     if (this.processedBlobs.has(blob)) {
       return false;
     }
-    // 評估 blob 是否可能是語音訊息
+    // Evaluate if the blob is likely a voice message
     const isLikelyVoiceMessage = isLikelyVoiceMessageBlob(blob);
     if (!isLikelyVoiceMessage) {
       return false;
@@ -49,18 +115,18 @@ const BlobProcessingQueue = {
     return true;
   },
 
-  // 將 blob 加入處理佇列
+  // Add blob to processing queue
   enqueue(blob: Blob, blobUrl: string): void {
     this.processingQueue.push({ blob, blobUrl });
-    logger.debug("將 blob URL 加入處理佇列", {
+    logger.debug("Added blob URL to processing queue", {
       queueLength: this.processingQueue.length,
     });
     this.processNextInQueue();
   },
 
-  // 處理佇列中的下一個項目
+  // Process the next item in the queue
   async processNextInQueue(): Promise<void> {
-    // 如果已經在處理或佇列為空，則直接返回
+    // If already processing or queue is empty, return immediately
     if (this.isProcessing || this.processingQueue.length === 0) {
       return;
     }
@@ -75,66 +141,170 @@ const BlobProcessingQueue = {
     const { blob, blobUrl } = queueItem;
 
     try {
-      // 標記為已處理
+      // Mark as processed
       this.processedBlobs.set(blob, true);
 
-      // 計算音訊持續時間
+      // Duration is read from the original audio, never from the decoded WAV.
+      // decodeAudioData drops opus pre-skip (priming) samples, making the WAV
+      // ~7ms shorter than the container reports; that gap exceeds
+      // EXACT_MATCHING_TOLERANCE and would break duration matching downstream.
       const durationMs = await getAudioDuration(blobUrl);
 
-      // 註冊到背景腦本
+      // Keep the opus bytes so a later download can re-encode them. Converting
+      // here instead would decode every scrolled-past message into PCM.
+      retainSourceBlob(durationMs, blob);
+
+      // Register with backend
       registerBlobWithBackend(blob, blobUrl, durationMs);
     } catch (error) {
-      logger.error("處理佇列中的 blob 時發生錯誤", { error });
+      logger.error("Error processing blob in queue", { error });
     } finally {
       this.isProcessing = false;
-      // 繼續處理下一個
+      // Continue processing the next item
       this.processNextInQueue();
     }
   },
 };
 
 /**
- * 設置 Blob URL 監控
- * 攻截 URL.createObjectURL 方法來捕獲 blob URL 的創建
+ * Re-encode the retained blob for one voice message and publish it as a blob URL.
+ *
+ * Only one WAV is alive at a time: PCM is roughly thirty times the size of the
+ * opus it came from, so the previous one is revoked before a new one is made.
+ *
+ * @param durationMs - Duration of the message the user asked to download
+ * @returns Blob URL of the WAV, or null when there is nothing to convert
+ */
+async function prepareWavUrl(durationMs: number): Promise<string | null> {
+  const blob = findSourceBlob(durationMs);
+  if (!blob) {
+    logger.warn("No retained audio for the requested duration", {
+      durationMs,
+      retained: sourceBlobs.size,
+    });
+    return null;
+  }
+
+  const wavBlob = await convertBlobToWav(blob);
+  if (!wavBlob) {
+    return null;
+  }
+
+  if (currentWavUrl) {
+    // Revoking removes the URL->blob mapping, and Chrome does not read the bytes
+    // until the user confirms the Save-As dialog -- so callers must let a download
+    // of this URL start before asking for the next conversion. Both download paths
+    // await downloadVoiceMessage for that reason.
+    URL.revokeObjectURL(currentWavUrl);
+  }
+
+  // Deliberately the unpatched function -- see originalCreateObjectURL above.
+  currentWavUrl = originalCreateObjectURL(wavBlob);
+  return currentWavUrl;
+}
+
+/**
+ * Answer content-script requests to re-encode a message for a download.
+ *
+ * The request arrives when the user actually asks to download, so a message is
+ * only ever decoded once someone wants it -- a right-click alone costs nothing.
+ */
+function setupWavRequestListener(): void {
+  // A second listener would convert and answer the same request twice, revoking
+  // the first WAV before its answer reached the content script.
+  if (isWavListenerInstalled) {
+    return;
+  }
+  isWavListenerInstalled = true;
+
+  window.addEventListener("message", (event: MessageEvent) => {
+    if (event.source !== window) {
+      return;
+    }
+    if (event.data?.type !== MESSAGE_SOURCES.CONTENT_SCRIPT) {
+      return;
+    }
+
+    const message = event.data.message;
+    if (message?.action !== MESSAGE_ACTIONS.PREPARE_WAV) {
+      return;
+    }
+
+    const { durationMs, requestId } = message;
+
+    void prepareWavUrl(durationMs)
+      .catch((error) => {
+        logger.error("WAV preparation failed", { error, durationMs });
+        return null;
+      })
+      .then((wavUrl) => {
+        window.sendToContent?.({
+          action: MESSAGE_ACTIONS.PREPARE_WAV_RESULT,
+          requestId,
+          wavUrl,
+        });
+      });
+  });
+}
+
+/**
+ * Set up Blob URL monitoring
+ * Monkey-patch URL.createObjectURL to capture blob URL creation
  */
 export function setupBlobUrlMonitor(): void {
-  logger.info("設置 Blob URL 監控");
+  logger.info("Setting up Blob URL monitor");
 
-  // 保存原始的 URL.createObjectURL 方法
-  const originalCreateObjectURL = URL.createObjectURL;
+  // Installing over our own patch would capture it as the original, leaving it
+  // delegating to itself on every call.
+  if (installedPatch && URL.createObjectURL === installedPatch) {
+    logger.debug("Blob URL monitor already installed");
+    return;
+  }
 
-  // 攻截 URL.createObjectURL 方法
-  URL.createObjectURL = function (blob: Blob | MediaSource): string {
-    // 調用原始方法獲取 blob URL
+  // Save the original URL.createObjectURL method, both to delegate to below and
+  // to publish converted WAV blobs without re-entering this patch.
+  originalCreateObjectURL = URL.createObjectURL;
+
+  // Monkey-patch URL.createObjectURL
+  const patched = function (this: unknown, blob: Blob | MediaSource): string {
+    // Call the original method to get the blob URL
     const blobUrl = originalCreateObjectURL.apply(this, [blob]);
 
     try {
-      // 只處理 Blob 類型，不處理 MediaSource
+      // Only process Blob type, not MediaSource
       if (blob instanceof Blob) {
-        // 檢查是否應該處理這個 blob
+        // Check if this blob should be processed
         if (BlobProcessingQueue.shouldProcess(blob)) {
-          // 將 blob 加入處理佇列
+          // Add blob to processing queue
           BlobProcessingQueue.enqueue(blob, blobUrl);
         }
       }
     } catch (error) {
-      logger.error("處理 blob URL 時發生錯誤", { error });
+      logger.error("Error processing blob URL", { error });
     }
-    // 返回原始的 blob URL
+    // Return the original blob URL
     return blobUrl;
   };
-  logger.info("Blob URL 監控已設置");
+
+  URL.createObjectURL = patched;
+  installedPatch = patched;
+
+  logger.info("Blob URL monitor set up");
 }
 
 /**
- * 向背景腦本註冊 Blob
+ * Register Blob with backend
+ *
+ * @param blob - Captured audio blob
+ * @param blobUrl - Blob URL of the original audio, used as the download fallback
+ * @param durationMs - Duration measured from the original audio
  */
 function registerBlobWithBackend(
   blob: Blob,
   blobUrl: string,
   durationMs: number
 ): void {
-  // 使用 sendToContent 函數發送訊息
+  // Use sendToContent function to send message
   if (window.sendToContent) {
     window.sendToContent({
       action: MESSAGE_ACTIONS.REGISTER_BLOB_URL,
@@ -146,8 +316,8 @@ function registerBlobWithBackend(
     });
   }
 
-  // 記錄詳細資訊
-  logger.info("向內容腦本發送 blob url 註冊資訊", {
+  // Log details
+  logger.info("Sent blob url registration info to content script", {
     blobUrl: blobUrl.substring(0, 50),
     blobType: blob.type,
     blobSizeBytes: blob.size,
@@ -156,85 +326,33 @@ function registerBlobWithBackend(
 }
 
 /**
- * 設置定期清理
- * 定期清空已處理的資料，避免記憶體洩漏
+ * Set up periodic cleanup
+ * Periodically clear processed data to avoid memory leaks
  */
 function setupPeriodicCleanup(): void {
   setInterval(() => {
-    // 目前 processedBlobs 是弱引用，不用主動清理
+    // Currently processedBlobs is a WeakMap, no need for manual cleanup
   }, BLOB_MONITOR_CONSTANTS.PERIODIC_CLEANUP_INTERVAL);
 }
 
 /**
- * 處理提取 blob 內容的請求
- *
- * @param message - 包含 blobUrl 的消息對象
- * @param sendResponse - 回應函數
- * @returns 標示是否保持連接開啟
- */
-export async function handleExtractBlobRequest(
-  message: ExtractBlobRequestMessage,
-  sendResponse: (response: {
-    success: boolean;
-    message?: string;
-    error?: string;
-  }) => void
-): Promise<boolean> {
-  logger.debug("收到提取 blob 內容要求", {
-    blobUrl: message.blobUrl,
-    blobType: message.blobType,
-    requestId: message.requestId,
-  });
-
-  try {
-    // 提取 blob 內容
-    const result = await extractBlobContent(message.blobUrl);
-    logger.debug("提取 blob 內容成功，發送回背景腦本");
-
-    // 構建結果並發送到背景腦本
-    chrome.runtime.sendMessage(
-      {
-        action: MESSAGE_ACTIONS.DOWNLOAD_BLOB,
-        blobType: result.blobType,
-        base64data: result.base64data,
-        requestId: message.requestId,
-        timestamp: new Date().toISOString(),
-      },
-      (response) => {
-        logger.debug("背景腦本回應下載要求", { response });
-      }
-    );
-
-    sendResponse({
-      success: true,
-      message: "已發送 blob 內容到背景腦本進行下載",
-    });
-  } catch (error) {
-    logger.error("提取 blob 內容失敗", { error });
-    sendResponse({
-      success: false,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
-
-  return true; // 保持連接開啟，以便異步回應
-}
-
-/**
- * 初始化 Blob 監控模組
+ * Initialize Blob monitor module
  */
 export function initBlobMonitor(): void {
   try {
-    logger.info("開始初始化 Blob 監控模組");
+    logger.info("Starting initialization of Blob monitor module");
 
-    // 設置 URL 監控
+    // Set up URL monitoring
     setupBlobUrlMonitor();
 
-    // 設置定期清理
+    // Answer on-demand WAV conversion requests from the content script
+    setupWavRequestListener();
+
+    // Set up periodic cleanup
     setupPeriodicCleanup();
 
-    logger.info("Blob 監控模組初始化完成");
+    logger.info("Blob monitor module initialized");
   } catch (error) {
-    logger.error("初始化 Blob 監控模組時發生錯誤", { error });
+    logger.error("Error initializing Blob monitor module", { error });
   }
 }

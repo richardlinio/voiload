@@ -1,9 +1,9 @@
 /**
  * index.ts
- * 共享類型統一導出檔案
+ * Unified type export file
  */
 
-// 重新導出所有類型模組
+// Re-export all type modules
 export * from './messages';
 export * from './voice-message';
 export * from './chrome-extension';

@@ -1,9 +1,9 @@
 /**
  * context-menu-handler.ts
- * 負責處理右鍵選單事件
+ * Responsible for handling context menu (right-click) events
  */
 
-import { secondsToMilliseconds } from "../utils/time-utils";
+import { domDurationToMilliseconds } from "../utils/time-utils";
 import { Logger } from "../utils/logger";
 import { MESSAGE_ACTIONS, MODULE_NAMES } from "../utils/constants";
 
@@ -14,11 +14,11 @@ import {
 } from "./dom-utils";
 
 // ================================================
-// 類型定義
+// Type Definitions
 // ================================================
 
 /**
- * 右鍵點擊訊息介面
+ * Interface for right-click message
  */
 interface RightClickMessage {
   action: string;
@@ -29,102 +29,115 @@ interface RightClickMessage {
 }
 
 // ================================================
-// 右鍵選單處理函數
+// Context Menu Handler Functions
 // ================================================
 
 /**
- * 初始化右鍵選單處理器
+ * Initialize the context menu handler
  */
 export function initContextMenuHandler(): void {
-  Logger.info("初始化右鍵選單處理器", { module: MODULE_NAMES.CONTEXT_MENU });
+  Logger.info("Initializing context menu handler", {
+    module: MODULE_NAMES.CONTEXT_MENU,
+  });
 
-  // 監聽 contextmenu 事件
+  // Listen for contextmenu events
   document.addEventListener("contextmenu", (event: MouseEvent) => {
     handleContextMenu(event);
   });
 }
 
 /**
- * 處理右鍵選單事件
+ * Handle context menu (right-click) event
  *
- * @param event - 滑鼠事件
+ * @param event - Mouse event
  */
 function handleContextMenu(event: MouseEvent): void {
-  // 記錄實際點擊的元素
+  // Record the actual clicked element
   const clickedElement = event.target as Element;
-  Logger.debug("右鍵點擊元素", {
+  Logger.debug("Right-clicked element", {
     module: MODULE_NAMES.CONTEXT_MENU,
     data: clickedElement,
   });
 
-  // 尋找語音訊息元素
+  // Find the voice message element
   const result: VoiceMessageElementResult | null =
     findVoiceMessageElement(clickedElement);
-  Logger.debug("尋找語音訊息元素結果", {
+  Logger.debug("Result of finding voice message element", {
     module: MODULE_NAMES.CONTEXT_MENU,
     data: result,
   });
 
   if (!result) {
-    // 如果找不到語音訊息元素，不做任何處理
-    Logger.debug("未找到語音訊息元素", { module: MODULE_NAMES.CONTEXT_MENU });
+    // If no voice message element is found, still send right-click message for fallback
+    Logger.debug("No voice message element found, sending right-click message for fallback", {
+      module: MODULE_NAMES.CONTEXT_MENU,
+    });
+    
+    // Send right-click message with null values - download all will be triggered when user clicks context menu
+    sendRightClickMessage(null, null, null, undefined);
     return;
   }
 
   const { element, type } = result;
-  Logger.debug("找到語音訊息元素類型", {
+  Logger.debug("Found voice message element type", {
     module: MODULE_NAMES.CONTEXT_MENU,
     data: type,
   });
 
-  // 根據元素類型獲取滑桿元素
+  // Get the slider element based on the element type
   const sliderElement = type === "slider" ? element : null;
-  Logger.debug("滑桿元素", {
+  Logger.debug("Slider element", {
     module: MODULE_NAMES.CONTEXT_MENU,
     data: sliderElement,
   });
 
   if (!sliderElement) {
-    Logger.debug("未找到滑桿元素", { module: MODULE_NAMES.CONTEXT_MENU });
+    Logger.debug("No slider element found", {
+      module: MODULE_NAMES.CONTEXT_MENU,
+    });
     return;
   }
 
-  // 檢查元素是否有 data-voice-message-id 屬性
+  // Check if the element has a data-voice-message-id attribute
   const id = sliderElement.getAttribute("data-voice-message-id");
-  Logger.debug("語音訊息 ID", { module: MODULE_NAMES.CONTEXT_MENU, data: id });
+  Logger.debug("Voice message ID", {
+    module: MODULE_NAMES.CONTEXT_MENU,
+    data: id,
+  });
 
-  // 從滑桿元素獲取持續時間
+  // Get duration from the slider element
   const durationSec = getDurationFromSlider(sliderElement);
-  Logger.debug("從滑桿獲取的持續時間(秒)", {
+  Logger.debug("Duration (seconds) obtained from slider", {
     module: MODULE_NAMES.CONTEXT_MENU,
     data: durationSec,
   });
 
   if (durationSec !== null) {
-    // 將秒轉換為毫秒
-    const durationMs = secondsToMilliseconds(durationSec);
-    Logger.debug("持續時間(毫秒)", {
+    // Convert seconds to milliseconds
+    const durationMs = domDurationToMilliseconds(durationSec);
+    Logger.debug("Duration (milliseconds)", {
       module: MODULE_NAMES.CONTEXT_MENU,
       data: durationMs,
     });
 
-    // 發送訊息到背景腳本，包含元素 ID 和持續時間
-    Logger.debug("準備發送右鍵點擊訊息", { module: MODULE_NAMES.CONTEXT_MENU });
+    // Identify the message only. The audio is re-encoded when the user actually
+    // clicks the download item, so a right-click costs nothing and no half-ready
+    // state can be observed in between.
     sendRightClickMessage(id, null, null, durationMs);
   } else {
-    Logger.debug("無法從滑桿獲取持續時間", {
+    Logger.debug("Unable to get duration from slider", {
       module: MODULE_NAMES.CONTEXT_MENU,
     });
   }
 }
 
 /**
- * 發送右鍵點擊訊息到背景腳本
+ * Send right-click message to background script
  *
- * @param elementId - 元素 ID
- * @param downloadUrl - 下載 URL
- * @param lastModified - Last-Modified 標頭值
- * @param durationMs - 持續時間（毫秒）
+ * @param elementId - Element ID
+ * @param downloadUrl - Download URL
+ * @param lastModified - Last-Modified header value
+ * @param durationMs - Duration in milliseconds
  */
 function sendRightClickMessage(
   elementId: string | null,
@@ -132,7 +145,7 @@ function sendRightClickMessage(
   lastModified?: string | null,
   durationMs?: number
 ): void {
-  // 準備訊息物件
+  // Prepare the message object
   const message: RightClickMessage = {
     action: MESSAGE_ACTIONS.RIGHT_CLICK,
     elementId,
@@ -141,30 +154,30 @@ function sendRightClickMessage(
     durationMs,
   };
 
-  Logger.debug("準備發送訊息到背景腳本", {
+  Logger.debug("Preparing to send message to background script", {
     module: MODULE_NAMES.CONTEXT_MENU,
     data: message,
   });
 
-  // 使用 chrome.runtime.sendMessage 直接發送訊息
+  // Use chrome.runtime.sendMessage to send the message directly
   try {
     chrome.runtime.sendMessage(message, (response) => {
-      Logger.debug("chrome.runtime.sendMessage 回應", {
+      Logger.debug("chrome.runtime.sendMessage response", {
         module: MODULE_NAMES.CONTEXT_MENU,
         data: response,
       });
     });
-    Logger.debug("已直接發送訊息到背景腳本", {
+    Logger.debug("Message sent directly to background script", {
       module: MODULE_NAMES.CONTEXT_MENU,
     });
   } catch (error) {
-    Logger.error("使用 chrome.runtime.sendMessage 發生錯誤", {
+    Logger.error("Error using chrome.runtime.sendMessage", {
       module: MODULE_NAMES.CONTEXT_MENU,
       data: error,
     });
   }
 
-  Logger.info("發送右鍵點擊訊息", {
+  Logger.info("Sent right-click message", {
     module: MODULE_NAMES.CONTEXT_MENU,
     data: {
       elementId,

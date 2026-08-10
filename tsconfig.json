@@ -30,11 +30,12 @@
   },
   "include": [
     "extension/**/*",
-    "tests/**/*"
+    "tests/**/*",
+    "playwright.config.ts",
+    "playwright.canary.config.ts"
   ],
   "exclude": [
     "node_modules",
-    "dist",
-    "**/*.test.js"
+    "dist"
   ]
 }

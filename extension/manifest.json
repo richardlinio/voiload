@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "VoiLoad - voice message downloader of Facebook / Messenger",
-  "description": "Download voice messages on Facebook / Messenger easily.",
-  "version": "0.6.2",
+  "name": "VoiLoad - Facebook Messenger Voice Message Downloader",
+  "description": "Ultimate Facebook/Messenger voice downloader! Smart detection, rock-solid stability. Keep your voice messages safe locally.",
+  "version": "1.1.2",
   "author": "linpoju.richard@gmail.com",
 
   "permissions": [
@@ -48,7 +48,6 @@
     }
   ],
   "background": {
-    "service_worker": "scripts/background.js",
-    "type": "module"
+    "service_worker": "scripts/background.js"
   }
 }

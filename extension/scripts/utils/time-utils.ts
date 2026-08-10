@@ -1,16 +1,18 @@
 /**
  * time-utils.ts
- * 提供時間處理相關的輔助函數
+ * Provides utility functions for time handling
  */
 
 import { Logger } from "./logger";
 import { FILENAME_CONSTANTS } from "./constants";
 
 /**
- * 將 HTTP Last-Modified 標頭格式的時間轉換為 Date 物件
- * 格式範例：Wed, 19 Mar 2025 14:04:40 GMT
+ * Converts the HTTP Last-Modified header format time to a Date object
+ * Example format: Wed, 19 Mar 2025 14:04:40 GMT
  */
-export function parseLastModifiedHeader(lastModifiedHeader: string): Date | null {
+export function parseLastModifiedHeader(
+  lastModifiedHeader: string
+): Date | null {
   if (!lastModifiedHeader) {
     return null;
   }
@@ -18,7 +20,7 @@ export function parseLastModifiedHeader(lastModifiedHeader: string): Date | null
   try {
     return new Date(lastModifiedHeader);
   } catch (error) {
-    Logger.error("解析 Last-Modified 標頭失敗", {
+    Logger.error("Failed to parse Last-Modified header", {
       error: error instanceof Error ? error.message : String(error),
       header: lastModifiedHeader,
     });
@@ -27,30 +29,32 @@ export function parseLastModifiedHeader(lastModifiedHeader: string): Date | null
 }
 
 /**
- * 將日期格式化為檔案名稱友好的格式
- * 格式：YYYY-MM-DD-HH-mm-ss
+ * Formats a date into a filename-friendly format
+ * Format: YYYY-MM-DD-HH-mm-ss-SSS
  */
 export function formatDateForFilename(date: Date): string {
   if (!(date instanceof Date) || isNaN(date.getTime())) {
-    return formatDateForFilename(new Date()); // 使用當前時間作為後備
+    return formatDateForFilename(new Date()); // Use current time as fallback
   }
 
   const pad = (num: number): string => String(num).padStart(2, "0");
+  const padMs = (num: number): string => String(num).padStart(3, "0");
 
   const year = date.getFullYear();
-  const month = pad(date.getMonth() + 1); // 月份從 0 開始
+  const month = pad(date.getMonth() + 1); // Month is 0-based
   const day = pad(date.getDate());
   const hours = pad(date.getHours());
   const minutes = pad(date.getMinutes());
   const seconds = pad(date.getSeconds());
+  const milliseconds = padMs(date.getMilliseconds());
 
-  return `${year}-${month}-${day}-${hours}-${minutes}-${seconds}`;
+  return `${year}-${month}-${day}-${hours}-${minutes}-${seconds}-${milliseconds}`;
 }
 
 /**
- * 根據 Last-Modified 標頭或當前時間生成語音訊息檔案名稱
- * 
- * @returns 格式化的檔案名稱（不含副檔名）
+ * Generates a voice message filename based on the Last-Modified header or current time
+ *
+ * @returns Formatted filename (without extension)
  */
 export function generateVoiceMessageFilename(lastModified?: string): string {
   const date = lastModified
@@ -61,9 +65,12 @@ export function generateVoiceMessageFilename(lastModified?: string): string {
 }
 
 /**
- * 將毫秒轉換為秒，並保留指定位數的小數
+ * Converts milliseconds to seconds, keeping a specified number of decimal places
  */
-export function millisecondsToSeconds(milliseconds: number, decimals: number = 1): number {
+export function millisecondsToSeconds(
+  milliseconds: number,
+  decimals: number = 1
+): number {
   if (typeof milliseconds !== "number" || isNaN(milliseconds)) {
     return 0;
   }
@@ -73,7 +80,7 @@ export function millisecondsToSeconds(milliseconds: number, decimals: number = 1
 }
 
 /**
- * 將秒轉換為毫秒
+ * Converts seconds to milliseconds
  */
 export function secondsToMilliseconds(seconds: number): number {
   if (typeof seconds !== "number" || isNaN(seconds)) {
@@ -81,4 +88,26 @@ export function secondsToMilliseconds(seconds: number): number {
   }
 
   return Math.round(seconds * 1000);
+}
+
+// Voice messages cap at 20 minutes (see BLOB_MONITOR_CONSTANTS.MAX_VALID_DURATION),
+// so a DOM duration value above this cannot be seconds.
+const MAX_PLAUSIBLE_DURATION_SECONDS = 1200;
+
+/**
+ * Converts a duration read from the DOM (e.g. aria-valuemax) to milliseconds.
+ * The attribute is seconds on every Facebook UI observed so far, but values too
+ * large to be seconds are treated as already-milliseconds in case Facebook
+ * changes the format.
+ */
+export function domDurationToMilliseconds(value: number): number {
+  if (typeof value !== "number" || isNaN(value)) {
+    return 0;
+  }
+
+  if (value > MAX_PLAUSIBLE_DURATION_SECONDS) {
+    return Math.round(value);
+  }
+
+  return secondsToMilliseconds(value);
 }

@@ -1,25 +1,33 @@
 /**
  * right-click-handler.ts
- * 處理右鍵點擊相關的訊息
+ * Handles right-click related messages
  */
 
 import { setLastRightClickedInfo } from "../download-manager";
 import { Logger } from "../../utils/logger";
-import { MODULE_NAMES } from "../../utils/constants";
-import { type VoiceMessageStore, type VoiceMessageItem } from "../data-store";
+import { MODULE_NAMES, MESSAGE_ACTIONS } from "../../utils/constants";
+import {
+  findItemByDuration as findItemByDurationInStore,
+  type VoiceMessageStore,
+  type VoiceMessageItem,
+} from "../data-store";
 import type { RightClickMessage } from "../../types/messages";
 
-// 創建模組特定的日誌記錄器
+// Create a module-specific logger
 const logger = Logger.createModuleLogger(MODULE_NAMES.RIGHT_CLICK_HANDLER);
 
 /**
- * 處理右鍵點擊訊息
+ * Handle right-click message
  *
- * @param voiceMessagesStore - 語音訊息資料存儲
- * @param message - 訊息物件
- * @param sender - 發送者資訊
- * @param sendResponse - 回應函數
- * @returns 是否需要保持連接開啟
+ * The store is backed by chrome.storage.session, so the lookup is async while the
+ * listener contract stays synchronous: `true` is returned immediately to keep the
+ * message port open, and sendResponse fires once the lookup settles.
+ *
+ * @param voiceMessagesStore - Voice message data store
+ * @param message - Message object
+ * @param sender - Sender info
+ * @param sendResponse - Response callback
+ * @returns Whether to keep the connection open
  */
 export function handleRightClick(
   voiceMessagesStore: VoiceMessageStore,
@@ -28,215 +36,204 @@ export function handleRightClick(
   sendResponse: (response?: any) => void
 ): boolean {
   const { elementId, downloadUrl, lastModified, durationMs } = message;
-  logger.debug("處理右鍵點擊訊息詳細資訊", {
+  logger.debug("Handling right-click message details", {
     elementId,
     downloadUrl: downloadUrl ? downloadUrl.substring(0, 50) + "..." : null,
     lastModified,
     durationMs,
   });
 
-  // 確保我們有 voiceMessagesStore
+  // Ensure we have voiceMessagesStore
   if (!voiceMessagesStore) {
-    logger.error("voiceMessagesStore 不存在");
+    logger.error("voiceMessagesStore does not exist");
     sendResponse({
       success: false,
-      message: "內部錯誤：voiceMessagesStore 不存在",
+      message: "Internal error: voiceMessagesStore does not exist",
     });
     return true;
   }
 
-  logger.debug("voiceMessagesStore Map 大小", {
-    mapSize: voiceMessagesStore.items.size,
-  });
+  void resolveAndRespond(voiceMessagesStore, message, sender, sendResponse);
 
-  // 輸出所有項目的持續時間和下載 URL 狀態，用於調試
-  logStoreItems(voiceMessagesStore);
-
-  // 如果沒有提供下載 URL，但有持續時間，嘗試從 voiceMessagesStore 中查找
-  let finalDownloadUrl = downloadUrl;
-  let finalLastModified = lastModified;
-
-  if (!downloadUrl && durationMs) {
-    logger.debug("嘗試從資料存儲中查找下載 URL", {
-      durationMs,
-    });
-
-    // 記錄目標持續時間
-    const targetDuration = durationMs;
-
-    logger.debug("開始匹配過程", {
-      phase: "start",
-      targetDuration,
-      timestamp: new Date().toISOString(),
-      itemsCount: voiceMessagesStore.items.size,
-    });
-
-    const matchingItem = findItemByDuration(voiceMessagesStore, durationMs);
-
-    if (matchingItem && matchingItem.downloadUrl) {
-      logger.debug("在資料存儲中找到匹配的下載 URL", {
-        id: matchingItem.id,
-        durationMs: matchingItem.durationMs,
-        downloadUrl: matchingItem.downloadUrl
-          ? matchingItem.downloadUrl.substring(0, 30) + "..."
-          : null,
-      });
-      finalDownloadUrl = matchingItem.downloadUrl;
-      finalLastModified = matchingItem.lastModified || lastModified;
-    } else {
-      logger.warn("在資料存儲中未找到匹配的下載 URL");
-      logAllDurations(voiceMessagesStore);
-    }
-  }
-
-  if (!finalDownloadUrl) {
-    logger.warn("下載 URL 無效，但仍然記錄右鍵點擊資訊");
-    // 即使沒有下載 URL，也記錄右鍵點擊的資訊，以便後續捕獲到 URL 時可以使用
-    setLastRightClickedInfo({
-      elementId,
-      downloadUrl: null,
-      lastModified: null,
-      tabId: sender.tab?.id || undefined,
-      durationMs: durationMs || undefined,
-    });
-
-    sendResponse({
-      success: true,
-      message: "已記錄右鍵點擊資訊，但無法找到下載 URL",
-    });
-    return true;
-  }
-
-  // 設置最後一次右鍵點擊的資訊
-  logger.debug("設置最後一次右鍵點擊的資訊", {
-    elementId,
-    downloadUrl: finalDownloadUrl
-      ? finalDownloadUrl.substring(0, 30) + "..."
-      : null,
-    hasLastModified: !!finalLastModified,
-    tabId: sender.tab?.id,
-    durationMs,
-  });
-
-  setLastRightClickedInfo({
-    elementId,
-    downloadUrl: finalDownloadUrl,
-    lastModified: finalLastModified || null,
-    tabId: sender.tab?.id || undefined,
-    durationMs: durationMs || undefined,
-  });
-
-  // 回應內容腳本
-  const response = {
-    success: true,
-    message: "已準備好下載語音訊息",
-  };
-  logger.debug("回應內容腳本", { response });
-  sendResponse(response);
-
-  logger.debug("右鍵點擊訊息處理完成");
-  return true; // 保持連接開啟，以便異步回應
+  return true; // Keep the connection open for async response
 }
 
 /**
- * 根據持續時間查找匹配的項目
- *
- * @param voiceMessagesStore - 語音訊息資料存儲
- * @param durationMs - 目標持續時間（毫秒）
- * @returns 匹配的項目或 null
+ * Resolve the download URL for the right-clicked element and respond.
  */
-function findItemByDuration(
+async function resolveAndRespond(
+  voiceMessagesStore: VoiceMessageStore,
+  message: RightClickMessage,
+  sender: chrome.runtime.MessageSender,
+  sendResponse: (response?: any) => void
+): Promise<void> {
+  const { elementId, downloadUrl, lastModified, durationMs } = message;
+
+  try {
+    // Output all items' durations and download URL status for debugging
+    await logStoreItems(voiceMessagesStore);
+
+    // If no download URL is provided but duration exists, try to find from voiceMessagesStore
+    let finalDownloadUrl = downloadUrl;
+    let finalLastModified = lastModified;
+    // Names the file when the audio cannot be re-encoded; unknown for a URL that
+    // arrived on the message rather than from a stored item.
+    let blobType: string | null = null;
+
+    if (!downloadUrl && durationMs) {
+      logger.debug("Trying to find download URL from data store", {
+        durationMs,
+      });
+
+      logger.debug("Start matching process", {
+        phase: "start",
+        targetDuration: durationMs,
+        timestamp: new Date().toISOString(),
+      });
+
+      const matchingItem = await findItemByDuration(
+        voiceMessagesStore,
+        durationMs
+      );
+
+      if (matchingItem && matchingItem.downloadUrl) {
+        // Only the original audio is recorded. The WAV is produced on demand when
+        // the download item is clicked, so storing one here would go stale.
+        logger.debug("Found matching download URL in data store", {
+          id: matchingItem.id,
+          durationMs: matchingItem.durationMs,
+          downloadUrl: matchingItem.downloadUrl.substring(0, 30) + "...",
+        });
+        finalDownloadUrl = matchingItem.downloadUrl;
+        finalLastModified = matchingItem.lastModified || lastModified;
+        blobType = matchingItem.blobType ?? null;
+      } else {
+        logger.warn("No matching download URL found in data store");
+        await logAllDurations(voiceMessagesStore);
+      }
+    }
+
+    if (!finalDownloadUrl) {
+      logger.warn(
+        "Download URL is invalid, but still recording right-click info"
+      );
+      // Even if there is no download URL, record the right-click info for later use when the URL is captured
+      setLastRightClickedInfo({
+        elementId,
+        downloadUrl: null,
+        lastModified: null,
+        tabId: sender.tab?.id || undefined,
+        durationMs: durationMs || undefined,
+        blobType: null,
+      });
+
+      // Suggest downloading all available voice messages as fallback
+      logger.info(
+        "No matching voice message found, suggesting download all as fallback"
+      );
+      sendResponse({
+        success: true,
+        action: MESSAGE_ACTIONS.DOWNLOAD_ALL_VOICE_MESSAGES,
+        message:
+          "No matching voice message found, ready to download all available voice messages",
+      });
+      return;
+    }
+
+    // Set the last right-clicked info
+    logger.debug("Setting last right-clicked info", {
+      elementId,
+      downloadUrl: finalDownloadUrl.substring(0, 30) + "...",
+      hasLastModified: !!finalLastModified,
+      tabId: sender.tab?.id,
+      durationMs,
+    });
+
+    setLastRightClickedInfo({
+      elementId,
+      downloadUrl: finalDownloadUrl,
+      lastModified: finalLastModified || null,
+      tabId: sender.tab?.id || undefined,
+      durationMs: durationMs || undefined,
+      blobType,
+    });
+
+    // Respond to content script
+    const response = {
+      success: true,
+      message: "Ready to download voice message",
+    };
+    logger.debug("Responding to content script", { response });
+    sendResponse(response);
+
+    logger.debug("Right-click message handling complete");
+  } catch (error: any) {
+    logger.error("Error occurred while handling right-click message", {
+      error: error?.message,
+      stack: error?.stack,
+    });
+    sendResponse({
+      success: false,
+      message: `Error occurred while handling right-click message: ${error?.message}`,
+    });
+  }
+}
+
+/**
+ * Find a matching item by duration
+ *
+ * @param voiceMessagesStore - Voice message data store
+ * @param durationMs - Target duration (ms)
+ * @returns Matching item or null
+ */
+async function findItemByDuration(
   voiceMessagesStore: VoiceMessageStore,
   durationMs: number
-): VoiceMessageItem | null {
-  // 方法 1: 使用 findItemByDuration 函數
-  let matchingItem = null;
-  if (typeof voiceMessagesStore.findItemByDuration === "function") {
-    logger.debug("使用 findItemByDuration 函數查找");
-    matchingItem = voiceMessagesStore.findItemByDuration(durationMs);
-    logger.debug("findItemByDuration 結果", {
-      found: !!matchingItem,
-    });
+): Promise<VoiceMessageItem | null> {
+  // Prefer the store's own method; fall back to the shared data-store search
+  // so both paths use the same nearest-neighbour matching semantics
+  const matchingItem =
+    typeof voiceMessagesStore.findItemByDuration === "function"
+      ? await voiceMessagesStore.findItemByDuration(durationMs)
+      : await findItemByDurationInStore(voiceMessagesStore, durationMs);
 
-    if (matchingItem) {
-      logger.debug("匹配成功", {
-        phase: "findItemByDuration",
-        result: "success",
-        itemId: matchingItem.id,
-        itemDuration: matchingItem.durationMs,
-        targetDuration: durationMs,
-        difference: Math.abs(matchingItem.durationMs - durationMs),
-        hasUrl: !!matchingItem.downloadUrl,
-        isPending: !!matchingItem.isPending,
-        timestamp: new Date().toISOString(),
-      });
-      return matchingItem;
-    } else {
-      logger.debug("匹配失敗", {
-        phase: "findItemByDuration",
-        result: "failure",
-        targetDuration: durationMs,
-        timestamp: new Date().toISOString(),
-      });
-    }
-  }
-
-  // 方法 2: 直接遍歷 items 集合
-  logger.debug("直接遍歷 items 集合查找");
-  const tolerance = 5; // 容差值（毫秒）
-  let attemptCount = 0;
-  const matchStartTime = Date.now();
-
-  for (const [id, item] of voiceMessagesStore.items.entries()) {
-    attemptCount++;
-    const difference = Math.abs(item.durationMs - durationMs);
-
-    // 記錄每次匹配嘗試
-    logger.debug("匹配嘗試詳細", {
-      phase: "iteration",
-      attemptNumber: attemptCount,
-      itemId: id,
-      itemDuration: item.durationMs,
+  if (matchingItem) {
+    logger.debug("Match found", {
+      phase: "findItemByDuration",
+      result: "success",
+      itemId: matchingItem.id,
+      itemDuration: matchingItem.durationMs,
       targetDuration: durationMs,
-      difference: difference,
-      withinTolerance: difference <= tolerance,
-      hasUrl: !!item.downloadUrl,
-      isPending: !!item.isPending,
+      difference: Math.abs(matchingItem.durationMs - durationMs),
+      hasUrl: !!matchingItem.downloadUrl,
+      isPending: !!matchingItem.isPending,
       timestamp: new Date().toISOString(),
     });
-
-    if (item.durationMs && difference <= tolerance) {
-      logger.debug("找到匹配項目", {
-        durationMs: item.durationMs,
-        hasDownloadUrl: !!item.downloadUrl,
-      });
-      matchingItem = item;
-      break;
-    }
+  } else {
+    logger.debug("No match found", {
+      phase: "findItemByDuration",
+      result: "failure",
+      targetDuration: durationMs,
+      timestamp: new Date().toISOString(),
+    });
   }
-
-  // 記錄遍歷結果
-  logger.debug("遍歷完成", {
-    phase: "iterationComplete",
-    result: matchingItem ? "success" : "failure",
-    attemptCount: attemptCount,
-    elapsedMs: Date.now() - matchStartTime,
-    timestamp: new Date().toISOString(),
-  });
 
   return matchingItem;
 }
 
 /**
- * 輸出所有項目的持續時間和下載 URL 狀態，用於調試
+ * Output all items' durations and download URL status for debugging
  *
- * @param voiceMessagesStore - 語音訊息資料存儲
+ * @param voiceMessagesStore - Voice message data store
  */
-function logStoreItems(voiceMessagesStore: VoiceMessageStore): void {
-  logger.debug("所有項目的持續時間和下載 URL 狀態");
-  for (const [id, item] of voiceMessagesStore.items.entries()) {
-    logger.debug(`項目狀態`, {
-      id,
+async function logStoreItems(
+  voiceMessagesStore: VoiceMessageStore
+): Promise<void> {
+  logger.debug("All items' durations and download URL status");
+  const items = await voiceMessagesStore.getAllItems();
+  for (const item of items) {
+    logger.debug(`Item status`, {
+      id: item.id,
       durationMs: item.durationMs,
       hasUrl: !!item.downloadUrl,
       isPending: !!item.isPending,
@@ -245,24 +242,26 @@ function logStoreItems(voiceMessagesStore: VoiceMessageStore): void {
 }
 
 /**
- * 輸出所有項目的持續時間以進行比較
+ * Output all items' durations for comparison
  *
- * @param voiceMessagesStore - 語音訊息資料存儲
+ * @param voiceMessagesStore - Voice message data store
  */
-function logAllDurations(voiceMessagesStore: VoiceMessageStore): void {
-  // 輸出資料存儲的狀態以協助調試
-  logger.debug("資料存儲中的項目數量", {
-    itemsCount: voiceMessagesStore.items.size,
+async function logAllDurations(
+  voiceMessagesStore: VoiceMessageStore
+): Promise<void> {
+  const items = await voiceMessagesStore.getAllItems();
+
+  // Output data store status for debugging
+  logger.debug("Number of items in data store", {
+    itemsCount: items.length,
   });
 
-  // 輸出所有項目的持續時間以進行比較
-  const allDurations = [];
-  for (const [, item] of voiceMessagesStore.items.entries()) {
-    if (item.durationMs) {
-      allDurations.push(item.durationMs);
-    }
-  }
-  logger.debug("資料存儲中的所有持續時間", {
+  // Output all items' durations for comparison
+  const allDurations = items
+    .filter((item) => item.durationMs)
+    .map((item) => item.durationMs);
+
+  logger.debug("All durations in data store", {
     durations: allDurations,
   });
 }

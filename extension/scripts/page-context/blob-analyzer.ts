@@ -1,19 +1,16 @@
 /**
  * blob-analyzer.ts
- * 負責處理音檔分析相關功能，包含持續時間計算和音訊資料處理
+ * Responsible for handling audio file analysis functions, including duration calculation and audio data processing
  */
 
 import { Logger } from "../utils/logger";
-import {
-  MODULE_NAMES,
-  BLOB_MONITOR_CONSTANTS,
-} from "../utils/constants";
+import { MODULE_NAMES, BLOB_MONITOR_CONSTANTS } from "../utils/constants";
 
-// 創建模組特定的日誌記錄器
+// Create a module-specific logger
 const logger = Logger.createModuleLogger(MODULE_NAMES.BLOB_ANALYZER);
 
 /**
- * Blob 內容結果介面
+ * Blob content result interface
  */
 export interface BlobContentResult {
   base64data: string;
@@ -22,48 +19,50 @@ export interface BlobContentResult {
 }
 
 /**
- * 提取 Blob 內容並轉換為 base64 格式
+ * Extracts Blob content and converts it to base64 format
  *
  * @param blobUrl - blob URL
- * @returns 包含 base64data、blobType 和 blobSize 的對象
+ * @returns An object containing base64data, blobType, and blobSize
  */
-export async function extractBlobContent(blobUrl: string): Promise<BlobContentResult> {
+export async function extractBlobContent(
+  blobUrl: string
+): Promise<BlobContentResult> {
   try {
-    logger.debug("開始提取 blob 內容", { blobUrl });
+    logger.debug("Start extracting blob content", { blobUrl });
 
-    // 使用 fetch 獲取 blob 內容
+    // Fetch the blob content using fetch
     const response = await fetch(blobUrl);
     if (!response.ok) {
       throw new Error(
-        `無法獲取 blob 內容: ${response.status} ${response.statusText}`
+        `Failed to fetch blob content: ${response.status} ${response.statusText}`
       );
     }
 
-    // 獲取 blob 內容
+    // Get the blob content
     const blob = await response.blob();
-    logger.debug("成功獲取 blob", {
+    logger.debug("Successfully fetched blob", {
       blobType: blob.type,
       blobSize: blob.size,
     });
 
-    // 將 blob 轉換為 base64
+    // Convert blob to base64
     return new Promise<BlobContentResult>((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => {
         try {
-          // 確保我們取得正確的 base64 數據
+          // Ensure we get the correct base64 data
           const result = reader.result;
-          if (typeof result !== 'string') {
-            throw new Error("FileReader 結果不是字串格式");
+          if (typeof result !== "string") {
+            throw new Error("FileReader result is not a string");
           }
-          
+
           const base64data = result.split(",")[1];
 
           if (!base64data) {
-            throw new Error("無法取得有效的 base64 數據");
+            throw new Error("Failed to get valid base64 data");
           }
 
-          logger.debug("成功將 blob 轉換為 base64", {
+          logger.debug("Successfully converted blob to base64", {
             dataLength: base64data.length,
           });
 
@@ -73,61 +72,61 @@ export async function extractBlobContent(blobUrl: string): Promise<BlobContentRe
             blobSize: blob.size,
           });
         } catch (innerError) {
-          logger.error("處理 base64 數據時發生錯誤", { error: innerError });
+          logger.error("Error processing base64 data", { error: innerError });
           reject(innerError);
         }
       };
       reader.onerror = () => {
-        reject(new Error("讀取 blob 內容失敗"));
+        reject(new Error("Failed to read blob content"));
       };
       reader.readAsDataURL(blob);
     });
   } catch (error) {
-    logger.error("提取 blob 內容時發生錯誤", { error });
+    logger.error("Error extracting blob content", { error });
     throw error;
   }
 }
 
 /**
- * 檢查 Blob 是否可能是音訊檔案
- * 根據多項指標評估可能性並返回信心分數
+ * Checks if a Blob is likely an audio file
+ * Evaluates multiple indicators and returns a confidence score
  *
- * @param blob - 要評估的 Blob 對象
- * @returns 評估結果
+ * @param blob - The Blob object to evaluate
+ * @returns Evaluation result
  */
 export function isLikelyVoiceMessageBlob(blob: Blob): boolean {
-  logger.debug("評估 Blob 是否為音訊檔案", {
+  // Basic check - blob must exist, have a type, and have a size
+  if (!blob || !blob.type || !blob.size) {
+    logger.debug("Blob does not exist or lacks basic info");
+    return false;
+  }
+
+  logger.debug("Evaluating if Blob is an audio file", {
     blobType: blob.type,
     blobSize: blob.size,
   });
 
-  // 基本檢查 - blob 必須存在、有類型、有大小
-  if (!blob || !blob.type || !blob.size) {
-    logger.debug("Blob 不存在或無法取得基本資訊");
-    return false;
-  }
-
-  // 必須為可能的音訊類型之一
+  // Must be one of the possible audio types
   if (
     !BLOB_MONITOR_CONSTANTS.POSSIBLE_AUDIO_TYPES.some((type) =>
       blob.type.includes(type)
     )
   ) {
-    logger.debug("Blob 的類型不在可能的音訊類型列表中");
+    logger.debug("Blob type is not in the list of possible audio types");
     return false;
   }
 
-  // 檔案不能太小
+  // File must not be too small
   if (blob.size <= BLOB_MONITOR_CONSTANTS.MIN_VALID_AUDIO_SIZE) {
-    logger.debug("Blob 的大小太小");
+    logger.debug("Blob size is too small");
     return false;
   }
 
   if (blob.size >= BLOB_MONITOR_CONSTANTS.MAX_VALID_AUDIO_SIZE) {
-    logger.debug("Blob 的大小太大");
+    logger.debug("Blob size is too large");
     return false;
   }
 
-  logger.debug("Blob 滿足音訊檔案的基本條件");
+  logger.debug("Blob meets the basic conditions for an audio file");
   return true;
 }
