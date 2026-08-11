@@ -19,7 +19,7 @@ export type { VoiceMessageElementResult };
  *
  * This is an auxiliary signal: detection never depends on it, so a voice message
  * in an unlisted language is still found. It exists to raise confidence in logs
- * and to let the canary monitor notice when Facebook changes its labels.
+ * and to make changed translations visible during manual live smoke testing.
  *
  * @param element - The slider element to inspect
  * @returns True if the label is present in the known-label list
@@ -192,8 +192,8 @@ export function isConfirmedVoiceMessageSlider(element: Element | null): boolean 
   }
 
   if (!hasKnownVoiceMessageLabel(element)) {
-    // Not a failure: the label dictionary is auxiliary. Logged so the canary
-    // monitor and future debugging can spot new or changed translations.
+    // Not a failure: the label dictionary is auxiliary. Logged so manual live
+    // smoke testing and future debugging can spot changed translations.
     Logger.debug("Voice message slider with an unrecognised aria-label", {
       ariaLabel: element.getAttribute("aria-label"),
     });

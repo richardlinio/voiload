@@ -214,9 +214,9 @@ export const DOM_CONSTANTS = {
   // Elements whose presence in the container means this is not a voice message.
   NON_VOICE_MEDIA_SELECTOR: "video",
 
-  // Auxiliary signal only: used to raise confidence and to let the canary
-  // monitor (w6) detect dictionary drift. Detection never depends on it, so an
-  // unlisted language no longer fails silently.
+  // Auxiliary signal only: used to raise confidence during manual live smoke
+  // testing. Detection never depends on it, so an unlisted language no longer
+  // fails silently.
   VOICE_MESSAGE_SLIDER_ARIA_LABEL: [
     "音訊滑桿", // Traditional Chinese
     "音频时间刷", // Simplified Chinese
