@@ -31,8 +31,7 @@
   "include": [
     "extension/**/*",
     "tests/**/*",
-    "playwright.config.ts",
-    "playwright.canary.config.ts"
+    "playwright.config.ts"
   ],
   "exclude": [
     "node_modules",
