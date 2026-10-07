@@ -12,7 +12,7 @@
     "test:e2e": "webpack --mode=production && playwright test",
     "fix": "eslint . --ext .ts,.js --fix",
     "quality": "tsc --noEmit --pretty false && eslint . --ext .ts,.js --quiet",
-    "check": "npm run test && npm run quality",
+    "check": "pnpm test && pnpm quality",
     "quality-strict": "tsc --noEmit && eslint . --ext .ts,.js",
     "dev": "webpack --watch --mode=development",
     "build": "webpack --mode=production",
