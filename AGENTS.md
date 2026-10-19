@@ -40,7 +40,7 @@ pnpm quality-strict  # tsc + ESLint with all warnings
 Run `pnpm test:e2e` when touching detection, blob capture or download flow. Changes that depend on
 live Facebook DOM also need the local live smoke test (`pnpm smoke:live`, first-time setup
 `pnpm smoke:login`) in [docs/facebook-live-smoke-test.md](docs/facebook-live-smoke-test.md). It runs
-only on the developer's machine with the session kept in `~/.voiload-smoke/profile` — never in CI,
+only on the developer's machine with the session kept in the gitignored `.voiload-smoke/` — never in CI,
 never export cookies/storageState, never capture trace, HAR, video or screenshots.
 
 ## Architecture

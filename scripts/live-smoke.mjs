@@ -7,14 +7,13 @@
  *   pnpm smoke:live    # builds dist/ and tests the saved thread
  *
  * The session lives only in the persistent Chromium profile under
- * ~/.voiload-smoke/ (outside the repo): no storageState / cookie export, no
+ * .voiload-smoke/ (gitignored, repo root): no storageState / cookie export, no
  * trace, HAR, video or screenshot. The report contains only counts, UI labels,
  * durations and WAV header fields — no names, message text, thread IDs or URLs.
  *
  * Never run this in CI: it needs a real Facebook session.
  */
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -28,12 +27,12 @@ if (!["login", "run"].includes(mode)) {
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const DIST = join(REPO, "dist");
-const HOME = join(homedir(), ".voiload-smoke");
-const PROFILE = join(HOME, "profile");
-const THREAD_FILE = join(HOME, "thread-url");
+const SMOKE_DIR = join(REPO, ".voiload-smoke");
+const PROFILE = join(SMOKE_DIR, "profile");
+const THREAD_FILE = join(SMOKE_DIR, "thread-url");
 
 mkdirSync(PROFILE, { recursive: true });
-chmodSync(HOME, 0o700);
+chmodSync(SMOKE_DIR, 0o700);
 
 // ---------------------------------------------------------------------------
 // Detection constants, read from the repo so this script tracks the source.
@@ -98,7 +97,7 @@ async function login() {
   await ctx.close().catch(() => {});
   if (lastThread) {
     writeFileSync(THREAD_FILE, lastThread.match(THREAD_RE)[0] + "\n", { mode: 0o600 });
-    console.log("Saved test thread (URL kept private in ~/.voiload-smoke/thread-url).");
+    console.log("Saved test thread (URL kept private in .voiload-smoke/thread-url).");
   } else {
     console.log("No thread was opened; thread-url unchanged.");
   }

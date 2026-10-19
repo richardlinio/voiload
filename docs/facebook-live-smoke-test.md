@@ -7,8 +7,9 @@
 ## 安全邊界
 
 - 只在本機執行；不在 CI、GitHub Actions、雲端 runner 或背景排程執行。
-- 登入 session 只存在 `~/.voiload-smoke/profile`（repo 外、權限 700）。不匯出 storageState／cookie，也不讀取 profile 內容。
-- 測試對話 URL 存在 `~/.voiload-smoke/thread-url`（權限 600），不印到輸出、不 commit。
+- 登入 session 只存在 repo 根目錄的 `.voiload-smoke/profile`（gitignored、權限 700）。不匯出 storageState／cookie，也不讀取 profile 內容。
+- 測試對話 URL 存在 `.voiload-smoke/thread-url`（權限 600），不印到輸出、不 commit。
+- 每個 worktree 各有自己的 `.voiload-smoke/`，新 worktree 需重新 `pnpm smoke:login`。
 - 不錄製 trace、HAR、video、screenshot；報告只含數量、介面 label、時長與 WAV header。
 - 只把去識別、最小化的 DOM 片段帶回 fixture；移除姓名、帳號、訊息與 URL。
 
