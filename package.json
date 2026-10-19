@@ -10,6 +10,8 @@
   "scripts": {
     "test": "jest --silent",
     "test:e2e": "webpack --mode=production && playwright test",
+    "smoke:login": "webpack --mode=production && node scripts/live-smoke.mjs login",
+    "smoke:live": "webpack --mode=production && node scripts/live-smoke.mjs run",
     "fix": "eslint . --ext .ts,.js --fix",
     "quality": "tsc --noEmit --pretty false && eslint . --ext .ts,.js --quiet",
     "check": "pnpm test && pnpm quality",

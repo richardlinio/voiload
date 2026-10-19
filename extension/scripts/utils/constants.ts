@@ -214,7 +214,7 @@ export const DOM_CONSTANTS = {
   // Elements whose presence in the container means this is not a voice message.
   NON_VOICE_MEDIA_SELECTOR: "video",
 
-  // Auxiliary signal only: used to raise confidence during manual live smoke
+  // Auxiliary signal only: used to raise confidence during live smoke
   // testing. Detection never depends on it, so an unlisted language no longer
   // fails silently.
   VOICE_MESSAGE_SLIDER_ARIA_LABEL: [

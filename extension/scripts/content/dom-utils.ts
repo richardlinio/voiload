@@ -19,7 +19,7 @@ export type { VoiceMessageElementResult };
  *
  * This is an auxiliary signal: detection never depends on it, so a voice message
  * in an unlisted language is still found. It exists to raise confidence in logs
- * and to make changed translations visible during manual live smoke testing.
+ * and to make changed translations visible during live smoke testing.
  *
  * @param element - The slider element to inspect
  * @returns True if the label is present in the known-label list
