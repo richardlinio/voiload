@@ -86,6 +86,9 @@ voiload-*.zip
 /blob-report/
 .playwright/
 
+# Live Facebook smoke test session (Chromium profile + test thread URL)
+/.voiload-smoke/
+
 # Yarn Integrity file
 .yarn-integrity
 

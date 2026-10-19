@@ -31,15 +31,17 @@ pnpm test            # Jest unit tests, silent (only failures shown)
 pnpm quality         # tsc --noEmit + ESLint, quiet
 pnpm check           # test + quality — the CI gate
 pnpm test:e2e        # production build + Playwright E2E (needs Chromium)
+pnpm smoke:live      # production build + local live Facebook smoke test (see below)
 pnpm fix             # ESLint auto-fix
 pnpm quality-strict  # tsc + ESLint with all warnings
 ```
 
 **Verification**: after any code change run `pnpm check` (CI runs `pnpm check` then `pnpm build`).
 Run `pnpm test:e2e` when touching detection, blob capture or download flow. Changes that depend on
-live Facebook DOM also need the manual release check in
-[docs/manual-facebook-smoke-test.md](docs/manual-facebook-smoke-test.md) — never automate a logged-in
-Facebook session (no Playwright login, cookie export, trace or HAR capture).
+live Facebook DOM also need the local live smoke test (`pnpm smoke:live`, first-time setup
+`pnpm smoke:login`) in [docs/facebook-live-smoke-test.md](docs/facebook-live-smoke-test.md). It runs
+only on the developer's machine with the session kept in the gitignored `.voiload-smoke/` — never in CI,
+never export cookies/storageState, never capture trace, HAR, video or screenshots.
 
 ## Architecture
 

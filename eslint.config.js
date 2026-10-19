@@ -10,6 +10,7 @@ export default [
       'build/',
       'node_modules/',
       'coverage/',
+      '.voiload-smoke/',
       '*.log',
       '*.tmp',
       '*.temp',
